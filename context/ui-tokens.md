@@ -1,4 +1,4 @@
-# Ink-Rider UI tokens
+# firstmargin UI tokens
 
 Last reviewed: 2026-10-06
 
@@ -69,9 +69,10 @@ Use status colors sparingly. They communicate meaning and are not decorative acc
 
 - `--font-display`: `Libre Baskerville`, Georgia, serif
 - `--font-body`: `DM Sans`, `Helvetica Neue`, sans-serif
+- `--font-reading`: `Source Serif 4`, Georgia, serif
 - `--font-mono`: `ui-monospace`, `SFMono-Regular`, Consolas, monospace
 
-Libre Baskerville is reserved for editorial headlines, article titles, and occasional high-value section titles. DM Sans is used for navigation, UI, metadata, forms, and article body text unless reading tests justify a separate body face.
+Libre Baskerville is reserved for editorial headlines, article titles, and occasional high-value section titles. DM Sans is used for navigation, UI, metadata, forms, and compact Short bodies. Source Serif 4 is used for full Story body and quote text in the reader and editor. Existing sizes and line heights apply to each surface.
 
 ### Type scale
 

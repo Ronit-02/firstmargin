@@ -1,9 +1,9 @@
 const mongoose = require('mongoose');
 const Collection = require('../schemas/collection.schema');
-const Post = require('../schemas/post.schema');
+const Publication = require('../schemas/publication.schema');
 const Profile = require('../schemas/profile.schema');
 const { encodeCursor, decodeCursor } = require('../utils/cursor');
-const { presentDiscoveryPosts } = require('../services/post-presenter.service');
+const { presentDiscoveryPosts } = require('../services/publication-presenter.service');
 
 const isValidId = value => mongoose.isValidObjectId(value);
 const effectiveVisibility = collection => collection.isPublic === false
@@ -11,7 +11,7 @@ const effectiveVisibility = collection => collection.isPublic === false
   : collection.visibility || 'public';
 const getOrderedItems = collection => collection.items?.length
   ? [...collection.items].sort((left, right) => left.position - right.position)
-  : (collection.posts || []).map((post, position) => ({ post, position, addedAt: collection.createdAt }));
+  : (collection.publications || []).map((post, position) => ({ publication: post, position, addedAt: collection.createdAt }));
 
 const parsePostIds = input => {
   if (!Array.isArray(input) || input.length > 100) return null;
@@ -20,12 +20,12 @@ const parsePostIds = input => {
   return values;
 };
 
-const presentCollections = async (collections, actorId, includePosts = false, postId = null) => {
+const presentCollections = async (collections, actorId, includePosts = false, publicationId = null) => {
   const ownerIds = collections.map(collection => collection.author?._id).filter(Boolean);
   const profiles = await Profile.find({ userId: { $in: ownerIds } }).select('userId handle displayName avatarUrl');
   const profileByOwner = new Map(profiles.map(profile => [profile.userId.toString(), profile]));
   const postDocuments = includePosts
-    ? collections.flatMap(collection => getOrderedItems(collection).map(item => item.post).filter(Boolean))
+    ? collections.flatMap(collection => getOrderedItems(collection).map(item => item.publication).filter(Boolean))
     : [];
   const postData = includePosts ? await presentDiscoveryPosts(postDocuments, actorId) : [];
   const postById = new Map(postData.map(post => [post.id.toString(), post]));
@@ -33,7 +33,9 @@ const presentCollections = async (collections, actorId, includePosts = false, po
   return collections.map(collection => {
     const orderedItems = getOrderedItems(collection);
     const profile = collection.author?._id ? profileByOwner.get(collection.author._id.toString()) : null;
-    const firstPost = orderedItems.find(item => item.post)?.post;
+    const firstPost = orderedItems.find(item => item.publication)?.publication;
+    const visiblePosts = orderedItems.map(item => item.publication).filter(Boolean);
+    const shortsCount = visiblePosts.filter(post => post.format === 'short').length;
     const isOwner = Boolean(actorId && collection.author?._id?.toString() === actorId);
     const data = {
       id: collection._id,
@@ -41,13 +43,15 @@ const presentCollections = async (collections, actorId, includePosts = false, po
       description: collection.description,
       coverImage: collection.coverImage || firstPost?.coverImage || null,
       visibility: effectiveVisibility(collection),
-      postsCount: orderedItems.filter(item => item.post).length,
+      postsCount: visiblePosts.length,
+      storiesCount: visiblePosts.length - shortsCount,
+      shortsCount,
       savedCount: collection.savedCount || collection.savedBy?.length || 0,
       isSaved: Boolean(actorId && collection.savedBy?.some(id => id.toString() === actorId)),
       followersCount: collection.followersCount || collection.followers?.length || 0,
       isFollowing: Boolean(actorId && collection.followers?.some(id => id.toString() === actorId)),
       isOwner,
-      ...(postId ? { containsPost: orderedItems.some(item => item.post?._id?.toString() === postId) } : {}),
+      ...(publicationId ? { containsPost: orderedItems.some(item => item.publication?._id?.toString() === publicationId) } : {}),
       createdAt: collection.createdAt,
       updatedAt: collection.updatedAt,
       author: {
@@ -58,7 +62,7 @@ const presentCollections = async (collections, actorId, includePosts = false, po
       },
     };
     if (includePosts) data.posts = orderedItems
-      .map(item => item.post ? postById.get(item.post._id.toString()) : null)
+      .map(item => item.publication ? postById.get(item.publication._id.toString()) : null)
       .filter(Boolean);
     return data;
   });
@@ -75,8 +79,8 @@ const getCollections = async (req, res) => {
     const requestedLimit = Number.parseInt(req.query.limit, 10);
     const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 24) : 12;
     const cursor = req.query.cursor ? decodeCursor(req.query.cursor) : null;
-    const postId = req.query.postId ? String(req.query.postId) : null;
-    if (postId && !isValidId(postId)) return res.status(400).json({ message: 'Invalid post id' });
+    const publicationId = req.query.publicationId ? String(req.query.publicationId) : null;
+    if (publicationId && !isValidId(publicationId)) return res.status(400).json({ message: 'Invalid post id' });
     if (req.query.cursor && !cursor) return res.status(400).json({ message: 'Invalid collection cursor' });
     const filter = saved
       ? { savedBy: req.auth.userId, $or: [{ visibility: 'public' }, { visibility: 'unlisted' }, { visibility: { $exists: false }, isPublic: true }] }
@@ -107,13 +111,13 @@ const getCollections = async (req, res) => {
     }
     const documents = await Collection.find(filter)
       .populate({ path: 'author', select: 'picture username' })
-      .populate({ path: 'items.post', match: { publicationStatus: { $ne: 'unpublished' }, $or: [{ publicAt: { $lte: new Date() } }, { publicAt: null }, { publicAt: { $exists: false } }] }, select: 'title coverImage' })
-      .populate({ path: 'posts', match: { publicationStatus: { $ne: 'unpublished' }, $or: [{ publicAt: { $lte: new Date() } }, { publicAt: null }, { publicAt: { $exists: false } }] }, select: 'title coverImage' })
+      .populate({ path: 'items.publication', match: { publicationStatus: { $ne: 'unpublished' }, $or: [{ publicAt: { $lte: new Date() } }, { publicAt: null }, { publicAt: { $exists: false } }] }, select: 'title coverImage format' })
+      .populate({ path: 'publications', match: { publicationStatus: { $ne: 'unpublished' }, $or: [{ publicAt: { $lte: new Date() } }, { publicAt: null }, { publicAt: { $exists: false } }] }, select: 'title coverImage format' })
       .sort(sort === 'popular' ? { savedCount: -1, _id: -1 } : { createdAt: -1, _id: -1 })
       .limit(limit + 1);
     const hasMore = documents.length > limit;
     const page = hasMore ? documents.slice(0, limit) : documents;
-    const data = await presentCollections(page, req.auth?.userId, false, postId);
+    const data = await presentCollections(page, req.auth?.userId, false, publicationId);
     const last = page.at(-1);
     return res.status(200).json({
       data,
@@ -133,8 +137,8 @@ const getCollectionById = async (req, res) => {
     if (!isValidId(req.params.id)) return res.status(400).json({ message: 'Invalid collection id' });
     const collection = await Collection.findById(req.params.id)
       .populate({ path: 'author', select: 'picture username' })
-      .populate({ path: 'items.post', match: { publicationStatus: { $ne: 'unpublished' }, $or: [{ publicAt: { $lte: new Date() } }, { publicAt: null }, { publicAt: { $exists: false } }] }, populate: { path: 'author', select: 'picture username' } })
-      .populate({ path: 'posts', match: { publicationStatus: { $ne: 'unpublished' }, $or: [{ publicAt: { $lte: new Date() } }, { publicAt: null }, { publicAt: { $exists: false } }] }, populate: { path: 'author', select: 'picture username' } });
+      .populate({ path: 'items.publication', match: { publicationStatus: { $ne: 'unpublished' }, $or: [{ publicAt: { $lte: new Date() } }, { publicAt: null }, { publicAt: { $exists: false } }] }, populate: { path: 'author', select: 'picture username' } })
+      .populate({ path: 'publications', match: { publicationStatus: { $ne: 'unpublished' }, $or: [{ publicAt: { $lte: new Date() } }, { publicAt: null }, { publicAt: { $exists: false } }] }, populate: { path: 'author', select: 'picture username' } });
     if (!collection) return res.status(404).json({ message: 'Collection not found' });
     const isOwner = req.auth?.userId === collection.author?._id?.toString();
     if (effectiveVisibility(collection) === 'private' && !isOwner) return res.status(404).json({ message: 'Collection not found' });
@@ -147,7 +151,7 @@ const getCollectionById = async (req, res) => {
 };
 
 const getOwnCollectionPosts = async (req, res) => {
-  const posts = await Post.find({ author: req.auth.userId })
+  const posts = await Publication.find({ author: req.auth.userId })
     .sort({ createdAt: -1 })
     .select('title coverImage createdAt');
   return res.status(200).json({ data: posts.map(post => ({
@@ -181,13 +185,13 @@ const validateCollectionInput = async (body, partial = false) => {
     result.visibility = visibility;
     result.isPublic = visibility !== 'private';
   }
-  if (!partial || body.postIds !== undefined) {
-    const postIds = parsePostIds(body.postIds || []);
-    if (!postIds) return { error: 'Collection posts must be unique valid identifiers' };
-    const existingCount = await Post.countDocuments({ _id: { $in: postIds } });
-    if (existingCount !== postIds.length) return { error: 'One or more collection posts do not exist' };
-    result.items = postIds.map((post, position) => ({ post, position }));
-    result.posts = [];
+  if (!partial || body.publicationIds !== undefined) {
+    const publicationIds = parsePostIds(body.publicationIds || []);
+    if (!publicationIds) return { error: 'Collection posts must be unique valid identifiers' };
+    const existingCount = await Publication.countDocuments({ _id: { $in: publicationIds } });
+    if (existingCount !== publicationIds.length) return { error: 'One or more collection posts do not exist' };
+    result.items = publicationIds.map((post, position) => ({ publication: post, position }));
+    result.publications = [];
   }
   return { value: result };
 };

@@ -1,7 +1,7 @@
 /* StepFeatures — feature showcase cards */
 const FEATURES = [
-  { emoji: '🤖', title: 'AI Summaries',  desc: 'Get the gist of any article instantly with one tap.' },
-  { emoji: '🎧', title: 'Read Aloud',    desc: 'Listen to articles hands-free while commuting or cooking.' },
+  { emoji: '🤖', title: 'AI Summaries',  desc: 'Get the gist of any story instantly with one tap.' },
+  { emoji: '🎧', title: 'Read Aloud',    desc: 'Listen to stories hands-free while commuting or cooking.' },
   { emoji: '🏆', title: 'Competitions',  desc: 'Enter writing competitions and win featured placements.' },
   { emoji: '❓', title: 'Questions',     desc: 'Ask the community anything. Get thoughtful answers.' },
 ]

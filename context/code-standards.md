@@ -1,4 +1,4 @@
-# Ink-Rider code standards
+# firstmargin code standards
 
 Last updated: 2026-09-08
 
@@ -157,22 +157,16 @@ export function QuestionCard({
 
 ## API route structure
 
-New routes use resource-oriented `/api/v1` paths:
+Prefer resource-oriented `/api/v1` paths for new routes. Current canonical publication routes include:
 
 ```text
-GET    /api/v1/posts
-POST   /api/v1/posts
-GET    /api/v1/posts/:postId
-PATCH  /api/v1/posts/:postId
-POST   /api/v1/posts/:postId/publish
-PUT    /api/v1/posts/:postId/save
-DELETE /api/v1/posts/:postId/save
-GET    /api/v1/writers/:handle
-PUT    /api/v1/writers/:writerId/follow
-DELETE /api/v1/writers/:writerId/follow
-POST   /api/v1/questions
-PUT    /api/v1/questions/:questionId/vote
-DELETE /api/v1/questions/:questionId/vote
+GET    /api/publications
+POST   /api/publications
+GET    /api/publications/:publicationId
+PUT    /api/publications/:publicationId/appreciation
+DELETE /api/publications/:publicationId/appreciation
+GET    /api/v1/publications/:publicationId/summary
+DELETE /api/v1/publications/:publicationId
 ```
 
 Rules:

@@ -4,8 +4,8 @@ const allowedBlockTypes = new Set(['text', 'h1', 'h2', 'h3', 'quote', 'code', 'i
 
 const parseDraftInput = input => {
   const title = String(input.title || '').trim();
-  const format = input.format || 'article';
-  if (title.length > (format === 'short' ? 120 : 180) || !['article', 'short'].includes(format)) return null;
+  const format = input.format || 'story';
+  if (title.length > (format === 'short' ? 120 : 180) || !['story', 'short'].includes(format)) return null;
   if (!Array.isArray(input.blocks) || input.blocks.length > 500) return null;
   const ids = new Set();
   const validBlocks = input.blocks.every(block => block

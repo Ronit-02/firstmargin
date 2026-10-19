@@ -38,6 +38,7 @@ const NotFound = lazy(() => import('@/app/pages/NotFound'))
 const HelpPage = lazy(() => import('@/app/pages/HelpPage'))
 const NotificationsPage = lazy(() => import('@/features/notification/pages/NotificationsPage'))
 const StaffConsole = lazy(() => import('@/features/staff/pages/StaffConsole'))
+const CompetitionJudgingPage = lazy(() => import('@/features/staff/pages/CompetitionJudgingPage'))
 
 const RouteLoader = () => <main role="status" className="min-h-[40vh] flex items-center justify-center bg-[var(--color-bg)] text-[13px] text-[var(--color-text-muted)]">Loading…</main>
 
@@ -89,6 +90,7 @@ export default function App() {
         {!loggedIn && <Route path="/notifications" element={<PrivateRoute message="Sign in to view your notifications."><NotificationsPage /></PrivateRoute>} />}
         <Route path="/membership"       element={<MembershipPage />} />
         <Route path="/staff"            element={<PrivateRoute message="Sign in to access the staff console."><StaffConsole /></PrivateRoute>} />
+        <Route path="/staff/competitions/:id/judging" element={<PrivateRoute message="Sign in to review competition scores."><CompetitionJudgingPage /></PrivateRoute>} />
 
         {/* ── Account and private routes ── */}
         <Route path="/write" element={<Navigate to={`/studio${location.search}${location.hash}`} replace />} />

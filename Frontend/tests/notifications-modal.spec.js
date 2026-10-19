@@ -236,12 +236,10 @@ test('older notifications recover from pagination failure without losing first p
   const calls = await mockNotifications(page, { paginated: true, olderFailure: 1 })
   await page.goto('/notifications')
   const dialog = page.getByRole('dialog', { name: 'Inbox', exact: true })
-  await dialog.getByRole('button', { name: 'Load more' }).click()
-  await expect(dialog.getByRole('alert')).toContainText('Older notifications could not be loaded')
+  await expect(dialog.getByRole('alert')).toContainText('More items could not be loaded')
   await expect(dialog.getByRole('link', { name: /Update new/ })).toBeVisible()
-  await dialog.getByRole('button', { name: 'Load more' }).click()
+  await dialog.getByRole('button', { name: 'Try again' }).click()
   await expect(dialog.getByRole('link', { name: /Update older/ })).toBeVisible()
-  await expect(dialog.getByRole('button', { name: 'Load more' })).toHaveCount(0)
   expect(calls.older).toBe(2)
 })
 
@@ -252,7 +250,7 @@ test('ordinary inbox load failure retries to empty state', async ({ page }) => {
   await expect(dialog.getByRole('alert')).toHaveText('Notifications could not be loaded.')
   calls.recover()
   await dialog.getByRole('button', { name: 'Try again' }).click()
-  await expect(dialog.getByText('Comments, follows, likes, answers, request updates, and competition results will appear here.')).toBeVisible()
+  await expect(dialog.getByText('Comments, follows, appreciations, answers, request updates, and competition results will appear here.')).toBeVisible()
 })
 
 test('guest inbox retains sign-in gating without notification reads', async ({ page }) => {
@@ -270,7 +268,7 @@ test('guest inbox retains sign-in gating without notification reads', async ({ p
 test('service outage removes the modal and exposes global recovery', async ({ page }) => {
   await mockNotifications(page, { listFailure: 10, outage: true })
   await page.goto('/notifications')
-  await expect(page.getByRole('heading', { name: 'Ink Rider is temporarily unavailable.' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'firstmargin is temporarily unavailable.' })).toBeVisible()
   await expect(page.getByRole('dialog', { name: 'Inbox', exact: true })).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible()
 })

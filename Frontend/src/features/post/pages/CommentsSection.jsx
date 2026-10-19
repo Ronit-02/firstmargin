@@ -1,4 +1,5 @@
 import retainRetryView from '@/shared/utils/retainRetryView'
+import InfiniteScrollSentinel from '@/shared/components/ui/InfiniteScrollSentinel'
 import { useId, useLayoutEffect, useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import Button from '@/shared/components/ui/Button'
@@ -155,18 +156,7 @@ export default function CommentsSection({ postId, initialCount = 0, compact = fa
       )}
       {comments.map((comment, index) => <CommentItem key={comment.id} comment={comment} postId={postId} compact={compact} hideBottomBorder={collapsible && index === comments.length - 1} />)}
 
-      {commentsQuery.hasNextPage && (
-        <div className="pt-6">
-          <Button
-            className="min-h-10 sm:min-h-0"
-            variant="secondary"
-            onClick={() => commentsQuery.fetchNextPage()}
-            disabled={commentsQuery.isFetchingNextPage}
-           aria-busy={commentsQuery.isFetchingNextPage}>
-            {'Load more comments'}
-          </Button>
-        </div>
-      )}
+      <InfiniteScrollSentinel query={commentsQuery} disabled={!expanded} className="pt-6" label="Loading more comments" />
       </div>
     </section>
   )

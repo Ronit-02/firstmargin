@@ -19,6 +19,37 @@ const story = {
   recommendationReason: 'Popular with readers following design.',
 }
 
+test('trending loads the next page when the feed reaches the scroll threshold', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 600 })
+  const requestedCursors = []
+  const firstPage = Array.from({ length: 12 }, (_, index) => ({
+    ...story,
+    id: `507f1f77bcf86cd7994390${String(index).padStart(2, '0')}`,
+    title: `Trending story ${index + 1}`,
+  }))
+  await page.route(url => url.pathname.startsWith('/api/'), route => {
+    const url = new URL(route.request().url())
+    if (url.pathname === '/api/auth/refresh-token') return route.fulfill({ status: 401, json: { message: 'Signed out' } })
+    if (url.pathname === '/api/post/feed') {
+      const cursor = url.searchParams.get('cursor')
+      requestedCursors.push(cursor)
+      return route.fulfill({ json: cursor
+        ? { data: [{ ...story, title: 'Next trending story' }], meta: { nextCursor: null } }
+        : { data: firstPage, meta: { nextCursor: 'next-page' } } })
+    }
+    return route.fulfill({ json: { data: [], meta: { nextCursor: null } } })
+  })
+
+  await page.goto('/explore/trending')
+  await expect(page.getByRole('heading', { name: 'Trending story 12' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Load more', exact: true })).toHaveCount(0)
+  expect(requestedCursors).toEqual([null])
+
+  await page.locator('[data-app-scroll]').evaluate(node => { node.scrollTop = node.scrollHeight })
+  await expect(page.getByRole('heading', { name: 'Next trending story' })).toBeVisible()
+  expect(requestedCursors).toEqual([null, 'next-page'])
+})
+
 for (const width of [300, 320, 350, 390, 768, 1280]) {
   test(`trending filter label stays intact at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 844 })

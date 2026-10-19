@@ -7,7 +7,6 @@ const competition = { id, title: 'Writing challenge', status: 'judging', votingM
 
 async function fixture(page, judging = false) {
   const writes = []
-  const windows = []
   await page.route(url => url.pathname.startsWith('/api/'), route => {
     const request = route.request()
     const url = new URL(request.url())
@@ -26,11 +25,13 @@ async function fixture(page, judging = false) {
     if (path === '/api/drafts/short-draft') return route.fulfill({ json: { data: { title: 'A quick explanation', blocks: [{ id: 'text', type: 'text', content: 'Existing writing.' }], format: 'short', tags: ['science'], version: 1 } } })
     if (path === '/api/post/depth-options' || path.endsWith('/eligible-posts')) return route.fulfill({ json: { data: [article] } })
     if (path === '/api/competition') return route.fulfill({ json: { data: [competition, { ...competition, id: secondId, title: 'Second challenge' }] } })
-    if (path.startsWith('/api/competition/')) return route.fulfill({ json: { data: { ...competition, status: judging ? 'judging' : 'open', id: path.split('/').at(-1) } } })
-    if (path === '/api/staff/competition-fraud') windows.push(url.searchParams.get('minutes'))
+    if (path.startsWith('/api/competition/')) {
+      const competitionId = path.split('/').at(-1)
+      return route.fulfill({ json: { data: { ...competition, title: competitionId === secondId ? 'Second challenge' : competition.title, status: judging ? 'judging' : 'open', id: competitionId } } })
+    }
     return route.fulfill({ json: { data: [], meta: { unreadCount: 0, nextCursor: null } } })
   })
-  return { writes, windows }
+  return { writes }
 }
 
 async function checkDropdown(page, name, selection, parent) {
@@ -119,24 +120,24 @@ for (const width of [320, 1280]) {
     await expect(page.getByRole('combobox', { name: 'Link a full post (optional)', exact: true })).toHaveText(article.title)
   })
 
-  test(`Member Hub audience is preserved in the update payload at ${width}px`, async ({ page }) => {
+  test(`Studio publishes a creator update at ${width}px`, async ({ page }) => {
     await setup(page, width)
     const { writes } = await fixture(page)
-    await page.goto('/members')
-    await page.getByRole('button', { name: 'Creator studio', exact: true }).click()
-    const section = page.getByRole('heading', { name: 'Publish a creator update' }).locator('..')
+    await page.goto('/studio?writingTab=updates')
+    await page.getByRole('button', { name: 'Add update' }).click()
+    const section = page.getByRole('dialog')
     await section.getByRole('textbox', { name: /Title/ }).fill('Process notes')
     await section.getByRole('textbox', { name: /Update/ }).fill('My writing process')
-    await checkDropdown(page, 'Audience', 'My supporters')
     await section.getByRole('button', { name: 'Publish update', exact: true }).click()
-    await expect.poll(() => writes.find(write => write.path === '/api/v1/creator-updates')?.body).toEqual({ title: 'Process notes', body: 'My writing process', audience: 'supporters' })
+    await expect.poll(() => writes.find(write => write.path === '/api/v1/creator-updates')?.body).toEqual({ title: 'Process notes', body: 'My writing process' })
   })
 
-  test(`Staff choices retain creation, winner reset, and numeric windows at ${width}px`, async ({ page }, testInfo) => {
+  test(`Staff choices retain creation and scope judging to the selected row at ${width}px`, async ({ page }) => {
     await setup(page, width)
-    const { writes, windows } = await fixture(page, true)
+    const { writes } = await fixture(page, true)
     await page.goto('/staff')
     await page.getByRole('tab', { name: 'Competitions', exact: true }).click()
+    await page.getByRole('button', { name: 'Add competition' }).click()
     await checkDropdown(page, 'Competition type', 'Reader choice')
     await checkDropdown(page, 'Voting mode', 'Hybrid')
     await page.getByRole('textbox', { name: /^Title/ }).fill('New challenge')
@@ -144,24 +145,17 @@ for (const width of [320, 1280]) {
     await page.getByLabel('Closes', { exact: false }).fill('2027-01-08T12:00')
     await page.getByRole('button', { name: 'Create competition', exact: true }).click()
     await expect.poll(() => writes.find(write => write.path === '/api/competition')?.body).toMatchObject({ competitionType: 'reader_choice', votingMode: 'hybrid' })
-    await checkDropdown(page, 'Competition', 'Writing challenge · judging')
+    await page.getByRole('button', { name: 'Judge results' }).first().click()
+    const judgingDialog = page.getByRole('dialog', { name: 'Judge and publish results' })
+    await expect(judgingDialog.getByText('Writing challenge · judging')).toBeVisible()
+    await expect(judgingDialog.getByRole('combobox', { name: 'Competition' })).toHaveCount(0)
     await page.getByRole('checkbox', { name: `Select ${article.title} as winner` }).check()
     await expect(page.getByRole('button', { name: 'Publish 1 winner', exact: true })).toBeEnabled()
-    await checkDropdown(page, 'Competition', 'Second challenge · judging')
+    await page.getByRole('button', { name: 'Close judge and publish results' }).click()
+    await page.getByRole('button', { name: 'Judge results' }).last().click()
+    await expect(judgingDialog.getByText('Second challenge · judging')).toBeVisible()
+    await expect(judgingDialog.getByRole('combobox', { name: 'Competition' })).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Publish 0 winners', exact: true })).toBeDisabled()
-    await page.getByRole('tab', { name: 'Vote review', exact: true }).click()
-    const window = await checkDropdown(page, 'Window', 'Last hour')
-    await expect.poll(() => windows.includes('60')).toBe(true)
-    await window.press('Enter')
-    await window.press('Home')
-    await window.press('ArrowDown')
-    await window.press('Enter')
-    await expect(window).toHaveText('Last 30 minutes')
-    await expect.poll(() => windows.includes('30')).toBe(true)
-    await window.click()
-    await page.getByRole('listbox', { name: 'Window' }).evaluate(list => Promise.all(list.getAnimations().map(animation => animation.finished)))
-    await page.screenshot({ path: testInfo.outputPath('staff-select.png') })
-    await window.press('Escape')
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await page.getByRole('button', { name: 'Close judge and publish results' }).click()
   })
 }

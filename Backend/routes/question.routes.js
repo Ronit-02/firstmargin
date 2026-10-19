@@ -23,6 +23,6 @@ router.delete('/:id/claim', validateToken, unclaimQuestion);
 router.post('/:id/decline', validateToken, declineQuestion);
 router.post('/:id/reports', validateToken, reportQuestion);
 router.post('/:id/answers/:answerId/reports', validateToken, reportAnswer);
-router.put('/:id/responses/:postId', validateToken, linkResponsePost);
+router.put('/:id/responses/:publicationId', validateToken, linkResponsePost);
 
 module.exports = router;

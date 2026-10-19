@@ -19,7 +19,7 @@ const getCapabilities = async userId => {
   const membershipActive = membership
     && ['active', 'trialing'].includes(membership.status)
     && (!membership.currentPeriodEnd || membership.currentPeriodEnd > now);
-  const legacyPremium = ['premium', 'exclusive-writer'].includes(user?.role);
+  const legacyPremium = ['premium', 'exclusive-writer', 'admin'].includes(user?.role);
   const capabilities = new Set(grants.map(grant => grant.capability));
   if (membershipActive || legacyPremium) {
     for (const capability of membershipCapabilities) capabilities.add(capability);

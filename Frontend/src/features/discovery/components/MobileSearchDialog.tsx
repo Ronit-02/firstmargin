@@ -5,7 +5,8 @@ import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { motion, useReducedMotion } from 'framer-motion'
+import { motion } from 'framer-motion'
+import useReducedMotion from '@/shared/hooks/useReducedMotion'
 import Avatar from '@/shared/components/ui/Avatar'
 import { SearchIcon } from '@/shared/icons'
 import useDialogFocus from '@/shared/hooks/useDialogFocus'
@@ -102,10 +103,10 @@ export default function MobileSearchDialog({ initialQuery, origin, onClose }: Pr
   }
 
   return createPortal(
-    <motion.dialog style={viewportStyle} ref={element => { dialogRef.current = element; focusDialogRef.current = element }} aria-label="Search Ink Rider" onCancel={event => { event.preventDefault(); requestClose() }} className="mobile-search-dialog"
+    <motion.dialog style={viewportStyle} ref={element => { dialogRef.current = element; focusDialogRef.current = element }} aria-label="Search firstmargin" onCancel={event => { event.preventDefault(); requestClose() }} className="mobile-search-dialog"
       initial={false} animate={{ opacity: closing ? 0 : 1 }} transition={{ duration: reducedMotion ? 0 : 0.28, ease: [0.2, 0, 0, 1] }} onAnimationComplete={() => { if (closing) onClose() }}>
       <div className="sticky top-0 z-10 border-b border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-2">
-        <ModalHeader title="Search Ink Rider" titleId={`${listId}-title`} onClose={requestClose} closeLabel="Close search" className="-mx-4 -mt-2 mb-2" />
+        <ModalHeader title="Search firstmargin" titleId={`${listId}-title`} onClose={requestClose} closeLabel="Close search" className="-mx-4 -mt-2 mb-2" />
         <motion.form role="search" onSubmit={event => {
           event.preventDefault()
           const active = items[activeIndex]
@@ -114,7 +115,7 @@ export default function MobileSearchDialog({ initialQuery, origin, onClose }: Pr
         }} initial={reducedMotion ? false : { x: origin.left - 16, width: origin.width, height: 38 }} animate={closing ? { x: origin.left - 16, width: origin.width, height: 38 } : { x: 0, width: '100%', height: 46 }} transition={{ duration: reducedMotion ? 0 : 0.28, ease: [0.2, 0, 0, 1] }}
           className="flex items-center overflow-hidden rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] pl-[14px] pr-1 focus-within:border-[var(--color-focus)]">
           <span aria-hidden="true" className="mr-2 shrink-0"><SearchIcon /></span>
-          <input ref={inputRef} type="text" enterKeyHint="search" autoComplete="off" maxLength={100} value={input} placeholder="Search posts and writers…" aria-label="Search posts and writers" role="combobox" aria-autocomplete="list" aria-controls={listId} aria-expanded={input.trim().length > 0} aria-activedescendant={activeIndex >= 0 && items[activeIndex] ? `${listId}-${activeIndex}` : undefined}
+          <input ref={inputRef} type="text" enterKeyHint="search" autoComplete="off" maxLength={100} value={input} placeholder="Search stories and writers…" aria-label="Search stories and writers" role="combobox" aria-autocomplete="list" aria-controls={listId} aria-expanded={input.trim().length > 0} aria-activedescendant={activeIndex >= 0 && items[activeIndex] ? `${listId}-${activeIndex}` : undefined}
             onChange={event => { setInput(event.target.value); setActiveIndex(-1) }}
             onKeyDown={event => {
               if (event.key === 'Escape') {

@@ -42,7 +42,7 @@ test('Home replaces loading sections when the API server cannot be reached', asy
 
   await page.goto('/', { waitUntil: 'domcontentloaded' })
 
-  await expect(page.getByRole('heading', { name: 'Ink Rider is temporarily unavailable.' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'firstmargin is temporarily unavailable.' })).toBeVisible()
   await expect(page.getByRole('alert')).toContainText('We can’t reach the server right now.')
   await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible()
   await expect(page.getByRole('navigation', { name: 'Global navigation' })).toHaveCount(0)
@@ -97,4 +97,28 @@ test('Home carousels drag continuously without arrow controls and section headin
   await page.evaluate(() => document.querySelector('[data-app-scroll]')?.scrollBy(0, 700))
   await page.getByRole('heading', { name: 'Top authors' }).scrollIntoViewIfNeeded()
   await expect(page.getByText('Meet the writers behind the stories in your feed.')).toBeVisible()
+})
+
+test('covered Home carousel cards use the excerpt space above their actions', async ({ page }) => {
+  const excerpt = 'A seeded discovery story gives readers another useful perspective to browse and rank. '.repeat(4)
+  const cover = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="320" height="180"%3E%3Crect width="320" height="180" fill="%238899aa"/%3E%3C/svg%3E'
+  await page.route(url => url.pathname.startsWith('/api/'), route => {
+    const path = new URL(route.request().url()).pathname
+    if (path === '/api/auth/refresh-token') return route.fulfill({ status: 401, json: { message: 'Signed out' } })
+    if (path === '/api/post/feed') return route.fulfill({ json: { data: posts.map((post, index) => index === 0 ? { ...post, image: cover, excerpt } : post), meta: { nextCursor: null } } })
+    return route.fulfill({ json: { data: [], meta: { nextCursor: null } } })
+  })
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await page.goto('/', { waitUntil: 'domcontentloaded' })
+  await page.getByRole('heading', { name: "Writer's picks" }).scrollIntoViewIfNeeded()
+  const card = page.getByRole('region', { name: "Writer's picks stories" }).locator('[data-carousel-card]').first()
+  const description = card.locator('p').filter({ hasText: 'A seeded discovery story' })
+  await expect(description).toBeVisible()
+  await expect.poll(() => description.evaluate(node => Number.parseInt(getComputedStyle(node).webkitLineClamp, 10))).toBeGreaterThanOrEqual(1)
+  const layout = await card.evaluate(node => {
+    const excerpt = [...node.querySelectorAll('p')].find(item => item.textContent.includes('A seeded discovery story'))
+    const footer = excerpt.parentElement.lastElementChild
+    return { excerptBottom: excerpt.getBoundingClientRect().bottom, footerTop: footer.getBoundingClientRect().top }
+  })
+  expect(layout.excerptBottom).toBeLessThan(layout.footerTop)
 })

@@ -1,4 +1,4 @@
-/* Login / Signup page — full Tailwind, split layout */
+/* Login / Signup page */
 import { useEffect, useRef, useState, forwardRef } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useDispatch } from 'react-redux'
@@ -26,7 +26,12 @@ export default function Login({ signUp = false, embedded = false, returnTo, onSi
   const { notify } = useToast()
   const { dark } = useTheme()
   const AUTH_TABS = ['login', 'signup']
-  const [ mode, setMode ] = useState(signUp ? 'signup' : 'login')
+  const [embeddedMode, setEmbeddedMode] = useState(signUp ? 'signup' : 'login')
+  const mode = embedded ? embeddedMode : location.pathname === '/signup' ? 'signup' : 'login'
+  const setMode = nextMode => {
+    if (embedded) setEmbeddedMode(nextMode)
+    else if (nextMode !== mode) navigate({ pathname: nextMode === 'signup' ? '/signup' : '/login', search: location.search, hash: location.hash })
+  }
   const [ isEmailVerified, setIsEmailVerified ] = useState(true)
   const [ creds, setCreds ] = useState({ name: '', email: '', password: '', confirmPassword: '' })
   const [ otp, setOtp ] = useState(['', '', '', '', '', ''])
@@ -92,7 +97,7 @@ export default function Login({ signUp = false, embedded = false, returnTo, onSi
     mutationFn: requestGoogleLogin,
     onSuccess: data => {
       dispatch(loginSuccess(data))
-      notify('Welcome to Ink Rider.')
+      notify('Welcome to firstmargin.')
       finishSignIn()
     },
     onSettled: () => { googlePendingRef.current = false },
@@ -115,7 +120,7 @@ export default function Login({ signUp = false, embedded = false, returnTo, onSi
           triggerGoogleLogin(response.credential)
         },
       })
-      window.google.accounts.id.renderButton(googleButtonRef.current, { theme: dark ? 'filled_black' : 'outline', size: 'large', width: Math.min(320, googleButtonRef.current.clientWidth), text: 'continue_with' })
+      window.google.accounts.id.renderButton(googleButtonRef.current, { theme: dark ? 'filled_black' : 'outline', size: 'large', width: Math.min(400, googleButtonRef.current.clientWidth), text: 'continue_with' })
     }
     window.addEventListener('resize', renderButton)
     if (window.google?.accounts?.id) {
@@ -170,15 +175,13 @@ export default function Login({ signUp = false, embedded = false, returnTo, onSi
   const passwordsDiffer = mode === 'signup' && creds.confirmPassword && creds.password !== creds.confirmPassword
 
   return (
-    <div className={embedded ? 'text-[var(--color-text)]' : 'flex h-[100dvh] overflow-hidden bg-[var(--color-bg)] text-[var(--color-text)]'} role={embedded ? undefined : 'main'}>
+    <div className={embedded ? 'text-[var(--color-text)]' : 'relative flex min-h-dvh flex-col overflow-hidden bg-[var(--color-bg)] text-[var(--color-text)]'} role={embedded ? undefined : 'main'}>
+      {!embedded && <>
+        <svg aria-hidden="true" data-testid="auth-ink" viewBox="0 0 560 800" fill="none" className="pointer-events-none absolute inset-y-0 right-0 hidden h-full w-[min(46vw,560px)] text-[var(--color-text-muted)] opacity-35 lg:block">
+          <path d="M560 104C525 221 427 290 352 351C300 394 346 422 414 382C463 353 446 310 395 330C314 362 294 482 236 560C179 636 114 681 28 780" stroke="currentColor" strokeWidth="1.15" />
+        </svg>
+      </>}
 
-      {/* Left image (hidden on mobile) */}
-      {!embedded && <div className="hidden md:block min-w-0 flex-1 overflow-hidden">
-        <img src="https://images.unsplash.com/photo-1500530855697-b586d89ba3ee"
-          alt="" className="w-full h-full object-cover" />
-      </div>}
-
-      {/* Right form */}
       {!isEmailVerified 
         ?
         <VerifyEmail 
@@ -192,19 +195,16 @@ export default function Login({ signUp = false, embedded = false, returnTo, onSi
           embedded={embedded}
         />
         :
-        <div className={embedded ? 'flex min-w-0 flex-1 flex-col overflow-y-auto bg-[var(--color-bg)] px-4 pb-4 sm:px-6 sm:pb-6 lg:px-10 lg:pb-10' : 'flex min-w-0 flex-1 flex-col overflow-y-auto bg-[var(--color-bg)] px-4 py-4 sm:px-6 sm:py-6 lg:px-10 lg:py-10'}>
-          <form id="auth-form" onSubmit={handleSubmit} className={embedded ? 'w-full flex flex-col px-0 py-2' : 'm-auto w-full max-w-95 lg:max-w-md shrink-0 flex flex-col rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-6 sm:px-8 sm:py-10 lg:px-10 lg:py-12 shadow-[0_14px_36px_rgba(0,0,0,0.12)]'}>
+        <div className={embedded ? 'flex min-w-0 flex-1 flex-col overflow-y-auto bg-[var(--color-bg)] px-4 pb-4 sm:px-6 sm:pb-6 lg:px-10 lg:pb-10' : 'relative z-10 flex min-w-0 flex-1 items-start px-5 pb-8 pt-14 sm:items-center sm:px-8 sm:py-8 lg:mx-auto lg:w-full lg:max-w-[1120px] lg:px-20 lg:py-12'}>
+          <form id="auth-form" onSubmit={handleSubmit} className={embedded ? 'w-full flex flex-col px-0 py-2' : 'mx-auto flex w-full max-w-[448px] shrink-0 flex-col py-4 lg:mx-0'}>
 
-            {/* Logo */}
-            {!embedded && <Link to="/"
-              aria-label="Return to Ink-Rider home"
-              className="mx-auto mb-5 inline-flex items-center gap-2 rounded-[10px] no-underline text-[var(--color-text)]">
-              <span className="flex h-9 w-9 items-center justify-center rounded-[10px] border border-[var(--color-border)] bg-[var(--color-bg-alt)] text-[var(--color-accent)]"><LogoIcon /></span>
-              <span className="text-[17px] font-bold">Ink Rider</span>
+            {!embedded && <Link to="/" aria-label="Return to firstmargin home" className="mb-7 inline-flex w-fit self-center items-center gap-2 rounded-lg text-[var(--color-text)] no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-offset-2">
+              <span className="flex h-9 w-9 items-center justify-center text-[var(--color-text)] [&_svg]:h-7 [&_svg]:w-7"><LogoIcon /></span>
+              <span className="text-[17px] font-semibold">firstmargin</span>
             </Link>}
 
             {/* Authentication Tabs */}
-            <div role="tablist" aria-label="Authentication mode" className="mb-5 flex rounded-lg border border-[var(--color-border-light)] bg-[var(--color-bg)] p-1">
+            <div role="tablist" aria-label="Authentication mode" className={embedded ? 'mb-5 flex rounded-lg border border-[var(--color-border-light)] bg-[var(--color-bg)] p-1' : 'mb-8 flex min-h-12 rounded-full border border-[var(--color-border)] bg-[var(--color-bg)] p-1 sm:mb-10'}>
               {AUTH_TABS.map(m => (
                 <button 
                   type="button"
@@ -216,8 +216,8 @@ export default function Login({ signUp = false, embedded = false, returnTo, onSi
                   onKeyDown={handleAuthTabKeyDown}
                   key={m} 
                   onClick={() => setMode(m)}
-                  className={`button-target flex-1 py-2.5 rounded-md border-none text-[14px] font-medium cursor-pointer transition-all duration-150
-                    ${mode === m ? 'border border-[var(--color-border)] bg-[var(--color-surface-hover)] shadow-[0_2px_6px_rgba(0,0,0,0.12)] text-[var(--color-text)]' : 'border border-transparent bg-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text)]'}`}>
+                  className={`button-target flex-1 border-none text-[14px] font-medium cursor-pointer transition-colors duration-150 ${embedded ? 'rounded-md py-2.5' : 'rounded-full py-2'}
+                    ${mode === m ? embedded ? 'bg-[var(--color-surface-hover)] shadow-[0_2px_6px_rgba(0,0,0,0.12)] text-[var(--color-text)]' : 'bg-[var(--color-bg-alt)] text-[var(--color-text)]' : 'bg-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text)]'}`}>
                   {m === 'login' ? 'Login' : 'Sign Up'}
                 </button>
               ))}
@@ -225,11 +225,11 @@ export default function Login({ signUp = false, embedded = false, returnTo, onSi
 
             <div id="auth-form-fields" role="tabpanel" aria-labelledby={`auth-tab-${mode}`}>
             {/* Greetings */}
-            <h2 className="mb-1.5 text-[24px] font-bold text-[var(--color-text)]">
+            <h2 style={embedded ? undefined : { fontFamily: 'var(--font-display)' }} className={embedded ? 'mb-1.5 text-[24px] font-bold text-[var(--color-text)]' : 'mb-2 text-[clamp(1.85rem,4vw,2.75rem)] leading-tight text-[var(--color-text)]'}>
               {mode === 'login' ? 'Welcome Back' : 'Create Account'}
             </h2>
-            <p className="mb-6 text-[14px] text-[var(--color-text-secondary)]">
-              {mode === 'login' ? 'Login to continue your journey' : 'Join and start writing today'}
+            <p className={embedded ? 'mb-6 text-[14px] text-[var(--color-text-secondary)]' : 'mb-7 text-[14px] text-[var(--color-text-secondary)] sm:mb-8'}>
+              {mode === 'login' && !embedded ? 'Pick up where your thoughts left off.' : mode === 'login' ? 'Login to continue your journey' : 'Join and start writing today'}
             </p>
 
             {/* Fields */}
@@ -239,6 +239,7 @@ export default function Login({ signUp = false, embedded = false, returnTo, onSi
                 name="name"
                 autoComplete="name"
                 placeholder="Full Name" 
+                showLabel={!embedded}
                 required
                 value={creds.name}    
                 onChange={e => setCreds({ ...creds, name: e.target.value })} 
@@ -249,6 +250,7 @@ export default function Login({ signUp = false, embedded = false, returnTo, onSi
               name="email"
               autoComplete="email"
               placeholder="Email" 
+              showLabel={!embedded}
               required
               value={creds.email}    
               onChange={e => setCreds({ ...creds, email: e.target.value })} 
@@ -258,6 +260,7 @@ export default function Login({ signUp = false, embedded = false, returnTo, onSi
               name="password"
               autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
               placeholder="Password" 
+              showLabel={!embedded}
               required
               value={creds.password}    
               onChange={e => setCreds({ ...creds, password: e.target.value })} 
@@ -268,6 +271,7 @@ export default function Login({ signUp = false, embedded = false, returnTo, onSi
                 name="confirmPassword"
                 autoComplete="new-password"
                 placeholder="Confirm Password" 
+                showLabel={!embedded}
                 required
                 value={creds.confirmPassword}    
                 onChange={e => setCreds({ ...creds, confirmPassword: e.target.value })} 
@@ -311,16 +315,8 @@ function VerifyEmail({otp, setOtp, boxInputRefs, handleVerifyEmail, handleResend
   }
 
   return (
-    <div className={embedded ? 'flex min-w-0 flex-1 flex-col overflow-y-auto bg-[var(--color-bg)] px-4 pb-4 sm:px-6 sm:pb-6 lg:px-10 lg:pb-10' : 'flex min-w-0 flex-1 flex-col overflow-y-auto bg-[var(--color-bg)] px-4 py-4 sm:px-6 sm:py-6 lg:px-10 lg:py-10'}>
-      <div className={embedded ? 'w-full flex flex-col items-center gap-4 py-2' : 'm-auto w-full max-w-95 lg:max-w-md shrink-0 flex flex-col items-center gap-4 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-6 sm:px-8 sm:py-10 lg:px-10 lg:py-12 shadow-[0_14px_36px_rgba(0,0,0,0.12)]'}>
-
-        {/* Logo */}
-        {!embedded && <Link to="/"
-          aria-label="Return to Ink-Rider home"
-          className="mx-auto mb-5 inline-flex items-center gap-2 rounded-[10px] no-underline text-[var(--color-text)]">
-          <span className="flex h-9 w-9 items-center justify-center rounded-[10px] border border-[var(--color-border)] bg-[var(--color-bg-alt)] text-[var(--color-accent)]"><LogoIcon /></span>
-          <span className="text-[17px] font-bold">Ink Rider</span>
-        </Link>}
+    <div className={embedded ? 'flex min-w-0 flex-1 flex-col overflow-y-auto bg-[var(--color-bg)] px-4 pb-4 sm:px-6 sm:pb-6 lg:px-10 lg:pb-10' : 'relative z-10 flex min-w-0 flex-1 items-start px-5 pb-8 pt-14 sm:items-center sm:px-8 sm:py-8 lg:mx-auto lg:w-full lg:max-w-[1120px] lg:px-20 lg:py-12'}>
+      <div className={embedded ? 'w-full flex flex-col items-center gap-4 py-2' : 'mx-auto flex w-full max-w-[448px] shrink-0 flex-col items-center gap-4 py-4 lg:mx-0'}>
 
         <h2 className="text-[24px] font-bold mb-1.5 text-(--color-text-primary)">
           Enter Verification Code
@@ -361,18 +357,22 @@ function VerifyEmail({otp, setOtp, boxInputRefs, handleVerifyEmail, handleResend
   )
 }
 
-function FormField({type, name, autoComplete, placeholder, value, onChange, required = false}){
+function FormField({type, name, autoComplete, placeholder, value, onChange, required = false, showLabel = false}){
   return (
-    <input 
+    <div className="mb-3.5 w-full">
+    {showLabel && <label htmlFor={`auth-${name}`} className="mb-2 block text-[14px] font-medium text-[var(--color-text)]">{placeholder}</label>}
+    <input
+      id={`auth-${name}`}
       type={type} 
       name={name}
       autoComplete={autoComplete}
       required={required}
       aria-label={placeholder}
-      placeholder={placeholder}
-      className="mb-3.5 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-alt)] px-3 py-3 text-[14px] text-[var(--color-text)] outline-none transition-colors placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-accent)]"
+      placeholder={showLabel ? name === 'email' ? 'you@example.com' : name === 'password' ? 'Enter your password' : '' : placeholder}
+      className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-alt)] px-3 py-3 text-[14px] text-[var(--color-text)] outline-none transition-colors placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-accent)]"
       value={value}
       onChange={onChange} />
+    </div>
   )
 }
 

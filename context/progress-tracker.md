@@ -1,4 +1,554 @@
-# Ink-Rider progress tracker
+## Profile picture uploads — 2026-10-19
+
+Edit profile now stages a locally previewed picture and uploads it on the existing Save action through authenticated `PUT /api/user/profile/avatar`. The route reuses validated image upload middleware, updates the account and public profile picture, cleans temporary files, and removes a prior image only when it belongs to that account's managed avatar uploads. Provider/shared defaults are retained. Google sign-in preserves the new custom avatar. Backend focused media-lifecycle tests passed (4/4); backend lint, focused frontend JavaScript lint, and frontend production build passed on 2026-10-19. The broader backend contract suite was blocked by sandbox-denied local loopback requests, and browser/live Cloudinary verification remains unperformed. Provider lifecycle details are in the ignored local architecture companion.
+
+## Member requests moved to Edit profile — 2026-10-19
+
+Profile now shows a read-only Member requests status card for writers. Edit profile stages its Turn on/Turn off choice and submits only changed profile fields through the existing update API when the single Save is pressed; Back discards the choice. Removed the old inline Profile mutation and added focused mocked-API regression coverage. Frontend production build, focused JavaScript ESLint, and scoped whitespace checks passed on 2026-10-19. The TSX page is outside the repository ESLint configuration; the focused Playwright suite could not start because its managed API server could not connect to MongoDB. No route, schema, or API contract change.
+
+## Compact Profile member request card — 2026-10-19
+
+Moved the writer-only Direct member requests setting from a full-width panel into the Profile summary card grid. At that point, the compact card showed status, the monthly limit, and the toggle action; the later Edit profile change moved the action out of this card. Profile update behavior, pending/error feedback, other cards, routes, and APIs remain unchanged. Focused ESLint, frontend production build, and scoped whitespace checks passed on 2026-10-19; browser rendering was not exercised.
+
+## Staff and Profile page header copy — 2026-10-19
+
+Added a description below the existing Staff console heading and added a shared eyebrow/title/description header above the personal Profile identity block. The display name retains its typography and is now a secondary heading. Existing actions, data, routes, and layout structure remain. Focused ESLint, frontend production build, and scoped whitespace checks passed on 2026-10-19; browser rendering was not exercised.
+
+## Short loading placeholders — 2026-10-19
+
+Added format-specific short loading placeholders for the Shorts grid, short search results, saved Shorts, and compact short reader. Story placeholders and all loaded content, routes, APIs, and data models remain unchanged. Frontend lint passed with one unrelated existing warning in CompetitionOperations.jsx; production build and scoped whitespace checks passed. The focused Playwright short-format suite could not start because its configured API server could not connect to MongoDB. See [short format audit](short-format-audit.md).
+
+## Abstract image fallbacks — 2026-10-19
+
+Missing and failed images now use distinct text-free geometric artwork for stories, collections, series, competition entries, competition covers, and inline story images. Avatar fallbacks use a stable name-derived abstract pattern instead of initials. Descriptive accessible names remain, while cover sizes, card structure, image links, and data contracts stay the same. Updated ImageBox, Avatar, CompetitionImage, PostBody, the collection/series/entry callers, three browser assertions, Frontend README, UI rules, and UI registry. Focused frontend ESLint and production build passed on 2026-10-19; browser rendering remains unverified because this environment lacks Playwright Chromium and the managed API server cannot connect to MongoDB.
+
+## Coverless story grid cards — 2026-10-19
+
+Shared DiscoveryPostCard story grids now render the abstract ImageBox fallback in the 180 px cover region when a story has no image. Covered and coverless grid cards retain their 400 px height, two-line titles, excerpt layout, and bottom-aligned engagement controls; list cards retain their text-only composition. Updated the card, a focused browser regression, Frontend README, and UI rules. Focused ESLint and the frontend production build passed on 2026-10-19. The default browser run could not start because its configured API server could not connect to MongoDB; a Vite-only retry bypassed that dependency but Playwright's Chromium executable is unavailable. Rendered geometry remains unverified.
+
+## Public competition tab labels — 2026-10-19
+
+The public competition list labels its existing `competitionTab=active|inactive` views Ongoing and Past without item counts. Empty-list copy uses the same terms. The shared Pill styling, active/past grouping, URL state, routes, APIs, and stored data are unchanged. Updated `Frontend/src/features/discovery/pages/Explore/CompetitionsTab.jsx`, two focused browser assertions, and `context/ui-rules.md`. Focused ESLint, the frontend production build, and scoped whitespace check passed on 2026-10-19; browser interaction was not exercised.
+
+## App name casing — 2026-10-19
+
+The app name now appears as `firstmargin` across visible UI copy, browser title, email templates, fallback labels, tests, and project documentation. The package name was already lowercase. Routes, APIs, schemas, layout, styling, and interactions are unchanged. Verification on 2026-10-19: frontend production build and backend lint passed; frontend lint completed with one existing `eqeqeq` warning in `CompetitionOperations.jsx` and no errors. A repository source search found no remaining capitalized spelling. Browser behavior was not exercised.
+
+## Staff competition score ownership and dialogs — 2026-10-19
+
+Collective Choice keeps one score per entry and moderator roster slot. Admins can fill only empty slots and edit recorded moderator scores while judging remains open; moderators cannot resubmit their completed Collective Choice slots. Admin edits retain original submitter provenance and write a distinct competition audit action. Legacy judge-score editing remains available to the acting judge, and admins edit existing legacy moderator scores instead of adding a separate score to an already scored entry. Staff add/edit controls now open a score modal with prefilled values for edits. The existing score endpoint and score fields remain in use; closed results are not changed. Updated the competition controller and audit action enum, staff judging component, focused backend/browser tests, architecture/UI rules, Frontend README, and this tracker. Focused backend scoring tests (10), backend lint, frontend lint (one existing `eqeqeq` warning), and frontend production build passed on 2026-10-19. The broader backend contract suite could not pass because its HTTP checks hit sandbox loopback `EACCES`. Browser interaction and database-backed concurrency were not exercised in this sandbox.
+
+## Writing performance row layout — 2026-10-19
+
+Studio Analytics now displays each linked story title above a compact three-column opens/completed/appreciations summary, with visible row separators at phone and desktop widths. This replaces the cramped desktop title/metric grid and vertically stacked phone metrics. Updated `Frontend/src/features/user/pages/Profile/index.jsx` and the owning UI rules. Focused ESLint and the frontend production build passed on 2026-10-19. Rendered browser layout remains unverified in this sandbox; analytics access, API data, routes, and stored records are unchanged.
+
+## Nested tab overlap — 2026-10-19
+
+The page-frame sticky selector now applies only to direct page-level tab lists. Nested category tabs, including Library History Stories/Shorts, scroll beneath the sticky Library row instead of pinning over it. Existing tab controls, URL state, layout styles, routes, APIs, and stored data are unchanged. Updated `Frontend/src/styles/global.css` and the owning UI rules. Frontend production build passed on 2026-10-19; rendered browser behavior remains unverified in this sandbox.
+
+## Questions feed title clamp — 2026-10-19
+
+Question list card headings now stop after three lines. The question detail title, card context, layout, routes, APIs, and stored data are unchanged. Updated `Frontend/src/features/discovery/pages/Explore/QuestionsTab.jsx` and the owning UI rules. Focused ESLint and the frontend production build passed on 2026-10-19; rendered browser layout was not exercised in this environment.
+
+## Staff console section headings — 2026-10-19
+
+The Moderation, Competitions, and Users tab toolbars now show Reports, Competitions, and Users headings on the left of their right-aligned Filters controls, using the existing SectionHeading style. Add competition remains in the competition toolbar. Updated `Frontend/src/features/staff/pages/StaffConsole.jsx`, `Frontend/src/features/staff/components/UserDirectory.jsx`, focused heading/placement assertions in `Frontend/tests/staff-fraud.spec.js` and `Frontend/tests/staff-users.spec.js`, `Frontend/README.md`, `context/ui-rules.md`, and `context/ui-registry.md`. Focused ESLint and the frontend production build passed. Browser assertions were updated but could not run because this environment lacks Playwright Chromium and blocks installed Chrome from the local Vite page. Routes, APIs, schemas, filters, and stored data are unchanged.
+
+## Staff console filters — 2026-10-19
+
+Moderation, Competitions, and Users now put the shared Filters button at the right edge of each tab. Existing report status, competition status, and user role choices moved into their respective panels; Users still resets to page one when the role changes or filters reset. Add competition remains to the left of its filter. Updated `Frontend/src/features/staff/pages/StaffConsole.jsx`, `Frontend/src/features/staff/components/UserDirectory.jsx`, the two focused staff browser specs, `Frontend/README.md`, `context/ui-rules.md`, and `context/ui-registry.md`. Frontend production build and focused ESLint passed. Browser geometry and interaction checks were updated but could not run in this environment because Playwright Chromium is absent and installed Chrome is blocked from the local Vite page; rendered alignment remains unverified. Routes, APIs, schemas, and stored data are unchanged.
+
+## Add competition icon — 2026-10-19
+
+The staff Competitions tab now places the existing decorative plus before the enabled Add competition label through the shared Button leading-icon slot. The Admin required label, modal, role gate, routes, APIs, and stored data are unchanged. Updated `Frontend/src/features/staff/pages/StaffConsole.jsx` and `context/ui-rules.md`. Focused ESLint and the frontend production build passed; no browser run was needed for this icon-only change.
+
+## Google avatar, competition list tags, and judging page — 2026-10-19
+
+Existing Google accounts now refresh the provider picture on sign-in; a custom profile avatar is retained, and session refresh returns the effective profile avatar. The shared Avatar component retries when its image source changes. Public competition list rows show the Readers’ Choice or Collective Choice tag, including legacy reader/hybrid mappings. Staff score/results actions now open `/staff/competitions/:id/judging`, a full page with all entries, fixed moderator scoring slots, submitter identity, score notes, and inline scoring. Legacy hybrid/judges scores show moderator names and remain reviewable. Changed auth and competition controllers, avatar/list/staff UI, route/navigation, staff browser spec, Frontend README, architecture/UI rules, and this tracker. Verification on 2026-10-19: frontend/backend lint, frontend production build, and six competition lifecycle tests passed. Focused Playwright tests could not launch because this environment lacks the Chromium headless-shell executable. Live Google authentication and database-backed judging were not exercised.
+
+## Competition type tag labels — 2026-10-19
+
+Staff competition rows and public competition detail now display Readers’ Choice and Collective Choice for new types and corresponding legacy `readers`/`hybrid` mode records. Legacy judges-only records display Judges. This is a presentation-only mapping; stored records and competition behavior are unchanged. Updated the shared label helper, Staff console, competition detail, and UI rules. Verification on 2026-10-19: focused ESLint, production build, and direct label mapping checks passed; browser interaction was not exercised.
+
+## Competition entry action alignment — 2026-10-19
+
+Story entry cards now stretch to their grid row height and place the vote action at the bottom, aligning adjacent buttons when titles wrap to different line counts. Cover ratio, typography, spacing, voting behavior, short-entry presentation, routes, and APIs are unchanged. Updated `Frontend/src/features/discovery/components/CompetitionEntryCard.jsx`, added a focused browser geometry assertion in `Frontend/tests/competition-entries-layout.spec.js`, and updated `context/ui-rules.md`. Verification on 2026-10-19: focused ESLint and frontend production build passed. The browser geometry check could not start because its managed backend could not connect to MongoDB; visual browser verification remains open.
+
+## Competition choice lifecycle — 2026-10-19
+
+New competitions now offer Readers’ Choice and Collective Choice with a Voting closes deadline. Reader votes switch atomically within a competition and stop at the deadline. Readers’ Choice automatically closes with co-winners or no winner when no eligible entries or votes exist. Collective Choice freezes moderator slots using the role at the deadline, records the represented moderator and scoring actor, weighs reader votes and judges equally, and closes on the final required score. Staff no longer select or publish winners for new competitions; legacy closed records remain readable. Changed the competition schema, controller, lifecycle/scoring services, worker, staff and public competition views, focused tests, and architecture/UI documentation. Backend lint, frontend lint/build, and focused competition-choice tests passed on 2026-10-19. The full backend HTTP suite could not connect to local loopback (`EACCES`) in this sandbox, so database-backed concurrency and browser interaction remain unverified. A Collective Choice contest without active moderator slots closes without a winner.
+
+# firstmargin progress tracker
+
+## Page tab navigation persistence — 2026-10-19
+
+Audited page tab strips across Home, Explore, Search, Library, Series, Studio, Profile, Author, History, Member Hub, Staff Console, and standalone authentication. Existing route or query state already covers most page tabs. Staff Console and Member Hub now read validated tab parameters and preserve unrelated query values; standalone authentication tabs use their existing routes; Studio tab and format selections now create history entries. Embedded sign-in mode remains local to its modal. No backend, API, schema, layout, typography, color, or card changes were needed. Changed `StaffConsole.jsx`, `MemberHub.jsx`, `Login.jsx`, `Profile/index.jsx`, three focused browser specs, Frontend README, and UI rules. Frontend production build passed; lint passed with two existing warnings in `CompetitionOperations.jsx`. Focused Playwright checks were prepared but could not run: the managed backend lacked MongoDB, bundled Chromium was missing, and installed Chrome was denied local Vite access by the sandbox. Browser behavior remains to be verified in an environment with local browser access.
+
+## Competition entry vote placement — 2026-10-19
+
+Competition entry voting now sits below the content on story and short cards at every width, leaving covers unobstructed. The full-width control uses the existing theme accent for Vote and a bordered Voted state with distinct arrow/check glyphs and a visible vote count. Existing author/story links, winner/rank information, closed-entry hiding, sign-in behavior, vote endpoints, and stored data remain unchanged. Updated `Frontend/src/features/discovery/components/CompetitionEntryCard.jsx`, `Frontend/tests/competition-entries-layout.spec.js`, `context/ui-rules.md`, `context/ui-registry.md`, and `context/button-style-duplicates.md`.
+
+Verification on 2026-10-19: focused ESLint and the frontend production build passed. The focused browser spec was updated but could not execute: the managed API could not connect to MongoDB, Playwright's bundled Chromium was missing, and installed Chrome was denied access to the local Vite server. Rendered layout, interaction, and live persistence remain unverified.
+
+## App-wide cursor scroll pagination — 2026-10-19
+
+All visible Load more controls were removed from frontend cursor lists. Collections and Series browse pages, Questions, public author collections, Library owned/saved collections and series, Notifications, comments/replies, and the collection/series Select pickers now fetch further cursor pages when their relevant page, modal, thread, or option list approaches its end. Home, Trending, and Shorts retain their existing scroll loading. A failed next-page request keeps loaded items and shows Try again. Existing filters, card styles, routes, APIs, and schemas remain unchanged. The shared `InfiniteScrollSentinel` owns the new behavior; `Select` accepts optional pagination for the two picker dialogs. Focused mocked-API Chrome checks passed for Collections app-pane scrolling, comment/reply pagination at 320 px, comment-modal scrolling at 320 and 1280 px, notification next-page failure/retry, and collection picker loading at 320 px. Frontend build and lint passed on 2026-10-19. Two broader legacy browser specs still have stale interaction assertions unrelated to the pagination path: account-groups expects focus on an already selected Shorts tab, and filter-reset later times out closing its filter dialog. Live backend persistence, physical devices, and other browsers were not exercised.
+
+## Staff winner checkbox styling — 2026-10-19 (superseded by Competition choice lifecycle)
+
+The winner checkbox in the staff judging dialog now follows the Save dialog's existing 20 px rounded, accent-colored control with a visible checkmark, full-row label, and keyboard focus ring. The native checkbox remains for selection and accessibility; the maximum of five winners and existing disabled states are unchanged. Updated `Frontend/src/features/staff/components/CompetitionOperations.jsx`, `Frontend/README.md`, and `context/ui-rules.md`. Frontend lint and production build passed on 2026-10-19. Browser interaction was not verified in this task.
+
+## Staff judging dialog scoped to its competition — 2026-10-19
+
+The Judge results and View results dialogs now stay on the competition whose row opened them. The redundant competition picker and its list request were removed; the dialog displays the fetched competition's title and status. Scoring, winner selection, publishing permissions, APIs, schemas, stored data, and the surrounding staff list remain unchanged. Updated `Frontend/src/features/staff/components/CompetitionOperations.jsx`, the focused staff browser spec, `Frontend/README.md`, and `context/ui-rules.md`.
+
+Verification on 2026-10-19: frontend lint and production build passed; the focused browser spec was updated but could not run. The managed test server could not connect to MongoDB, and the installed Chrome retry was denied access to the local frontend server. Browser interaction and live backend behavior were not verified for this change.
+
+## Shorts scroll loading — 2026-10-19
+
+The dedicated Shorts page now loads the next cursor page as readers approach the end of its grid in the application scroll pane. It shows the existing short-card skeletons during the fetch, prevents repeated automatic attempts after a page error so the existing Try again action remains usable, and removes Load more. Empty filtered feedback waits until the cursor feed is exhausted. Existing short cards and reader, URL filters, route, API contract, schema, and stored data are unchanged. Changed `Frontend/src/features/discovery/pages/Search/ShortsTab.jsx`, `Frontend/tests/short-layout.spec.js`, and `context/ui-rules.md`.
+
+Verification on 2026-10-19: a focused mocked-API Chrome check passed for next-page fetching on application scroll and the absent button. Frontend lint and the production build passed. The browser check used installed Chrome and a local Vite server because the standard managed test server requires the unavailable local MongoDB instance. Live backend data, physical devices, and other browser engines were not exercised.
+
+## Trending scroll loading and Search result counts — 2026-10-19
+
+Trending now requests the next cursor page as readers approach the end of the feed in the application scroll pane, shows the existing feed skeleton while loading, and no longer displays Load more. Search shows the number of items currently displayed for the selected Stories, Writers, Shorts, or Questions tab, including zero, after the active filters. The search API caps returned items and supplies no full-match total, so the label describes displayed results. Existing routes, API contracts, schemas, card presentation, filters, and navigation remain unchanged. Changed `Frontend/src/features/discovery/pages/Explore/TrendingTab.jsx`, `Frontend/src/features/discovery/pages/Search/index.jsx`, focused browser specs, and `context/ui-rules.md`.
+
+Verification on 2026-10-19: two focused mocked-API Chrome checks passed for trending scroll-triggered cursor fetching and Search counts across tabs and empty results. Frontend production build and lint passed. Browser checks used the installed Chrome binary with a local Vite server because the default Playwright browser package was unavailable; the standard managed test server also required an unavailable local MongoDB instance. Live backend results, physical devices, and other browser engines were not exercised.
+
+Search spacing follow-up on 2026-10-19: Search story cards now retain their usual first-card top padding beneath the result count by passing the existing `flushTop={false}` option. Writer, short, and question rows keep their prior layout. The source-level cause was the discovery card's default `first:pt-0` rule; this route-specific change leaves its other uses alone. Focused Search-page ESLint and the frontend production build passed; this spacing follow-up was not browser-verified.
+
+## Development content boundary fixtures — 2026-10-19
+
+Added twelve named publication fixtures (eight stories and four shorts), two questions, two drafts, three collections, and one story series to exercise valid boundary conditions and realistic writing mistakes. Ordinary seeded writing now has deterministic variation in related tag counts/order; the new fixtures cover no tags, the 20-tag limit, long custom and typo tags, near-limit titles, unbroken text/URL wrapping, Unicode, rich blocks, inline formatting, broken-image fallback, rough prose, and a 472-word short. Collection cases include empty, one-item, and twelve-item mixed lists. The development catalog now defines 74 publications, 19 collections, seven series, and 14 questions. The existing UI, routes, schemas, and production data were not changed. Added `Backend/data/development-edge-cases.js`; updated `Backend/scripts/seed-development.js`, fixture documentation, and this tracker.
+
+Verification on 2026-10-19: backend lint, script/module syntax checks, and all 113 backend foundation contracts passed. The configured development database seed completed; readback found all 12 publications, two questions, two drafts, three collections, and one series. Stored tag counts included 0 through 7 and 20, the longest new short had 472 words, the long question had two answers, and both empty and mixed collections were present. Browser rendering and invalid-request scenarios were not exercised in this task.
+
+## Varied development engagement — 2026-10-19
+
+Expanded the development seed with twelve reader personas and deterministic per-publication appreciation/comment relationships. Released stories and shorts now cover zero, low, and higher engagement states, with counters recalculated from the actual records rather than synthetic appreciation totals. A seed invariant checks that both formats have multiple appreciation and comment levels. Existing API fields, frontend cards, schemas, and production data were unchanged. Updated `Backend/scripts/seed-development.js`, fixture documentation, and this tracker.
+
+Verification on 2026-10-19: the configured development database was seeded three times; reruns completed with 19 seeded users and did not increase engagement totals. The final run passed the new story/short variation invariant. A database readback of 73 published records showed appreciation levels from 0 to 14, comment levels from 0 to 9, 296 appreciation relationships, 241 comment relationships, and zero counter/relationship mismatches. Backend lint and syntax checks passed; all 113 backend foundation contracts passed with local loopback access. Browser rendering was not exercised.
+
+## Expanded development reading catalog — 2026-10-19
+
+Expanded the persistent development seed with distinct multi-paragraph bodies for all 32 discovery stories, nine new complete stories, richer featured reading, ten additional shorts, eight additional collections with editorial descriptions, five additional ordered series (three short and three story overall), eight additional reader questions, six richer drafts, more reading engagement, and subject-specific competition descriptions. At that point the catalog defined 62 publications, 16 collections, six series, and 12 questions; existing Home, Browse, Search, reader, profile, and Studio surfaces consumed the same backend records without UI, route, or schema changes. Corrected an old demo title and reconciled it before the title-based upsert to avoid a duplicate on rerun. Changed `Backend/data/development-writing.js`, `Backend/scripts/seed-development.js`, `context/test-fixtures.md`, and this tracker.
+
+Verification on 2026-10-19: seed script and content module syntax passed, backend lint passed, and the full backend foundation suite passed 113/113 with local loopback access. `npm run seed:dev` completed on the configured explicitly named development database. Resulting totals were 75 publications, 20 drafts, 19 collections, eight series, and 14 questions, including older and separately seeded data beyond this catalog. A readback confirmed longer story/short bodies and the new collection and series records. The initial sandboxed contract run failed on loopback `EACCES`; the unrestricted rerun passed. Browser rendering and production data were not exercised.
+
+## Staff competition row navigation — 2026-10-19
+
+Ongoing and Past competition rows in the staff console now link across their card surface to the existing `/explore/competitions/:id` detail page. The separate Judge results and View results buttons still open staff dialogs. Only `Frontend/src/features/staff/pages/StaffConsole.jsx`, its focused browser spec, Frontend README, UI rules, and this tracker changed for this task; list filters, typography, colors, cards, routes, APIs, schemas, and stored data are unchanged. Verification on 2026-10-19: frontend lint and production build passed; two focused mocked-API Chrome staff checks passed, covering both list destinations and independent results dialog behavior. Live backend data, physical devices, assistive technology, and other browser engines were not exercised.
+
+## Ongoing competition development fixture — 2026-10-19
+
+Added a targeted `Backend` seed command for one current demo competition, “The Places That Shape Us.” It uses the existing Competition schema and demo administrator, creates no prefilled entries, refreshes only the demo contest's dates/status on rerun, and rejects production or a database without an explicit development/test/local name. The configured development database was seeded on 2026-10-19. A read through the existing competition controller returned one matching record with effective status `open` and a closing date of 2026-11-02. Existing competitions, frontend presentation, routes, and schemas were not changed. Changed `Backend/scripts/seed-ongoing-competition.js`, `Backend/package.json`, test-fixture documentation and its local companion, and this tracker. Script syntax and backend lint passed; live entry/vote flows were not exercised.
+
+## Member role promotions — 2026-10-19
+
+Active Members (`premium` role) now have Edit role in the staff Users tab and can be promoted to Exclusive writer or Moderator. The dialog keeps Member marked as the current role until Save. The existing staff-only PATCH endpoint conditionally updates the role and appends a `RoleChange` record in the same transaction; self-changes, suspended accounts, admin assignment, and Member-to-Regular remain disallowed. The role-change schema now accepts `premium` as a source role. Membership records are not edited by a role promotion; paid membership capabilities continue to follow their separate membership record. Legacy role-only Member capability fallback does not apply after promotion to Moderator.
+
+Changed `Backend/controllers/staff-users.controller.js`, `Backend/schemas/role-change.schema.js`, `Backend/tests/staff-users.test.js`, `Frontend/src/features/staff/components/UserDirectory.jsx`, `Frontend/tests/staff-users.spec.js`, Frontend README, architecture/security/UI rules and their local companions, and this tracker. Verification on 2026-10-19: ten focused backend tests, 113 backend foundation contracts, backend/frontend lint, frontend production build, and the focused mocked-API Chrome role-editor test passed. Live database transactions, physical devices, and other browser engines were not exercised.
+
+## Competition vote review removal — 2026-10-19
+
+The staff Competitions tab no longer offers Vote review. Its modal, frontend API calls, and staff-only signal/review endpoints were removed. The automatic vote-burst guard, hashed vote records, offline fraud-analysis command, and historical competition audit records remain available. Competition creation, judging, report moderation, user role controls, and public voting behavior are unchanged. Updated the affected staff/frontend/backend contracts, focused browser specs, root and frontend READMEs, UI rules/registry, and dropdown inventory. Verification: frontend and backend lint, frontend production build, and backend foundation contracts passed (113/113). Browser interaction and live database behavior were not exercised for this removal.
+
+## Short reader action counts — 2026-10-19
+
+The Short modal footer shows appreciation and comment icons with their numeric counts, plus icon-only Save and Share controls, at every width. All four buttons omit visible action text and retain their accessible names and existing interactions; the saved icon still reflects active state. Changed `Frontend/src/features/discovery/components/ShortReadModal.jsx`, Frontend README, short-format audit, UI rules/registry, and this tracker. On 2026-10-19, focused ESLint and the frontend production build passed after the Save/Share follow-up. Browser rendering and live engagement updates were not exercised for this presentation change.
+
+## Staff user role editor — 2026-10-19
+
+The Users-tab three-dot menu began opening Edit role instead of applying a role change immediately. The native modal presented a vertical selection of the three then-supported transition roles, marked the account's current role, and required Save before calling the existing audited role endpoint. Remove user appeared disabled with an explanation because the required suspension, recovery, notification, appeal, and audit lifecycle was not active. At that time, Premium/admin and self-account role restrictions remained; Member promotions were added in the later entry above. Changed `Frontend/src/features/staff/components/UserDirectory.jsx`, `Frontend/tests/staff-users.spec.js`, Frontend README, UI rules, and this tracker. On 2026-10-19, frontend lint and production build passed. The focused Playwright test could not launch because its Chromium executable was absent in that environment; live database and browser behavior remained unverified for that change.
+
+## Staff role demotions — 2026-10-19
+
+The Users tab gained reverse role changes: exclusive writer to regular, and moderator to exclusive writer or regular. These options reused the existing three-dot menu and role-change API; self-changes were hidden in the UI and rejected by the backend. Premium and admin roles had no new transition at that time; Member promotions were added in the later entry above. The backend kept conditional writes and the existing transaction-bound audit record, with its role enum extended to include the reverse transitions. Changed `Backend/controllers/staff-users.controller.js`, `Backend/routes/staff.routes.js`, `Backend/schemas/role-change.schema.js`, `Backend/tests/staff-users.test.js`, `Frontend/src/features/staff/api/staff.js`, `Frontend/src/features/staff/pages/StaffConsole.jsx`, `Frontend/src/features/staff/components/UserDirectory.jsx`, `Frontend/tests/staff-users.spec.js`, Frontend README, architecture, security audit, UI rules, local architecture/security companions, and this tracker. On 2026-10-19, seven focused backend tests, 114 backend foundation contracts, focused backend/frontend ESLint, the frontend production build, and the mocked-API Chromium Users-tab check passed. Three existing staff browser checks also passed in the combined run. Live database role changes and production transaction behavior were not exercised.
+
+## Staff console account-menu entry — 2026-10-19
+
+Staff console now appears under Your space in the desktop profile menu and in the corresponding mobile Account sheet for moderators and administrators. The former Profile-page button was removed. The existing `/staff` route, role checks, console content, other account destinations, and visual row patterns are unchanged. Changed `Frontend/src/shared/components/layout/Navbar.jsx`, `Frontend/src/features/user/components/MobileProfileSheet.tsx`, `Frontend/src/features/user/pages/Profile/index.jsx`, new `Frontend/tests/staff-navigation.spec.js`, `Frontend/README.md`, `context/ui-rules.md`, and this tracker. On 2026-10-19, the frontend production build and focused ESLint passed (the existing TSX lint exclusion issued one warning); six mocked-API Chromium navigation checks passed across regular, moderator, and admin accounts at 390 and 1280 px. Live backend access, physical devices, assistive technology, and other browser engines were not exercised.
+
+## firstmargin brand rename — 2026-10-19
+
+The app's public name is firstmargin across the navbar, auth and onboarding copy, search, Help, membership, loading/outage messages, article title and structured metadata, browser title, verification email, and startup error. The frontend package name and current project/UI documentation also use firstmargin; affected browser expectations follow the new accessible labels. The existing pen mark, routes, APIs, schemas, layout, typography, colors, and interactions are unchanged. Existing storage keys, token issuer/audiences/derivation, seeded identities, Cloudinary URLs, and database names retain their prior values for compatibility. The workspace folder and remote infrastructure have not been renamed.
+
+Verification on 2026-10-19: frontend lint and production build passed; backend foundation contracts passed 114/114 with local loopback access. Focused mocked-API Chromium checks passed 10/10 for navbar hover title, mobile search, and sign-in entry. A broader auth browser run was stopped after unrelated modal-centering assertions failed by 7.5 px; that geometry is outside this name-only change. Live email delivery and deployment-domain presentation were not exercised.
+
+## Card heading spacing audit — 2026-10-19
+
+Visually audited representative Home, Trending, Shorts, Collections, and Series pages at 390 and 1280 px with mocked public data and locally supplied copies of the existing Google Fonts. Crowded wrapped headings were found in Story list rows, Short cards, and the featured Story card. Increased only their line spacing and relaxed list-row tracking in `Frontend/src/features/discovery/components/DiscoveryPostCard.jsx`, `ShortCard.jsx`, and `FeaturedPostCard.tsx`. Font families, title sizes, two-line card clamps, card geometry, navigation, colors, routes, APIs, schemas, and stored content remain unchanged. Collection, Series, and other inspected card headings required no change. Frontend lint and production build passed; the rebuilt pages were rendered and screenshots inspected at both widths. The mocked browser audit did not exercise live backend data or physical devices.
+
+## Editor-wide writing undo and redo — 2026-10-19
+
+Studio's title and story blocks now share a bounded, in-memory undo/redo history with Ctrl/Cmd+Z and Ctrl+Y or Ctrl/Cmd+Shift+Z. Undo/Redo buttons appear to the left of the word count only below 640 px; wider widths show a shortcut hint there instead. Continuous typing in one field groups into a step; block insertion, deletion, splitting, merging, type changes, inline formatting, and multi-block paste each record structural steps. Restoring a step returns writing focus/caret where available, clears redo after a new edit, and follows existing draft autosave or published-edit local-copy behavior. Loaded drafts/posts start a fresh baseline. Tags, cover, scheduling, routes, API contracts, schemas, design tokens, and other editor controls are unchanged. History is session-only and is not persisted across reload/navigation.
+
+Changed `Frontend/src/features/editor/pages/index.jsx`, new `Frontend/src/features/editor/hooks/useWritingHistory.js`, new `Frontend/tests/editor-history.spec.js`, `Frontend/README.md`, `context/ui-rules.md`, `context/write-page-audit.md`, and this tracker. On 2026-10-19, focused ESLint and production build passed. Eight new mocked-API Chrome history checks passed, covering cross-field shortcuts, split/delete/merge, typing grouping, redo invalidation, multi-block paste, loaded-draft baseline, autosave after undo, image-description focus, and phone-width controls. The existing selection-toolbar check and all eight editor-overlay checks passed in scoped runs. One combined run had intermittent slash-menu focus/scroll failures; isolated repeats (4/4) and a complete editor-overlay rerun (8/8) passed without source changes. Tests used installed Chrome and a local Vite server; live persistence, physical keyboards/devices, assistive technology, and other browser engines were not exercised.
+
+Presentation follow-up on 2026-10-19: the existing footer row now shows buttons only below 640 px and a shortcut hint at 640 px and wider, with the word count still on the right. No history logic, route, API, or stored-data change was needed. Nine focused mocked-API Chrome history checks passed, including 639/640/1280 px presentation and phone button interaction. The existing editor-overlay suite passed 7/8 on its first run; its 320 px slash-menu scroll assertion passed on an isolated rerun. Focused lint, production build, and scoped whitespace checks passed. Live persistence, physical devices, assistive technology, and other browser engines were not exercised.
+
+Footer spacing follow-up on 2026-10-19: the footer gained 24 px below the instructions/buttons and word count. An earlier two-row desktop hint was subsequently simplified to one muted line. Phone buttons, wider-screen hint breakpoint, count, history behavior, autosave, routes, APIs, and stored data are unchanged. Nine focused mocked-API Chrome history checks passed, including footer geometry at phone and 640/1280 px widths. Phone and desktop footer screenshots were visually reviewed. Focused lint, production build, and scoped whitespace checks passed; live persistence, physical devices, assistive technology, and other browser engines were not exercised.
+
+Shortcut hint follow-up on 2026-10-19: from 640 px, the footer first showed “Ctrl+Z to undo, Ctrl+Y to redo” on one muted line. The phone buttons and 24 px footer padding remained. The focused mocked-API Chrome footer check passed at 639/640/1280 px; focused ESLint, production build, and scoped whitespace check passed.
+
+Shortcut spacing follow-up on 2026-10-19: the wider hint was briefly parenthesized with a centered separator and moved 12 px immediately left of the word count. The phone buttons and footer padding remained. The focused mocked-API Chrome footer check passed at 639/640/1280 px; focused ESLint and production build passed.
+
+Shortcut typography correction on 2026-10-19: the wider hint now reads “(ctrl+z to undo, ctrl+y to redo)” in lowercase italic text with 0.02 em letter spacing, retaining the 12 px gap before the word count. The centered separator and added phrase spacing were removed. The focused mocked-API Chrome footer check passed at 639/640/1280 px; focused ESLint and production build passed. Physical devices, assistive technology, and other browser engines were not exercised for this copy/style change.
+
+Instructions modal follow-up on 2026-10-19: the existing guide adds one bullet for Ctrl+Z/Ctrl+Y undo/redo and Cmd+Z/Cmd+Shift+Z on Mac. A focused mocked-API Chrome modal check, focused ESLint, and the production build passed. The broader existing publish-modal test reached and passed the new instruction assertions at 320 and 1280 px, then failed on stale title-label and tag-required expectations unrelated to this copy change.
+
+## Backend publication and appreciation terminology — 2026-10-19
+
+Canonical backend models and MongoDB collections now use Publication and Appreciation for Story/Short content and engagement. Stored references and counters use `publicationId` and `appreciationsCount`; competition entries use `votes` and `votesCount`. The `story`/`short` format and related notification, report, entitlement, and event values are canonical. New `/api/publications` and `/api/v1/publications/...` paths expose canonical names, while legacy `/api/post` and `/api/v1/posts/...` paths and request/response aliases keep the current frontend working. Old module paths remain import shims.
+
+The backed-up **development** MongoDB was migrated on 2026-10-19 with `Backend/scripts/migrate-publication-terminology.js`; its final dry run reported 32 steps with zero remaining legacy records. The ignored local backup is under `sensitive context/migration-backups/2026-10-18T18-38-34-112Z`. Backend lint and 114/114 foundation contracts passed; 13/13 MongoDB integration checks passed against the migrated development database. Canonical and legacy publication list routes were smoke-tested against that database. Other databases have not been migrated and must run the dry-run/apply procedure with a backup and stopped writes before running the new backend code.
+
+## Full Story reading typography — 2026-10-18
+
+Full Story paragraphs and quotes now use Source Serif 4 in the published reader and the matching Studio editor. Source Serif 4 loads through the existing Google Fonts stylesheet and falls back to Georgia. Existing font sizes and line heights remain unchanged; Libre Baskerville titles, DM Sans controls and Short bodies, routes, APIs, schemas, and stored writing are preserved. Changed `Frontend/src/styles/global.css`, `Frontend/src/features/post/pages/PostBody.jsx`, `Frontend/src/features/editor/pages/index.jsx`, `Frontend/README.md`, `context/ui-tokens.md`, `context/ui-rules.md`, and this tracker. Frontend lint, production build, security artifact check (87 files, no source maps), compiled CSS font-token check, and scoped diff whitespace check passed on 2026-10-18. Browser rendering and physical devices were not exercised, so font appearance and fallback behavior remain to be visually verified.
+
+## Staff users and promotions — 2026-10-18
+
+Added a Users staff-console tab with All and five role pill filters, 25-account server-side pages, and three-dot menus for regular to exclusive-writer/moderator and exclusive-writer to moderator. Moderator and admin access is checked server-side; promotions are conditional and transactionally audited. Changed `Backend/routes/staff.routes.js`, new staff-user controller and role-change schema, staff frontend API/page and new UserDirectory, focused backend/browser tests, the staff-fraud mocked API fixture, Frontend README, architecture, UI rules/registry, security audit, and this tracker. Backend focused tests (4/4), backend foundation contracts (111/111), frontend lint/build, and four focused mocked-API Chromium staff checks passed on 2026-10-18. Live database promotions and physical-device/assistive-technology behavior were not exercised.
+
+## Narrow short-card title clearance — 2026-10-18
+
+Changed the shared ShortCard title zone from a fixed percentage allocation to a content-sized zone with the same percentage minimum. Narrow cards can now show the full two-line title without the lower edge clipping it; the excerpt uses the remaining space above the footer. Added focused geometry checks at 390 and 768 px in `Frontend/tests/short-layout.spec.js` and updated the short-format audit and UI rules. Frontend lint and production build passed on 2026-10-18. Browser verification remains outstanding because this sandbox denies local loopback access to Vite; no live backend behavior was exercised.
+
+## Staff console lists and dialogs — 2026-10-18
+
+The 2026-10-18 staff change made Moderation list Pending, Reviewing, and Dismissed reports with per-item review or view dialogs. Competitions listed Ongoing and Past contests and opened creation, selected-competition judging, and vote review in dialogs. The vote review dialog was removed on 2026-10-19 as recorded above. Existing staff APIs, permissions, scoring, and review actions were reused at the time. Changed `Frontend/src/features/staff/pages/StaffConsole.jsx`, `Frontend/src/features/staff/components/CompetitionOperations.jsx`, focused staff browser specs, Frontend README, UI rules/registry, and this tracker. Frontend lint and production build passed on 2026-10-18. Focused browser checks could not execute: managed tests lacked MongoDB; frontend-only Chrome was denied or timed out on local loopback. Live persistence and browser interaction remained unverified for that change.
+
+## UI terminology alignment — 2026-10-18
+
+Reader-facing copy across discovery, search, the editor, published work, collections, series, membership, comments, reporting, Help, and notifications now uses Story for the full-length format, Short for the concise format, and Appreciation for engagement. Aggregate counts spanning both formats use “published writing” or “published pieces.” Search empty states and report titles map existing `posts`/`post` values to Stories/story. Technical routes, API fields, format values, stored data, CSS selectors, and URL identifiers remain unchanged for the later backend pass. Existing unrelated working-tree changes were retained. Frontend lint and production build passed on 2026-10-18; a focused Playwright run could not start because its managed backend could not connect to MongoDB, so browser and live API behavior remain unverified. The UI wording rule is in `context/ui-rules.md`.
+
+## Series format pills — 2026-10-18
+
+The public Series page now uses the shared pill controls for Stories and Shorts format selection, matching Library category controls. Active state, tab semantics, arrow/Home/End keyboard handling, focus restoration, and `type` URL state remain unchanged. Sorting Filters, series cards, creation, routes, APIs, and stored data are unchanged. Changed `Frontend/src/features/discovery/pages/SeriesPage.jsx`, `Frontend/src/shared/components/ui/Pill.jsx`, UI rules, and this tracker. On 2026-10-18 frontend production build, focused ESLint, and scoped whitespace checks passed. Browser and live API verification were not run.
+
+## Series filters — 2026-10-18
+
+Added the existing FilterBar to the public Series page and Library Series section. Both support URL-backed sorting by newest, title A–Z, and most parts, with reset behavior preserving the selected format tab. The Library Series filter sits beside the compact + Add action; the public Series filter sits opposite Stories/Shorts tabs. Series fetching, pagination, cards, creation flows, APIs, routes, and stored data are unchanged. Changed `Frontend/src/features/discovery/pages/SeriesPage.jsx`, `Frontend/src/features/collection/pages/SavedPage.jsx`, UI rules, and this tracker. On 2026-10-18 frontend production build, focused ESLint, and scoped whitespace checks passed. Browser and live API verification were not run.
+
+## Profile header action alignment — 2026-10-18
+
+Profile header actions Open staff console, Manage membership, and Edit profile now remain left-aligned on smaller screens. The existing wider-screen staff action spacing is preserved through a responsive margin utility. Button labels, routes, permissions, billing behavior, profile content, and APIs are unchanged. Changed `Frontend/src/features/user/pages/Profile/index.jsx`, UI rules, and this tracker. On 2026-10-18 frontend production build, focused ESLint, and scoped whitespace check passed. Browser and physical-device verification were not run.
+
+## Compact Library collection and series actions — 2026-10-18
+
+Library Collections and Series no longer show their Browse collections/Browse series shortcuts. Each Library section now has a visible + Add button with a descriptive accessible name that opens its existing creation modal; the public browse pages and Add to series dialog retain their own controls. Collections places the existing Filters control to the right of Add, including at phone widths. Series has no filter control; its Add action remains right-aligned. Routes, modal forms, collection/series APIs, stored data, and other Library tabs are unchanged. Changed `Frontend/src/features/collection/pages/SavedPage.jsx`, focused collections/series browser specs, Frontend README, UI rules/registry, and this tracker. On 2026-10-18 the frontend production build, focused ESLint, and scoped whitespace check passed. Browser execution remains unverified because the local Chrome runner was previously denied loopback access by the sandbox.
+
+## Manage membership menu detail — 2026-10-18
+
+The active/trialing Manage membership row in desktop profile-menu Your space now displays “Billing and renewal settings” below its label using the same muted detail style as Profile and Library. Its action, accessible name, visibility, and billing API remain unchanged. Updated Navbar, the focused account test, UI rules, and this tracker. On 2026-10-18 frontend production build, focused ESLint, and scoped whitespace check passed. Browser assertions were not run because the prior local Chrome attempt was blocked by sandbox `ERR_NETWORK_ACCESS_DENIED`.
+
+## Desktop profile-menu Your space — 2026-10-18
+
+The desktop profile menu now lists Profile and Library, then a direct Manage membership action under its Your space heading for active/trialing subscribers. Writing studio remains in the desktop sidebar and is absent from the desktop profile menu; the sidebar retains its original Home, Browse, Catalog, and Your space links without a billing action. Mobile Account keeps Writing studio and direct Manage membership because the sidebar is hidden there. The personal Profile header also retains Manage membership. Existing billing portal API, routes, entitlements, and stored data are unchanged. Changed `Frontend/src/shared/components/layout/Sidebar.jsx`, `Navbar.jsx`, focused account/membership specs, Frontend README, project overview, UI rules/registry, and this tracker. On 2026-10-18 frontend production build, focused ESLint, and scoped whitespace check passed. Browser checks were not rerun; the immediately prior focused Chrome attempt was blocked at local navigation by sandbox `ERR_NETWORK_ACCESS_DENIED`.
+
+## Member billing management placement — 2026-10-18
+
+Active/trialing subscribers now open the existing billing portal through Manage membership in the desktop Account menu, mobile Account sheet, or personal Profile header. The member-facing billing button moved off `/membership`; that page retains member information and Open Member Hub. Guests and confirmed nonmembers retain Join and checkout from `/membership`. Failed portal requests keep the current surface open with retry feedback. Existing billing API, entitlement status, routes, and stored data are unchanged. Changed the Navbar, mobile sheet, Profile, MembershipPage, a shared portal mutation hook, focused membership/account specs, Frontend README, UI rules, project overview, and this tracker. On 2026-10-18 the frontend production build, focused JavaScript ESLint, and scoped whitespace check passed. Six focused Chrome tests could not navigate to the local Vite server because the sandbox returned `ERR_NETWORK_ACCESS_DENIED`; their assertions did not run.
+
+## Membership navigation label — 2026-10-18
+
+The desktop navbar and mobile Account sheet now label their existing `/membership` link Join for guests and known nonmembers, or Membership for active/trialing subscribers. Signed-in loading/error states use the neutral Membership label until status is known, avoiding a misleading Join prompt. The membership page continues to own checkout and management actions; routes, API contracts, backend entitlements, bottom navigation, and stored data are unchanged. Changed Navbar, MobileProfileSheet, the focused membership browser spec, Frontend README, project overview, UI rules, and this tracker. On 2026-10-18 the frontend production build, focused JavaScript ESLint, and scoped whitespace check passed. TypeScript remains outside the current ESLint configuration but compiled in the build. Browser execution was not completed because the default Playwright setup waits for an unavailable local backend server.
+
+## Mobile Member Hub access — 2026-10-18
+
+Signed-in mobile Account now includes a Member Hub link after Writing studio, using the existing sheet row, icon, animated dismissal, and `/members` route. Guests do not see the link. The five-button bottom bar, desktop sidebar, backend APIs, and stored data are unchanged. Changed `Frontend/src/features/user/components/MobileProfileSheet.tsx`, the focused mobile sheet spec, Frontend README, project overview, UI rules/registry, and this tracker. Frontend production build and scoped whitespace check passed on 2026-10-18. Full lint did not complete locally and the focused Playwright runner did not progress beyond local web-server startup; both were stopped without a test result.
+
+## Collection card story and short counts — 2026-10-18
+
+Collection list/detail responses now expose `storiesCount` and `shortsCount` while retaining combined `postsCount`. The shared card footer shows the formats present, such as “2 stories · 1 short,” across Collections, Library, Home, and Author. Missing legacy post format counts as a story; older card response data retains its combined-count fallback. Changed the collection controller, CollectionCard, focused integration and browser specs, and owning context. On 2026-10-18, frontend production build and targeted frontend/backend lint passed. MongoDB-backed integration and browser checks were not run because the local API could not connect to MongoDB.
+
+## Shared collection card layout — 2026-10-18
+
+The shared CollectionCard now follows the selected photo-left design on sufficiently wide card tracks and stacks its 2:1 cover above the content on narrow tracks. Its footer adds the existing curator Avatar; app typography and theme tokens, collection actions, full-card navigation, and the existing grid columns remain in use. Changed `Frontend/src/features/collection/components/CollectionCard.jsx`, `Frontend/src/styles/global.css`, and the focused collection layout spec, plus the owning UI context. On 2026-10-18, frontend production build, targeted ESLint, and `git diff --check` passed. The focused Playwright suite did not run because its API server could not connect to MongoDB; live layout remains unverified.
+
+## Responsive standalone authentication layout — 2026-10-18
+
+The standalone login, signup, and email-verification pages now use a single responsive form column rather than a half-screen stock image and shadowed card. The existing pen brand link, warm theme tokens, rounded Login/Sign Up segmented control, labeled fields, and wide-screen decorative ink stroke follow the approved concept. The stroke is hidden below 1024 px; phone forms start below the brand link and short screens scroll. The embedded modal retains its compact presentation. Auth routes, mutations, API contracts, stored data, and return navigation remain unchanged.
+
+Changed `Frontend/src/features/auth/pages/Login.jsx`, the existing responsive auth spec, `Frontend/README.md`, and `context/ui-rules.md`. Verification on 2026-10-18: frontend lint and production build passed; ten focused mocked-API Chrome checks passed across 320/390/768/1024/1280/1920 px, standalone signup/verification, navbar sign-in return, and modal flows. Phone and desktop screenshots were reviewed. Physical devices, assistive technology, and other browser engines were not exercised.
+
+## Slower short-reader card transition — 2026-10-18
+
+Slowed the existing full-card entrance from 520 to 800 ms and replaced the front-loaded ease-out with `cubic-bezier(0.4, 0, 0.2, 1)` for gradual acceleration and deceleration. The gesture animation lock uses the same duration. Layout, wheel thresholds, content-first handoff, momentum isolation, comments, save/share, APIs and stored data remain unchanged. Existing reader tests now wait for animation completion rather than a fixed 550/650 ms delay.
+
+Changed `Frontend/src/features/discovery/components/ShortReadModal.jsx`, `Frontend/tests/short-reader-scroll.spec.js`, `Frontend/tests/discovery-post-card.spec.js`, `Frontend/README.md`, `context/ui-rules.md`, `context/ui-registry.md`, `context/short-format-audit.md`, and this tracker. Verification on 2026-10-18: all 20 focused mocked-API Chrome reader checks, scoped ESLint, production build, and scoped whitespace checks passed; the 390 px incoming-card snapshot was reviewed. Physical touchpad/touch hardware and other browser engines remain unverified. No approval decision remains.
+
+## Short reader scroll reliability and full-card entrance — 2026-10-18
+
+Repaired wheel/touchpad handoff in the existing compact reader. A native cancellable listener on the persistent dialog follows replacement panes; content-origin momentum stays with the current short, and a navigation lock survives replacement so a continuous stream cannot skip another card. A fresh edge gesture after wheel input quiets advances within the loaded filtered list. The whole replacement card now enters from below (or above for Previous), with stable dimensions, fixed actions, top-reset reading position, and reduced-motion support. Comments, save/share, focus return, first/last boundaries, and touch cancellation remain isolated. Escape closes the comment panel before the reader. The detailed input contract belongs to UI rules; this entry replaces the superseded same-day device-detection/scrollend/held-offset tuning narration.
+
+Changed files: `Frontend/src/features/discovery/components/ShortReadModal.jsx`; `Frontend/tests/short-reader-scroll.spec.js` (new); `Frontend/tests/discovery-post-card.spec.js`; `Frontend/tests/post-components.spec.js`; `Frontend/tests/add-to-collection.spec.js`; `Frontend/README.md`; `context/ui-rules.md`; `context/short-format-audit.md`; this tracker. Test maintenance replaces obsolete inline-top/device-timing expectations, selects the existing Collection Shorts category, and clicks the custom checkbox's visible label. No shared control, backend, route, API, schema, palette, or typography changes were needed; unrelated working-tree edits are preserved.
+
+Verification on 2026-10-18: all 20 focused mocked-API installed-Chrome reader checks passed after the full-card animation change. Seven distinct adjacent checks passed across the final adjacent run (six) and collection rerun (one): Save/collection creation and focus return, appreciation/save rollback on Profile, Author, Questions, Collections and Competitions, and series navigation. Visual snapshots at 320/390/768/1280 px cover Light/Dark and incoming frames; phone Light and desktop Dark snapshots were reviewed. Three new regression scenarios failed before the repair and pass afterward. Initial sandbox browser networking failures preceded the successful runs; two stale adjacent test interactions were corrected before passing. Physical mouse/touchpad/touch hardware, other browser engines, assistive technology, and live database persistence were not exercised; touchpad momentum and touch swipes are simulated browser input. Frontend lint, production build, security artifact validation (84 files without source maps), and scoped whitespace checks passed on the completed implementation. There is no approval-dependent decision remaining.
+
+## Home carousel swipe cue placement — 2026-10-18
+
+Moved the existing “Swipe or drag ↔” cue above overflowing Home carousel tracks so the instruction is visible before the cards. Its conditional overflow behavior, text, styling, drag interaction, and carousel layout remain unchanged. Changed `Frontend/src/features/discovery/pages/Home/HomeSections.jsx`. On 2026-10-18, scoped ESLint, frontend production build, and whitespace check passed.
+
+## Home carousel card excerpt fill — 2026-10-18
+
+Covered Home article cards could clamp their excerpt to one line while leaving room before the engagement controls. The shared grid article card now lets its flexible excerpt occupy that space without a competing automatic footer margin and without runtime line-count measurement; the excerpt measures its post-layout flexible region and uses an ellipsis clamp for the complete lines that fit, up to three. Excerpt-free cards retain bottom-aligned actions. The seeded article body and the 220-character discovery response limit are unchanged. Changed `Frontend/src/features/discovery/components/DiscoveryPostCard.jsx`, focused `Frontend/tests/home-sections.spec.js`, post components audit, and UI rules. On 2026-10-18, scoped ESLint, frontend production build, and scoped whitespace check passed. The browser layout assertion was added but not run because this sandbox has blocked local browser access in focused attempts.
+
+## Desktop sign-out choice modal — 2026-10-18
+
+The signed-in desktop Account menu now places a sign-out icon beside the user name. It opens a native modal offering Sign out or Sign out from all devices through the existing auth actions. The two footer menu rows were removed; pending requests disable both modal choices, and dismissal restores focus to the account trigger. Mobile Account behavior, auth endpoints, and routes remain unchanged. Changed `Frontend/src/shared/components/layout/Navbar.jsx`, focused `Frontend/tests/navbar-search.spec.js` and `button-loading.spec.js`, UI rules/registry, and modal audit. On 2026-10-18, scoped ESLint, frontend production build, and whitespace check passed. Focused Playwright execution could not reach the local Vite server because Chrome reported `ERR_NETWORK_ACCESS_DENIED` in this sandbox, so browser behavior remains unverified.
+
+## Help and Settings in account menu — 2026-10-18
+
+Desktop Help and Settings moved from the sidebar footer into a Support & preferences section of the profile/account dropdown. Guests now have an account-menu trigger alongside the existing Sign In action, so both public destinations remain discoverable. Signed-in Profile, Library, Writing studio, role, and sign-out actions retain their menu order; the mobile Account sheet already contains Help and Settings. Routes, API contracts, permissions, and page content are unchanged. Changed `Frontend/src/shared/components/layout/Sidebar.jsx`, `Navbar.jsx`, focused specs in `Frontend/tests/help-page.spec.js`, `responsive-controls.spec.js`, `mobile-profile-sheet.spec.js`, and `navbar-search.spec.js`, Frontend README, UI rules/registry, and this tracker. On 2026-10-18 frontend lint and production build passed. Eleven focused mocked-API Chrome checks passed across guest/member desktop menus, sidebar rail, account keyboard behavior, and mobile navigation/resize. One additional signed-in mobile navbar check stopped at its pre-existing 320 px search-width assertion before reaching the menu assertion; its guest counterpart passed. This entry supersedes prior sidebar-footer Help/Settings placement descriptions.
+
+## Desktop account menu Help and Settings icons — 2026-10-18
+
+Help and Settings in the desktop account menu now show the existing Help mark and shared Settings icon used by the mobile account sheet. Destinations, row behavior, menu structure, and other navigation remain unchanged. Changed `Frontend/src/shared/components/layout/Navbar.jsx` and the owning UI rules. On 2026-10-18, scoped ESLint and the frontend production build passed; browser interaction was not exercised.
+
+## Catalog sidebar group — 2026-10-18
+
+Collections and Series now sit in a separate Catalog disclosure between Browse and Your space. Browse retains Trending, Questions, Competitions, and Short Reads. All three groups start open, collapse independently, and become dividers in the icon rail while their links remain available. This supersedes the Browse membership described in the earlier sidebar-group entry below. Changed `Frontend/src/shared/components/layout/Sidebar.jsx`, the focused sidebar checks in `Frontend/tests/responsive-controls.spec.js`, `Frontend/README.md`, `context/ui-rules.md`, `context/ui-registry.md`, and this tracker. On 2026-10-18, frontend lint and production build, a scoped whitespace check, and three mocked-API Chrome checks at 768/1280 px passed. Routes, access rules, mobile navigation, and backend data were unchanged.
+
+## Collapsible sidebar groups and direct Browse links — 2026-10-18
+
+Browse and Your space are now independent, keyboard-accessible sidebar disclosures, open by default. The Explore disclosure is removed; Trending, Questions, and Competitions appear as direct Browse links alongside Short Reads, Collections, and Series. The icon rail replaces the group buttons with dividers and keeps every page icon reachable, then restores each group's prior expanded state when reopened. Routes, sign-in visibility for Member Hub, mobile navigation, and sidebar width/resize behavior remain unchanged. Changed `Frontend/src/shared/components/layout/Sidebar.jsx`, focused navigation checks in `Frontend/tests/responsive-controls.spec.js`, `back-navigation.spec.js`, `theme-preference.spec.js`, and `hover-titles.spec.js`, Frontend README, UI rules/registry, and this tracker. This supersedes the sidebar group behavior in the earlier dated entry below. Verification on 2026-10-18: frontend lint, production build, scoped whitespace check, and eight focused mocked-API installed-Chrome checks passed at 320/768/1280 px across group disclosure, independent collapse, rail visibility/state, reduced motion, theme color, direct Trending navigation/Back, and hover labels. The 1280 px icon rail screenshot was reviewed. Live API data, physical devices, and other browser engines were not exercised.
+
+## Short series link follows short content — 2026-10-18
+
+Moved the existing short reader series link from the fixed area above its action footer to immediately after `PostBody` inside the scrollable reading pane. It retains the series name, current part indicator, and `/series/:id` destination for any short with series context. The action footer, list gestures, reader routes, API, and stored data are unchanged. Changed `Frontend/src/features/discovery/components/ShortReadModal.jsx`, focused `Frontend/tests/series.spec.js`, Frontend README, UI rules, short format audit, and this tracker. On 2026-10-18 the frontend production build, scoped ESLint, and whitespace check passed. Browser execution remains unverified because the configured API could not connect to MongoDB in the focused run.
+
+## Series links in post and short readers — 2026-10-18
+
+The series section on a full post and the fixed strip on a short now identify the current writing as part of its named series and open `/series/:id` from every part. A short's strip appears whenever its post detail has series context, including standalone and canonical reads. Existing series order, short list gestures and Up/Down controls, reader layout, routes, APIs, schemas, and stored data remain unchanged. Changed `Frontend/src/features/post/pages/index.jsx`, `Frontend/src/features/discovery/components/ShortReadModal.jsx`, focused `Frontend/tests/article-reading.spec.js` and `Frontend/tests/series.spec.js`, Frontend README, UI rules, short format audit, and this tracker. On 2026-10-18 the frontend production build, scoped ESLint, and whitespace check passed. The focused browser run could not start because the configured API could not connect to MongoDB; browser behavior remains unverified by that run.
+
+## Sidebar order and group hierarchy — 2026-10-18
+
+The desktop sidebar now orders Home, Browse (Explore with Trending/Questions/Competitions, Short Reads, Collections, Series), and Your space (Writing studio, signed-in Member Hub), with Help/Settings at the bottom. Expanded Browse/Your space headings are muted uppercase labels without page interaction; Explore's disclosure no longer uses a page-link active background or border, and its child page links have deeper indentation and retain their own active state. Collapsed headings become dividers. Routes, access rules, mobile navigation, width/collapse persistence, and resize controls are unchanged. Changed `Frontend/src/shared/components/layout/Sidebar.jsx`, focused `Frontend/tests/responsive-controls.spec.js`, Frontend README, UI rules/registry, and this tracker. Verification on 2026-10-18: frontend production build, focused Sidebar/spec lint, scoped whitespace check, and two installed-Chrome mocked-API checks at 768/1280 px passed. The browser checks covered group labels, link order, nested indentation, collapsed rail, resize, persistence, and the Explore shortcut; expanded and rail screenshots at 1280 px were reviewed. Full frontend lint is currently blocked by four unrelated `no-console` errors in `Frontend/tests/discovery-post-card.spec.js`. Live API data, physical devices, and other browser engines were not exercised.
+
+## Tighter sidebar chevron spacing — 2026-10-18
+
+The desktop sidebar chevron now occupies a 32 px square, centered at the top-right of both expanded and collapsed states. Reduced navigation top padding closes the space beneath it while keeping the links clear of the control. This is a user-requested exception to the usual 44 px icon-button target. Changed `Frontend/src/shared/components/layout/Sidebar.jsx`, focused `Frontend/tests/responsive-controls.spec.js`, Frontend README, UI rules, and this tracker. On 2026-10-18 frontend lint, production build, scoped whitespace checks, and two focused mocked-API Chrome tests at 768/1280 px passed. Existing navigation, collapse persistence, width animation, routes, APIs, and mobile behavior remain unchanged.
+
+## Button hover text — 2026-10-18
+
+Enabled native and shared buttons, navigation links, and button-like controls now receive browser-native hover titles from their current accessible label or visible text; explicit titles remain authoritative. Navbar notification links have an explicit Notifications hover title while retaining their accessible unread-count names. Disabled buttons retain their contextual tooltip. The root tooltip component was extended without changing routes, styles, APIs, or schemas. Verification on 2026-10-18: frontend lint and production build passed. A focused hover test covers desktop and mobile navigation and the navbar, but could not execute: Playwright's bundled browser is missing, and installed Chrome received `ERR_NETWORK_ACCESS_DENIED` for the local Vite server in the sandbox.
+
+## Profile role and desktop account menu hierarchy — 2026-10-18
+
+Personal Profile now shows the stored role directly under the handle in its identity header instead of as a fifth stat card. The desktop Account popover groups account identity, Profile/Library/Writing studio destinations with short descriptions, and sign-out actions. It retains the existing routes, menu-item keyboard navigation, dismissal, and theme tokens. Changed `Frontend/src/features/user/pages/Profile/index.jsx`, `Frontend/src/shared/components/layout/Navbar.jsx`, `Frontend/tests/account-groups.spec.js`, Frontend README, UI rules, UI registry, and this tracker. Frontend lint, production build, and scoped whitespace check passed on 2026-10-18. Focused mocked-API browser checks could not run: default startup required unavailable MongoDB; a frontend-only run with installed Chrome reached `ERR_NETWORK_ACCESS_DENIED` for localhost in the sandbox. No visual or live-session result is claimed.
+
+## Compact sidebar chevron — 2026-10-18
+
+The desktop sidebar toggle now uses a small directional chevron at its top-right. Its 14 px icon sits in the existing usable 44 px target, and reduced top spacing places navigation closer to it without adding a header row. Expanded and icon-rail states retain the existing 300 ms width transition. Changed `Frontend/src/shared/components/layout/Sidebar.jsx`, focused `Frontend/tests/responsive-controls.spec.js`, Frontend README, UI rules, and this tracker. On 2026-10-18 frontend lint, production build, scoped whitespace checks, and two focused mocked-API Chrome checks at 768/1280 px passed; both resulting rail screenshots were reviewed. Existing routes, APIs, schemas, stored data, and mobile navigation are unchanged.
+
+## Role display and admin membership access — 2026-10-18
+
+The signed-in desktop Account menu, mobile Account sheet, and personal Profile now show the account's stored role with a readable label. Profile retains its separate Reader/Writer account type. Admin accounts receive the existing membership capability set through the entitlement service, allowing Member Hub creator extras and other member-gated experiences without a paid membership record. Existing routes, schemas, cards, navigation, and other role checks are unchanged. Changed `Backend/services/entitlement.service.js`, added `Backend/tests/admin-entitlements.test.js` and `Frontend/src/features/user/utils/roleLabel.js`, and updated Navbar, MobileProfileSheet, Profile, Frontend README, UI rules, project overview, and this tracker. On 2026-10-18 frontend and backend lint, frontend build, and the focused admin entitlement test passed. The broad backend foundation suite could not finish its localhost HTTP cases in the sandbox (`EACCES`); no live admin session or database was exercised.
+
+## Edit profile section cleanup — 2026-10-18
+
+Removed the bottom Cancel button and the two section divider borders from Edit profile. Its single title-row Save still governs the profile fields, selected reading interests, and staged inferred-interest reset; the shared Back control leaves without saving. Existing form fields, section spacing, APIs, stored data, and routes remain. Changed `Frontend/src/features/user/components/ReadingInterestSettings.jsx`, `Frontend/src/features/user/pages/Profile/EditProfilePage.tsx`, `Frontend/tests/profile-edit.spec.js`, Frontend README, UI rules, and this tracker. On 2026-10-18 frontend lint, production build, scoped whitespace checks, and all five focused mocked-API Chrome profile-edit checks passed at phone and desktop widths. Live persistence and other browser engines were not exercised.
+
+## Smooth sidebar toggle — 2026-10-18
+
+The desktop sidebar now eases between its saved expanded width and the 64 px icon rail over 300 ms, while link labels fade during the change. Pointer resizing remains immediate; reduced-motion preference reduces the switch to the project's near-zero transition duration. Changed `Frontend/src/shared/components/layout/Sidebar.jsx`, focused `Frontend/tests/responsive-controls.spec.js`, Frontend README, UI rules, and this tracker. On 2026-10-18 frontend lint, production build, scoped whitespace checks, and five focused mocked-API Chrome sidebar checks passed, including an intermediate width during collapse, keyboard resizing, persistence, and reduced motion at 768/1280 px. Routes, API contracts, stored data, and mobile navigation are unchanged.
+
+## Compact desktop sidebar — 2026-10-18
+
+The sidebar toggle now sits at the sidebar's top-right and switches its expanded width to a persistent 64 px icon-only rail rather than removing the sidebar. Collapsed links keep accessible names and hover titles; Explore opens Trending, while expanded child links and the existing resize handle return on expansion. The prior top-bar show/hide behavior recorded below is superseded. Changed `Frontend/src/shared/components/layout/AppLayout.jsx`, `Navbar.jsx`, `Sidebar.jsx`, focused `Frontend/tests/responsive-controls.spec.js`, Frontend README, UI rules, and this tracker. On 2026-10-18 frontend lint, production build, whitespace checks, and five focused mocked-API Chrome sidebar checks passed at 768/1280 px; two icon-rail screenshots were reviewed. Existing routes, APIs, schemas, stored data, theme, and mobile bottom bar are unchanged. Physical devices, assistive technology, and other browser engines were not exercised.
+
+## Unified Edit profile Save — 2026-10-18
+
+Edit profile now has one Save button at the right of its title. It applies changed display name/biography and reading-interest topics, then any staged inferred-interest reset; Cancel discards unsaved changes. The former bottom Save and Reading interests Save buttons are removed. Saving unchanged profile fields does not repeat the profile update API; partial failures retain the form and retry only sections still unsaved. Existing routes, APIs, stored data, field limits, theme, and section presentation remain. Changed `Frontend/src/features/user/pages/Profile/EditProfilePage.tsx`, `Frontend/src/features/user/components/ReadingInterestSettings.jsx`, focused `Frontend/tests/profile-edit.spec.js`, Frontend README, UI rules/registry, and this tracker. On 2026-10-18 frontend lint, production build, scoped whitespace validation, and all five focused mocked-API Chrome checks passed with a task-owned Vite server. The checks cover the single Save, staged topic/reset writes, existing profile failure/retry, guest guard, and Back behavior at 320/1280 px; phone Light and desktop Dark screenshots were reviewed. Live database persistence, physical devices, assistive technology, and other browser engines were not exercised.
+
+## Analytics entitlement request — 2026-10-18
+
+Writing studio now scopes the entitlement cache by signed-in account and refreshes entitlements before fetching member-only post performance. This prevents a cached member result from a different account or an earlier membership state from triggering an avoidable `/api/user/analytics` 403. Failed entitlement checks show retry feedback; basic published-post, appreciation, and comment counts remain available. The backend's `writer_analytics` permission check and all API/data contracts are unchanged. Changed `Frontend/src/features/membership/hooks/useEntitlements.js`, `Frontend/src/features/user/pages/Profile/index.jsx`, this tracker, and UI rules. On 2026-10-18 frontend lint, production build, and scoped whitespace checks passed. Browser assertions remain unverified because the local sandbox denied loopback navigation in the preceding focused attempt.
+
+## Editor divider, sidebar toggle, and profile settings — 2026-10-18
+
+The editor divider keeps keyboard focus but uses the same narrow left-edge focus cue as text fields, removing the full-width browser button outline. At 768 px and above, the top bar toggles the desktop sidebar and saves that visibility locally; existing resizing and mobile navigation remain. Reading-interest and inferred-interest controls moved from public Settings to the guarded Edit profile page, reusing their existing queries and mutations. App theme and language stay in Settings. No backend routes, APIs, schemas, or stored data changed. Changed frontend files: editor page, global CSS, AppLayout, Navbar, Settings page, Edit profile page, and new ReadingInterestSettings component. On 2026-10-18, frontend lint, production build, and whitespace validation passed. Focused browser assertions remain unverified: the managed test server could not connect to MongoDB, and a frontend-only mocked run in installed Chrome could not navigate to loopback because the sandbox returned `ERR_NETWORK_ACCESS_DENIED`. The historical context corpus was too large for a complete semantic read in one tool response; the task-owning current guidance was reviewed, and unrelated working-tree changes were preserved.
+
+## Labeled post report action — 2026-10-17
+
+The post-detail Report control now displays the visible `Report` label beside its flag icon, matching the labeled Save and Share actions while retaining the subject-specific accessible name, tooltip, 44 px target, and existing report modal flow. Updated `Frontend/src/features/post/pages/index.jsx` and the post-header rule in `context/ui-rules.md`. Focused ESLint and the frontend production build passed on 2026-10-17.
+
+The control now also uses the shared `Button` component with `leadingIcon`, keeping the icon-and-text implementation reusable.
+
+Save, Series, and Share now use the same shared `Button` component too, with their existing icons, labels, refs, and state behavior preserved. Focused ESLint and the frontend production build passed after the standardization.
+
+Save and Series now use the same quiet `action` variant as Share and Report, so all labeled article actions share one visual design. Save's bookmark fill, label, and pressed state still communicate whether the story is saved. Focused ESLint and the frontend production build passed after this alignment.
+
+## Visible scroll-linked short movement — 2026-10-17
+
+The edge handoff offset now uses a separate relative-position channel from the Framer Motion transition, so the short visibly moves with continued wheel movement: scrolling down pushes it upward, and scrolling up pushes it downward. The offset grows to the handoff threshold and then yields to the next short's existing transition; incomplete gestures settle back. Focused coverage records the pushed content position. On 2026-10-17 the frontend production build, focused ESLint, Playwright test discovery, and whitespace checks passed. Browser execution remains unavailable because the sandbox previously denied installed Chrome access to the local app.
+
+## Scroll-linked short handoff — 2026-10-17
+
+Short-reader edge movement is now visually linked to navigation. Once normal content scrolling reaches an edge, continued wheel movement pushes the current short by a proportional amount up to the 160 px handoff threshold; the next short then takes over with the existing vertical transition. A single large wheel event contributes at most 60 px, so it cannot jump directly to the next short. The push settles back when the gesture stops short, and touch edge feedback remains available. The reader layout, list order, routes, APIs, comments, and stored data are unchanged. Focused ESLint, production build, test discovery, and whitespace checks passed on 2026-10-17. Browser execution remains unverified because the sandbox previously denied installed Chrome access to the local app.
+
+## Collection card menu placement — 2026-10-17
+
+The shared CollectionCard now places its three-dot menu in a dedicated row beside the title, leaving the cover unobstructed on narrow and wide cards. Existing link and menu actions remain. Targeted frontend lint and production build passed. Focused mocked-API Chrome collection layout/menu checks passed 11/12 in the broad run; the 320 px cover assertion was updated to match the intended aspect ratio and both 320 px checks passed on rerun. Phone and desktop screenshots were reviewed. Live persistence and other browser engines remain unverified; details are in the collection items audit.
+
+## Article member access modal — 2026-10-17
+
+For signed-in readers lacking the Article overview or Read aloud capability, either article tool now opens the existing membership explanation and Become a member checkout action in a shared centered modal. The modal provides Close, Escape, and backdrop dismissal with focus returned to the triggering tool. Eligible members keep their inline or side-panel tools, and guests keep sign-in. Changed `Frontend/src/features/post/pages/AIPanel.jsx`, `Frontend/src/features/post/pages/index.jsx`, and the focused post-detail layout spec; UI rules were updated. Frontend lint (one warning in the previously modified ShortReadModal) and production build passed on 2026-10-17. Focused browser tests were attempted but could not navigate to the local Vite server because the browser sandbox returned `ERR_NETWORK_ACCESS_DENIED`; modal interaction remains browser-unverified.
+
+The Become a member action in this modal is right-aligned after user review. This is limited to the action row in `Frontend/src/features/post/pages/AIPanel.jsx`; the membership copy, checkout, and dismissal behavior are unchanged. Focused ESLint and frontend production build passed on 2026-10-17; browser layout was not rerun for this alignment-only change.
+
+## Short-reader single-scroll boundary correction — 2026-10-17
+
+A wheel gesture that begins by scrolling within a short now stays on that short even if it reaches the bottom and keeps emitting events. The next distinct gesture at the edge can advance after deliberate accumulated movement. Each wheel event contributes at most 60 px toward the 160 px edge threshold, so one large event on a short that already fits the pane cannot advance by itself. The existing subtle edge feedback, one-change-per-gesture guard, touch threshold, top reset, reader layout, routes, APIs, and stored data remain unchanged. Focused browser checks now cover a large scroll from the top, continued edge events from that scroll, a fresh edge gesture, and one large event on a short that fits the pane. On 2026-10-17 focused ESLint, frontend production build, Playwright spec discovery, and scoped whitespace checks passed. Browser execution remains unverified here because the sandbox previously denied installed Chrome access to the local app.
+
+## Mobile Browse page tabs — 2026-10-17
+
+Browse now links directly to `/collections`. The Collections and Series pages share a mobile-only sticky underline navigation row above their existing headers, patterned on Explore. Their routes, content, desktop presentation, APIs, and stored data remain unchanged. The Browse sheet was removed. Focused navigation assertions now cover both links and selected state. Frontend production build, focused ESLint, and scoped whitespace checks passed on 2026-10-17; browser execution remains unavailable because Playwright's bundled browser is missing and the sandbox denied installed Chrome access to the local app in the preceding focused attempt. This supersedes the earlier Browse sheet entries below.
+
+## Author grid content visibility — 2026-10-17
+
+The Author Published work excerpt was absent because `GET /api/writer/:handle` omitted the `excerpt` field; the card's conditional excerpt had nothing to render. The writer response now derives that field with the existing discovery text extractor, and a focused backend contract test asserts it. The prior 440 px card enlargement was reverted to 400 px; the 180 px cropped grid cover remains to keep image width from consuming the fixed card height. Author and Home continue to share the grid variant and space-aware clamp. On 2026-10-17 the focused backend contract test, backend ESLint, frontend production build, and scoped whitespace check passed. Browser layout remains unverified because this sandbox denied installed Chrome access to the local app in the preceding focused attempt.
+
+## Mobile Browse button color — 2026-10-17
+
+Browse uses the existing accent color in the mobile bottom bar even when the current route is elsewhere. The former sheet behavior described at that time was replaced by the mobile Browse page tabs above. Focused frontend lint, production build, and scoped whitespace check passed; browser visual verification was unavailable in this sandbox.
+
+## Shared article grid card height — 2026-10-17
+
+The fixed 400 px height, two-line title, measured complete-line excerpt, and bottom engagement controls now apply to every DiscoveryPostCard article grid, including Author Published work and Home carousels. The carousel prop remains present for future carousel-specific presentation. List cards, short cards, routes, APIs, and schemas are unchanged. Frontend production build, focused ESLint, and scoped whitespace checks passed on 2026-10-17. Browser layout remains unverified because this sandbox denied installed Chrome access to the local app in the preceding focused attempt.
+
+## Mobile Browse sheet — 2026-10-17
+
+The phone bottom bar was reduced to five destinations: Home, Explore, Shorts, Browse, and Account. The interim Browse bottom sheet was replaced by the mobile Browse page tabs above. Both routes and the desktop sidebar remained unchanged. Frontend build and focused lint passed at that point. Browser checks could not run: Playwright's bundled Chromium and ffmpeg were absent, and installed Chrome was denied access to the local Vite server by the sandbox.
+
+## Deliberate short-reader edge gestures — 2026-10-17
+
+Short-reader wheel and touchpad navigation now requires 160 px of accumulated movement at the reading pane edge or over the surrounding overlay. Small movements continue to scroll the current short normally; at an edge, the current short moves subtly and settles back if the threshold is not reached. Edge touch swipes now require 100 px. One continuous wheel gesture still advances at most one short, and every new short starts at the top. This supersedes the immediate large-wheel-tick behavior recorded below. The reader layout, list order, comments, controls, routes, APIs, and stored data remain unchanged. On 2026-10-17 focused ESLint, frontend production build, Playwright spec discovery, and scoped whitespace checks passed. Browser execution was not repeated because installed Chrome was denied local-app access in the preceding focused attempt; this gesture feedback remains unverified in a browser here.
+
+## Selected-text editor formatting — 2026-10-17
+
+The story editor now offers a selection toolbar for Bold and Italic, with Ctrl/Cmd shortcuts. Existing block content stores lightweight markers, and the published reader renders them in text, heading, and quote blocks. Code/image/divider blocks remain unformatted. Frontend lint and production build passed on 2026-10-17. Browser interaction, live draft persistence, assistive technology, and other browser engines have not yet been verified. The editor visibly retains formatting markers during composition; nested/overlapping styles remain unsupported.
+
+Follow-up on 2026-10-17: corrected the toolbar's dismissal after a selection is cleared or the pointer moves away. A focused mocked-API Chrome check passed for selection, collapse, and outside dismissal. The frontend production build and targeted editor lint passed. Full-project lint was interrupted by an unrelated temporary Playwright config disappearing during its scan; browser testing initially lacked the bundled Chromium binary and sandbox localhost access, then completed with installed Chrome and a task-owned Vite server. Live draft persistence and other engines remain unverified.
+
+## Short-reader wheel and scroll-position correction — 2026-10-17
+
+The short reader now resets its reading pane to the top on every short change. At a reading-pane edge or over the surrounding overlay, one continuous wheel gesture advances at most one short, including when its events continue beyond the 520 ms slide. Small touchpad deltas accumulate at the edge so continued scrolling can advance without waiting for a quiet period; a later distinct gesture can advance again. This supersedes the quiet-period behavior in the earlier wheel entries below. The existing list order, slide, touch swipes, comments isolation, controls, routes, APIs, and data are preserved. Focused browser coverage was added for accumulated deltas, a long wheel stream, and the next short's starting position. On 2026-10-17 frontend lint, production build, Playwright test discovery, and whitespace checks passed. Browser execution was attempted with the installed Chrome but stopped before app navigation because this sandbox denied loopback access (`ERR_NETWORK_ACCESS_DENIED`); bundled Chromium and ffmpeg are unavailable here.
+
+## Home carousel, mobile Series, and sticky tabs — 2026-10-17
+
+Completed frontend layout changes for equal-height Home article carousel cards with two-line titles, space-aware complete-line excerpt clamping, and bottom-aligned engagement controls; Series in mobile primary navigation; and sticky page-level tab selectors including Explore. The carousel clamp now measures the remaining excerpt area so the number of visible lines changes with available space. Routes, APIs, schemas, typography, and colors are unchanged. Frontend lint and production build passed after the correction. Browser layout and interaction checks remain unverified.
+
+## Question follow, report trigger, and analytics modal action — 2026-10-17
+
+Question detail now updates its viewer-scoped cache after following or unfollowing, and the action says Unfollow question while followed. Its report trigger uses the shared Button with a flag icon before Report, retaining the full accessible name. The Writing studio advanced analytics modal right-aligns Become a member. Existing routes, API contracts, data models, and page structure are unchanged. Frontend lint, focused ESLint, production build, and scoped whitespace check passed on 2026-10-17. Browser interaction and live persistence were not verified.
+
+## Shorts page header action — 2026-10-17
+
+The Shorts page no longer shows Browse series in its PageHeader. The short list, topic/sort filters, reader, `/series` route, APIs, and stored data are unchanged. Focused ESLint, frontend production build, and scoped whitespace checks passed on 2026-10-17.
+
+## Short-reader rapid wheel navigation — 2026-10-17
+
+Investigation found that the reader extended a 250 ms quiet period on every edge wheel event and discarded navigation for 900 ms after a short change. This made repeated wheel ticks feel ignored until scrolling paused. The reader now permits a distinct wheel tick at the edge, holds a continuous stream of small touchpad deltas until a brief break, and limits the post-navigation lock to the existing 520 ms slide duration. The focused browser check covers reaching the bottom, suppressing continuous small deltas, and advancing on the next distinct wheel tick. Focused ESLint, frontend production build, Playwright spec discovery, and scoped whitespace checks passed on 2026-10-17. Browser execution remains unverified because the local Chrome sandbox previously denied loopback access.
+
+## Button hover audit — 2026-10-17
+
+The frontend source audit found 116 native button elements. Forty-six did not declare a hover utility on the element; some already used shared CSS and others had no visible hover state. Borderless action buttons, including short-card appreciation/comment controls and article/short-reader appreciation, now use a translucent theme-aware hover surface that remains visible over both surface and alternate backgrounds. The short-reader Comment, Save, and Share controls have explicit rounded hover surfaces. Other enabled native buttons and shared button links without component hover utilities receive a restrained brightness fallback. Disabled buttons retain their static appearance and tooltip behavior. No layout, navigation, API, or stored-data changes were required. Focused ESLint, frontend production build, and scoped whitespace checks passed on 2026-10-17. Browser visual verification was not run because the local Chrome sandbox previously denied loopback access.
+
+## Tag search destinations by content type — 2026-10-17
+
+Clickable short-reader tags now open `/search` with the tag query and `type=shorts`, selecting the Shorts results tab. Post tags continue to open the default Posts tab; question feed/detail tags already use `type=questions` and select Questions. The shared Tag component gained an optional search type so existing post call sites retain their URLs. The Search page, API, and data models are unchanged. A focused short-reader browser check now asserts its tag URL and selected tab. Focused frontend ESLint, production build, and Playwright spec discovery passed on 2026-10-17; browser execution remains unverified in this sandbox because Chrome loopback access was denied in the preceding run.
+
+## Short-card focus after reader Escape — 2026-10-17
+
+The short-card title link now displays keyboard focus around the full card click area instead of around wrapped title text. Escape still returns focus to the opening link. This removes the fragment outlines that looked like text selection or underlining after closing the reader. Focused ESLint, frontend production build, and scoped whitespace checks passed on 2026-10-17; browser visual verification was not available in this sandbox.
+
+## Comment row text spacing — 2026-10-17
+
+The shared comment row now leaves 4 px, rather than 8 px, between the inline username/date and comment text. The frontend production build passed on 2026-10-17; browser visual verification was not run.
+
+## Comment row name and date — 2026-10-17
+
+Shared CommentItem now places the date after the username on one line when space allows, reducing row height in short-reader comments and the other comment surfaces. Long names and narrow widths can wrap naturally. Comment content, actions, APIs, and stored data are unchanged. On 2026-10-17 the frontend production build and scoped whitespace check passed. The focused ESLint invocation reported that TSX is excluded by the repository's current lint configuration; no browser visual run was performed for this small layout change.
+
+## Short-reader comments Close hover — 2026-10-17
+
+The comments panel Close button now uses the shared modal Close button's text color, circular alternate-background hover effect, and focus treatment. Only that control's visual state changed. Focused ESLint and the frontend production build passed on 2026-10-17; browser visual verification was not run.
+
+## Short-reader comments scroll stability — 2026-10-17
+
+Opening or closing the comments panel now moves keyboard focus without asking the browser to scroll the reader. The focused browser check records a scrolled short's reading position before opening comments and checks that it stays unchanged after opening and closing. Frontend lint, production build, and test discovery passed on 2026-10-17. Browser execution was attempted with a frontend-only server and installed Chrome, but this sandbox denied Chrome's loopback navigation (`ERR_NETWORK_ACCESS_DENIED`) before the test reached the modal.
+
+## Short-reader comments panel — 2026-10-17
+
+Short-reader comments now appear in a bounded panel that slides up from the bottom of the reader. The panel has a Close control; a lightly blurred, dimmed layer over the short content also closes it when clicked. The existing comment list/composer, reader layout, routes, APIs, and stored data remain in use. A focused browser check covers the panel, close control, focus return, scrim dismissal, and comment scrolling. Frontend lint, production build, test discovery, and scoped whitespace checks passed on 2026-10-17. Browser execution remains unverified because Playwright's configured API server could not connect to MongoDB in this environment during the preceding focused run.
+
+## Short-reader wheel gesture boundary — 2026-10-17
+
+The short reader now waits for a fresh wheel gesture after scrolling its content to the top or bottom before changing to an adjacent short. A focused browser regression check covers continuous wheel input reaching the bottom followed by a separate scroll. Frontend lint, production build, and test discovery passed on 2026-10-17. Browser execution was attempted but Playwright's configured API server could not connect to MongoDB and exited before the test ran. Routes, APIs, stored data, modal layout, touch navigation, overlay navigation, and button navigation remain unchanged.
+
+## Compact short-reader body typography — 2026-10-17
+
+The short reader's compact body now renders H1/H2/H3 at 20/18/16 px with adjusted line heights. Paragraphs remain 14 px. The modal post title and full article body styles are unchanged. On 2026-10-17 focused ESLint, production build, and whitespace checks passed. Browser visual verification was not run.
+
+## Short preview fills available card space — 2026-10-17
+
+Short summary excerpts now provide up to 800 characters to the existing ShortCard line clamp, removing the 220-character source cutoff that left unused space. Article summaries remain at 220 characters. A presenter contract check covers short, article, and legacy formats. On 2026-10-17 the focused presenter test, backend focused ESLint, and scoped whitespace checks passed. The full backend suite was attempted; unrelated local-HTTP tests failed because the sandbox denied loopback connections (`EACCES`), while the changed presenter test passed.
+
+## Fluid short-card title and excerpt balance — 2026-10-17
+
+Fluid ShortCard titles now use 18 px type and 1.25 line height. Cover-free fluid cards reserve 35% for the title section and give the excerpt more space; the compact two-column phone layout retains 42%. Focused ESLint, production build, short-layout spec discovery, and scoped whitespace checks passed on 2026-10-17. Browser visual verification was not run because the local sandbox previously denied loopback access to the Vite server.
+
+## Code block editor and reader parity — 2026-10-17
+
+Editor and published code blocks now use matching font, size, line height, padding, radius, and theme colors. Focused ESLint, production build, and scoped whitespace checks passed on 2026-10-17. Browser visual verification was not run; existing editor wrapping and published horizontal scrolling remain distinct.
+
+## Stale saved-edit cleanup — 2026-10-17
+
+The published-post editor now waits for a fresh post read, stores only changed fields as a local working copy, and discards a stored copy that already matches the published content. This removes the false revision-conflict message when reopening a successfully updated post. Focused mocked-API coverage was extended for reopening after Update with an old local revision. Focused ESLint, production build, Playwright spec discovery, and scoped whitespace checks passed on 2026-10-17. Browser execution remains unverified because the local sandbox previously denied loopback access to the Vite server.
+
+## Quote border theme color — 2026-10-17
+
+Editable quote blocks now use the secondary text theme color for their left border, keeping the border visible in Dark mode. A focused Dark-mode CSS assertion was added. Focused ESLint, production build, Playwright spec discovery, and scoped whitespace checks passed on 2026-10-17. Browser execution remains unverified because the local sandbox previously denied loopback access to the Vite server.
+
+## Slash menu Tab selection — 2026-10-17
+
+Tab now applies the highlighted block type in the editor slash menu, as Enter does, and returns focus to the converted block. With no matching option it closes and navigates normally. A focused browser assertion was added. Focused ESLint, production build, Playwright spec discovery, and scoped whitespace checks passed on 2026-10-17. Browser execution remains unverified because the local sandbox previously denied loopback access to the Vite server.
+
+## Recoverable published-post edits — 2026-10-17
+
+Published post and short editing now saves a working copy in browser storage for the current writer and post, restores it after refresh, and clears it after a successful Update. Only Update changes the published post; new-story drafts retain server autosave. A focused mocked-API browser check covers a short edit, refresh recovery, revision-bearing Update, and absence of draft requests. Frontend production build, full lint, focused spec discovery/lint, and scoped whitespace checks passed on 2026-10-17. Browser execution remains unverified because the local sandbox previously denied loopback access to the Vite server.
+
+## Published short update revision — 2026-10-17
+
+The editor now gives `?edit=` precedence over a stale `?draft=` parameter, skips draft autosave during published-post editing, and holds Update until the fetched revision is available. A focused mocked-API browser check was added for the short update request and absence of draft requests. No backend route, API, schema, or stored-data change was required. Frontend lint, production build, focused Playwright spec discovery, and scoped whitespace checks passed on 2026-10-17. Browser execution remains unverified: the local sandbox previously denied loopback access to the Vite server.
+
+## Editor slash conversion and code colors — 2026-10-17
+
+Slash menu block conversion removes the command at the caret while preserving text before and after it. Code block editing uses theme surface and text tokens, fixing the light field in Dark mode. Changed the editor page, a focused editor browser spec, Frontend README, and write-page audit. Frontend lint, production build, and scoped whitespace checks passed on 2026-10-17. Browser execution was attempted with installed Chrome but the sandbox denied loopback access to the local Vite server (`ERR_NETWORK_ACCESS_DENIED`); the new interaction and visual assertions remain browser-unverified. No backend route, API, schema, or stored-data change was needed.
+
+## Short reader typography — 2026-10-17
+
+The short modal title now uses 23–28 px Libre Baskerville at CSS weight 500 and 1.2 line height. Compact body H1/H2/H3 use 22/20/18 px regular Libre Baskerville; compact paragraphs use 14 px light (300) DM Sans at 1.7 line height. Full-article PostBody styling, modal header, layout, routes, and APIs are unchanged. The imported Libre Baskerville faces are 400 and 700, so browsers may render requested weight 500 using the nearest available face. Frontend production build, focused ESLint, and scoped whitespace checks passed on 2026-10-17. Browser visual review was not run.
+
+## Short reader single-row tags — 2026-10-17
+
+The short reader now uses the shared pill-fitting hook to show only complete tags that fit on one row below author metadata. Hidden tags are not focusable, and the row collapses when none fit. Tag links and search destinations are unchanged. Added a narrow-reader regression check. Frontend production build, focused ESLint, and scoped whitespace checks passed on 2026-10-17. Browser interaction verification remains unavailable locally because Playwright Chromium is missing.
+
+## Short reader series strip entry context — 2026-10-17
+
+The compact short reader now shows its bottom series progression strip only when launched from a series detail page and the loaded short has series context. Next-part and final-part navigation within that series remain; standalone cards, feeds, search, collections, and canonical short URLs omit the strip. No route, API, or schema changed. Frontend production build, focused ESLint, and scoped whitespace checks passed on 2026-10-17. Browser interaction tests were not run because local Playwright Chromium is unavailable.
+
+## Short-card phone grid breakpoint — 2026-10-17
+
+Short grids now use two compact columns from 360 through 407 px and one centered column below 360 px. The automatic 170 px tracks resume at 408 px. This removes the collapse at 400 px on Author/Profile grids, whose 24 px horizontal gap needs 408 px after page padding and scrollbar space, and the forced one-column jump at 375 px. Short cards and Home loading cards use matching compact sizing. Added grid regression cases at 359, 360, 375, 398, 400, 407, and 408 px with both 16 and 24 px gaps. Frontend production build, focused ESLint, and scoped whitespace checks passed on 2026-10-17. Installed Chrome verified the project grid CSS at 359, 360, 375, 398, 400, 407, and 408 px using a 24 px gap: one column at 359 px and two at every checked width from 360 px. Full-app browser verification remains unavailable locally.
+
+## Split short-card presentation — 2026-10-17
+
+ShortCard now uses a dark title section and lighter excerpt section. It shows the first nonempty tag or a short accent line when tagless, clamps titles to two lines and excerpts to the full space above the footer, and places the avatar plus truncated first name left of compact engagement controls. Shared reader, menu, cover, routes, APIs, and stored data are unchanged. Frontend production build and focused ESLint passed on 2026-10-17. Browser geometry remains unverified: the Playwright Chromium executable is absent, and installed Chrome returned `ERR_NETWORK_ACCESS_DENIED` for the local preview.
 
 ## Four-column short-card experiment — 2026-10-16
 
@@ -1090,7 +1640,7 @@ Update this file only after a verified change to implementation progress. Put de
 
 ### 2026-10-13 — Short tag presentation
 
-- Short cards now show tag chips in one non-wrapping row as space permits, without the topic icon; the detailed short reader shows every tag below writer metadata. Updated `Frontend/src/features/discovery/components/DiscoveryPostCard.jsx`, `Frontend/src/features/discovery/components/ShortReadModal.jsx`, `context/short-format-audit.md`, `context/ui-rules.md`, `context/ui-registry.md`, and this tracker. Existing APIs, data, routes, and card geometry are unchanged. Source behavior was reviewed; automated and browser verification was not run.
+- Short cards now show tag chips in one non-wrapping row as space permits, without the topic icon; the detailed short reader originally showed every tag below writer metadata (superseded by the 2026-10-17 single-row rule). Updated `Frontend/src/features/discovery/components/DiscoveryPostCard.jsx`, `Frontend/src/features/discovery/components/ShortReadModal.jsx`, `context/short-format-audit.md`, `context/ui-rules.md`, `context/ui-registry.md`, and this tracker. Existing APIs, data, routes, and card geometry are unchanged. Source behavior was reviewed; automated and browser verification was not run.
 
 ### 2026-10-13 — Short header spacing
 
@@ -1199,7 +1749,7 @@ Update this file only after a verified change to implementation progress. Put de
 
 ### 2026-10-13 — Add viewer avatar to short-reader comments
 
-- Added the existing 32 px Avatar beside the short-reader comment form, using the signed-in viewer's profile image with an initials fallback. Increased the bordered panel padding from 10 to 12 px. The counter, buttons, post detail composer, standalone Comments dialog, and comment APIs remain unchanged. Updated UI rules and comment actions audit.
+- Added the existing 32 px Avatar beside the short-reader comment form, using the signed-in viewer's profile image with the current abstract fallback. Increased the bordered panel padding from 10 to 12 px. The counter, buttons, post detail composer, standalone Comments dialog, and comment APIs remain unchanged. Updated UI rules and comment actions audit.
 - Verification on 2026-10-13: scoped frontend ESLint, production build, and scoped whitespace check passed. Browser layout and interaction were not exercised.
 
 ### 2026-10-13 — Remove short-reader composer frame
@@ -1306,6 +1856,18 @@ All shared filter triggers now display only the existing filter icon and active-
 ## 2026-10-16 — Series and publishing follow-up
 
 Added in-modal reading-order controls for selected series writing and an owned Series section in Library. Removed mandatory cover and tag checks from post creation and update in the editor and server. The publishing modal no longer dismisses on backdrop clicks, which prevents native cover-picker cancellation from closing it. Frontend build passed. Backend foundation tests could not fully run in the sandbox because localhost requests returned EACCES. Existing unrelated working-tree changes were preserved.
+
+## 2026-10-18 — Saved series and Library order
+
+Added durable saved-series state using the existing series document relationship pattern. Public/unlisted series can now be saved or removed from the existing SeriesCard action menu, and authenticated saved-series listing is available through the existing `/api/series` route with save toggle endpoints. Library now orders tabs as Saved, History, My collections, and My series; Saved includes saved collections and saved series, while My collections contains owned collections only. Existing routes, card styling, collection APIs, series ownership, and stored series items remain unchanged. Frontend targeted lint and production build passed. Backend targeted lint passed; the foundation suite completed 85/111 with 26 existing loopback `EACCES` failures during network-listener cases.
+
+## 2026-10-18 — Saved content filters
+
+The Saved panel now uses Stories, Shorts, Collections, and Series controls. Collections displays saved collections, while Series provides Stories/Shorts filters for saved series. Saved story/short sorting and existing cards remain unchanged. Frontend targeted ESLint passed.
+
+## 2026-10-18 — Profile public collections and series
+
+The signed-in Profile published section now includes public Collections and Series alongside Posts and Shorts. Collections reuse the existing author-scoped collection query and CollectionCard; Series use public author-scoped series listing and SeriesCard, combining story and short series. Existing profile identity, post/short filters, routes, and card styling remain unchanged. Frontend lint/build and backend targeted lint passed.
 # Article reading tool buttons — 2026-10-16
 
 Article overview and Read aloud now use the existing shared Button presentation: rounded 44 px targets, secondary inactive surface and border, primary selected colors, and the standard focus ring. Their mobile labels, wide-screen icon rail, panel placement, membership gating, and behavior remain as before. Changed `Frontend/src/features/post/pages/AIPanel.jsx` and `context/ui-rules.md`. Frontend lint and production build passed on 2026-10-16. The focused Playwright run did not reach test execution because its local web server stalled during startup; browser appearance remains unverified.
@@ -1363,3 +1925,89 @@ Limited the short reader's final-part completion strip to readers opened from th
 ### 2026-10-16 — Article comment composer placement
 
 Moved the article Add a comment composer and guest prompt into the existing Comments disclosure. Both now appear with the discussion when expanded; collapsing retains the mounted draft and deferred read behavior. The standalone Comments dialog and short reader retain their current presentations. Updated focused comment expectations. Frontend production build and scoped lint passed; browser verification was not run in this change.
+# Creator-support removal — 2026-10-18
+
+Removed the Support writer action from public writer profiles, its frontend API helpers, and the authenticated creator-support GET/PUT/DELETE endpoints. Creator studio no longer offers a supporters-only update audience; new updates are for members. Existing supporter-audience updates remain readable by members, and existing support records remain stored without an active API or new seed writes. Follow, direct article requests, platform membership, and creator updates remain. Frontend production build, frontend/backend lint, and all 111 backend contracts passed (the first sandboxed contract run hit loopback `EACCES`; the unrestricted rerun passed). Database integration was not enabled. See the relevant route, controller, and UI files for the current contract.
+# Short reader card entrance — 2026-10-18
+
+Short-reader list navigation now mounts the replacement card at the bottom before it rises into its settled position; previous navigation enters from the top. This corrects the prior effect-driven transition, which could render the new short in its final position before its initial transform applied. The existing 520 ms transform/opacity timing, reduced-motion path, reader gestures, routes, APIs, schemas, and card presentation remain unchanged. Frontend lint and production build passed on 2026-10-18. Browser motion behavior remains unverified in this sandbox.
+## Series chapter-index card — 2026-10-18
+
+The shared SeriesCard on Series and owned Library now uses the approved chapter-index composition. The existing 420 px minimum grid tracks and one/two-column behavior remain; card content height is driven by its content. At narrow card widths the cover and identity sit above the chapter preview; at 360 px of inner card width they split into identity and chapter columns. The card uses the existing Libre Baskerville/DM Sans families, theme tokens, ImageBox fallback, title link, and separate action menu. The series list response now includes only the first three visible ordered item titles and positions as `entriesPreview`; the detail route and stored data are unchanged. There are no invented chapter subtitles. On 2026-10-18, frontend/backend lint, frontend build, 111 backend contracts, and the focused mocked-API Chrome grid check at 390/633/1280 px passed. The broader 12-check series suite passed nine checks; three existing checks failed on the Shorts browse-link label, add-to-series dialog copy, and a strict duplicate-link selector outside the changed card. Live database persistence, physical devices, assistive technology, and other browser engines were not exercised.
+
+## Series card image and text hierarchy — 2026-10-18
+
+The chapter-index card cover now fills the available width of its identity column while preserving the narrow-card square cover. The format and part count form one compact eyebrow; the larger Libre Baskerville title leads, followed by a separate author line and a description divided from the identity metadata. Existing grid tracks, chapter preview, actions, API shape, and stored data are unchanged. Frontend production build and the focused mocked-API Chrome grid/card check at 390, 633, and 1280 px passed, including cover width at desktop. Frontend lint passed. Physical devices, assistive technology, other browser engines, and live database persistence were not exercised.
+
+## Editable series title and description — 2026-10-18
+
+The existing Edit series modal now prefills editable title and optional description fields using the same length limits and input styling as creation. Valid text-only changes can be saved without changing the reading order; existing order and minimum-two-part validation remain. The current update API already accepts both fields, so no backend route, schema, or stored-data change was needed. The modal now has a viewport-bounded scroll area for the added fields. Frontend build and three focused mocked-API Chrome checks passed for card-menu entry, existing order editing, and title/description updates. Frontend lint passed. Live persistence, physical devices, assistive technology, and other browser engines were not exercised.
+
+## Separate browse and create series actions — 2026-10-18
+
+Library's owned Series tab now offers distinct Browse series and Create series actions. Browse opens `/series` with the selected story/short type, while Create opens the existing creation flow in Library. The empty Add to series dialog likewise offers separate Browse series navigation and in-place creation. The creation modal was extracted unchanged into a shared component for these entry points and the Series page; successful creation still navigates to series detail. Existing routes, API contracts, schemas, stored data, grid, cards, and creation validation remain unchanged. Frontend production build and three focused mocked-API Chrome checks passed for creation, Library actions, and the empty Add to series dialog; frontend lint passed. Live persistence, physical devices, assistive technology, and other browser engines were not exercised.
+
+## Library collection browse and create actions — 2026-10-18
+
+Library Collections now has separate Browse collections and Create collection controls alongside its existing My/Saved tabs and Filters. Browse navigates to `/collections`; Create opens the same creation modal used on Collections without leaving Library. The modal was extracted into a shared component without changing its fields, validation, mutation, or feedback. Existing collection filters, cards, routes, APIs, schemas, and stored data remain unchanged. Frontend production build and focused mocked-API Chrome checks passed at 320 and 1280 px. Frontend lint passed. Live persistence, physical devices, assistive technology, and other browser engines were not exercised.
+## Admin membership management visibility — 2026-10-18
+
+Admins retain the existing member capability set and Member Hub access, but no longer see the Stripe “Manage membership” action in the desktop Account menu, mobile Account sheet, or personal Profile header. Admin entitlement status is role-based and does not imply a Stripe customer or billing portal, so this prevents the action from failing with `No billing account exists`. Regular active/trialing subscribers retain the existing billing portal action. Changed `Frontend/src/shared/components/layout/Navbar.jsx`, `Frontend/src/features/user/components/MobileProfileSheet.tsx`, `Frontend/src/features/user/pages/Profile/index.jsx`, and the focused membership test. On 2026-10-18 the frontend production build passed; focused lint was run for the changed files. Browser verification was not completed locally.
+
+# Member Hub content and creator extra detail — 2026-10-18
+
+Creator extra cards now open full update details in the shared modal, with a short preview and focus return. Source: `Frontend/src/features/membership/pages/MemberHub.jsx`; UI behavior: `context/ui-rules.md`. The frontend production build passed on 2026-10-18.
+
+Follow-up on 2026-10-18: creator extra author avatar/name now links to the public author profile and darkens on hover. The remaining card area opens the update modal; the card surface darkens on hover. Frontend build and focused lint passed. The existing update API, modal, and membership gates are unchanged.
+
+Creator extra detail refinement on 2026-10-18: card usernames use muted text by default and darker text on hover. The modal header now reads Creator extras, with the individual update title, author, and full description in its body. The existing API, card trigger, and focus return are unchanged.
+
+Member Hub list fixture follow-up on 2026-10-18: the comprehensive development seed now includes an additional early article, an early short, and two workshops. `seed:member-preview` adds only those four records to an already seeded development database. The configured development database was populated with the focused seed; read-only verification found two future-release sample posts and two published upcoming sample workshops matching the list filters. No general seed or production data was changed. Backend seed files passed ESLint and syntax checks. Workshop joining URLs are examples rather than live meetings. Early releases remain gated by the existing `early_access` entitlement.
+
+Member Hub tabs follow-up on 2026-10-18: the four section pills were replaced with the existing Writing Studio underline tab layout, horizontally scrollable at narrow widths. Selection is exposed through a labelled tabpanel and ArrowLeft/ArrowRight/Home/End keyboard behavior. Early access is the default. Existing section content, entitlement gates, APIs, and data are unchanged. Source and focused browser expectations were updated in `Frontend/src/features/membership/pages/MemberHub.jsx` and the affected frontend specs. Frontend build and focused ESLint passed. Focused Playwright execution was blocked first by the managed API's database connection and then by the missing local Chromium headless-shell binary when using a standalone Vite server; browser behavior is unverified.
+
+Default-tab follow-up on 2026-10-18: Member Hub now selects Early access on entry; the focused tab spec asserts that initial state. Frontend build and focused ESLint passed after this change. Browser execution remains unavailable under the limitation above.
+
+Copy follow-up on 2026-10-18: removed the introductory paragraphs above the Early access and Workshops lists at the user's request. The tabs, lists, membership gates, and empty states remain. Frontend build, focused ESLint, and scoped diff check passed.
+
+Early access post-only follow-up on 2026-10-18: the early-access API now excludes short-format records, and Member Hub displays only post cards directly under the Early access tab without an extra section title. The existing membership gate, card grid, and empty state remain. Focused frontend and backend ESLint and scoped diff checks passed. The full frontend build currently fails on syntax errors in unrelated working-tree files, including `Frontend/src/features/post/pages/index.jsx`; this change has no successful full-build verification.
+
+## Combined Studio and page names — 2026-10-18
+
+The existing `/studio` page now has a URL-backed Creator tools tab for publishing creator updates, hosting workshops, and responding to received direct requests. Those controls moved from Member Hub, which retains Early access, Creator extras, and Workshops with Early access selected first. The desktop sidebar, mobile Account sheet, Studio heading, profile edit link, and Shorts heading now use the approved Studio and Shorts page names; Member Hub keeps its name. New direct-request notifications link to the Creator tools tab, and the inbox maps older received-request links to the same tab. Existing form payloads, query keys, entitlement gates, routes, APIs, schemas, and stored records remain compatible. Frontend focused ESLint and production build, backend focused ESLint and syntax checks, and four mocked-API Chrome checks passed: Studio update/workshop/request actions, Member Hub tab behavior, and update payloads at 320 and 1280 px. A broader profile sorting check passed at 1280 px but timed out at 320 px while reopening its existing filter combobox before reaching the Studio link; that phone filter behavior remains unverified. Live persistence, physical devices, and other browsers were not exercised. Changed implementation: `Frontend/src/features/membership/components/CreatorTools.jsx`, `features/membership/pages/MemberHub.jsx`, `features/user/pages/Profile/index.jsx`, `features/notification/pages/NotificationsPage.jsx`, page navigation/copy, `Backend/controllers/member-experience.controller.js`, and the development seed notification target. The owning UI, project, notification, and frontend docs were updated.
+
+Follow-up on 2026-10-18: Studio now has separate URL-backed Updates, Workshops, and Requests tabs in place of Creator tools. Updates shows the writer's past updates and opens the existing publish form in an Add update modal. Workshops shows owned sessions under Active and Inactive pill filters and opens the existing creation form in a modal. Requests retains the received-request list and response actions. New authenticated owner-list endpoints read updates and workshops; workshop meeting URLs are excluded. New request notifications target Requests, while old destinations remain readable. Focused frontend and backend lint and the frontend production build passed. The focused Playwright check could not start because the configured API server could not connect to MongoDB. Browser interactions and live persistence remain unverified for this follow-up.
+## Console and diagnostic privacy audit — 2026-10-18
+
+Reviewed frontend console calls, backend HTTP/error diagnostics, tracked credential-shaped files and values, and built artifacts. Replaced raw frontend error-object console output on failed sign-out and denied clipboard access with existing error toasts. Development HTTP requests now use the query-free structured production logger. The repeated reduced-motion development warning was removed by using a shared browser-preference hook in the four existing animation components. Final frontend/backend lint, frontend production build, artifact check (85 files, no source maps), backend foundation contracts (111/111 with loopback access), and four focused mocked-API Chrome sign-in/editor checks passed on 2026-10-18. The desktop route sweep and three reduced-motion interaction checks passed after the hook change without the Motion warning. The 320 px route sweep still fails on Trending horizontal overflow; the browser runner's color-environment warning is separate from app code. Live provider/deployment logging and a complete route-wide browser console sweep remain unverified. Detailed finding ownership: `context/security-audit.md`.
+# Phone editor block menu — 2026-10-18
+
+Added a phone-only Block types strip for focused story blocks. Its choices match the existing slash menu and convert the active block while retaining content and focus; the strip follows the visual viewport above the keyboard or bottom navigation. The existing insertion sheet, desktop menu, routes, APIs, and block data remain unchanged. Frontend lint and production build passed. One focused mocked-API Chrome check passed at 375 px for choice parity, conversion, focus, and viewport placement. Physical keyboard behavior remains unverified.
+
+Follow-up on 2026-10-19: the expansion button and vertical popup were replaced by a single horizontally scrollable row that immediately shows all eligible block types on story-field focus. Active type is indicated in the row. Frontend lint and production build passed; a focused mocked-API Chrome check at 375 px passed for direct visibility, horizontal overflow, conversion, retained focus, and dismissal when the title is focused. Physical keyboard behavior remains unverified.
+
+Insert-menu breakpoint follow-up on 2026-10-19: the + control retains the native insert sheet below 768 px and uses the existing anchored SlashMenu at 768 px and wider. The editor's 24 px side gutters still apply below 1024 px. Frontend lint and production build passed; three focused mocked-API Chrome checks passed at 767, 768, and 1024 px for the menu type, insertion, and focus. The existing 768 px layout check also passed after its stale Article title selector was updated to the current Story title label. Physical devices were not exercised.
+
+Phone insert-sheet dismissal follow-up on 2026-10-19: pressing the exposed backdrop now closes the sheet through an editor-local pointer handler. Frontend lint and production build passed. Focused mocked-API Chrome outside-pointer checks passed at 375 px for the sheet and 768 px for the anchored menu; a touch-emulated 375 px backdrop tap passed. The existing short-viewport sheet choice/Escape/focus check also passed. Physical touch devices were not exercised.
+
+Second phone insert-sheet dismissal follow-up on 2026-10-19: a physical-phone report showed the native backdrop path remained unreliable. Added an editor-local transparent tap target behind the sheet panel so outside taps hit a real button; the native backdrop pointer path remains fallback. Frontend lint and production build passed. Four focused mocked-API Chrome checks passed for 375/768 px outside pointers and 375/600 px touch-emulated taps, including focus return; the existing short-viewport sheet check also passed. Physical-device resolution is unverified.
+
+## Sidebar collapse arrow contrast — 2026-10-20
+
+The top-right sidebar collapse/expand arrow now uses the lighter muted text token and a slightly thinner stroke, while retaining its position, hover treatment, focus behavior, labels, and toggle interaction. Changed `Frontend/src/shared/components/layout/Sidebar.jsx`. Verification: frontend production build passed; browser appearance was not exercised.
+
+## Navbar brand alignment — 2026-10-19
+
+The navbar brand now places the existing logo to the left of the `firstmargin` wordmark. Logo size, spacing, colors, responsive visibility, link target, and navigation behavior remain unchanged. Changed `Frontend/src/shared/components/layout/Navbar.jsx`. Verification: frontend production build passed; browser appearance was not exercised.
+
+## Login brand alignment — 2026-10-19
+
+The standalone Login/Sign Up form now places the existing firstmargin logo link centered within the auth form above the mode tabs. The embedded sign-in modal, form behavior, auth routes, and visual brand treatment remain unchanged. Changed `Frontend/src/features/auth/pages/Login.jsx`. Verification: frontend production build passed; browser appearance was not exercised.
+
+## Profile role labels — 2026-10-19
+
+Profile identity, the desktop account menu, and the mobile Account sheet now present the authenticated user's role as a compact pill label instead of `Role: …` plain text. Existing role values, authentication state, navigation, layout, and APIs remain unchanged. Changed `Frontend/src/features/user/pages/Profile/index.jsx`, `Frontend/src/shared/components/layout/Navbar.jsx`, and `Frontend/src/features/user/components/MobileProfileSheet.tsx`. Verification: focused frontend lint passed; no browser run was performed.
+
+## Featured story portrait breakpoint — 2026-10-19
+
+The shared featured story card on Trending and recent article winners now keeps its full-width 16:9 cover above the text until 960 px, then uses the existing side-by-side composition. This gives the headline more room at intermediate widths without changing typography, colors, card actions, feed selection, routes, APIs, or stored data. Updated `Frontend/src/features/discovery/components/FeaturedPostCard.tsx`, the focused breakpoint assertions in `Frontend/tests/article-of-day.spec.js`, `context/ui-rules.md`, and `context/ui-registry.md`. Frontend lint passed with two existing staff-component warnings; the production build, test-file syntax check, and scoped diff check passed. The focused browser checks could not run: Playwright's bundled Chromium is absent, and installed Chrome was denied access to the local Vite page. Rendered layout remains unverified in this environment. The 2026-10-19 follow-up reduced the breakpoint from 1024 px to 960 px; the frontend production build, focused test-file lint and syntax checks, compiled 960 px media-rule check, and scoped diff check passed.

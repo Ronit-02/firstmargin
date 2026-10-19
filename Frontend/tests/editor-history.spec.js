@@ -1,0 +1,186 @@
+import { test, expect } from '@playwright/test'
+
+test.beforeEach(async ({ page }) => {
+  await page.route(url => url.pathname.startsWith('/api/'), route => {
+    const path = new URL(route.request().url()).pathname
+    if (path === '/api/auth/refresh-token') return route.fulfill({ json: { accessToken: 'history-token', user: 'Writer', email: 'writer@example.test', role: 'regular' } })
+    if (path === '/api/v1/me/entitlements') return route.fulfill({ json: { data: { capabilities: [] } } })
+    if (path === '/api/drafts' && route.request().method() === 'POST') return route.fulfill({ json: { id: 'history-draft', version: 1 } })
+    if (path === '/api/drafts/history-draft' && route.request().method() === 'PUT') return route.fulfill({ json: { id: 'history-draft', version: 2 } })
+    return route.fulfill({ json: { data: [], meta: { nextCursor: null, unreadCount: 0 } } })
+  })
+  await page.goto('/studio?new=article')
+})
+
+test('writing instructions include undo and redo shortcuts', async ({ page }) => {
+  await page.getByRole('button', { name: 'Instructions', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: 'Writing instructions' })
+  await expect(dialog).toBeVisible()
+  await expect(dialog.getByText('Use Ctrl+Z to undo and Ctrl+Y to redo (Cmd+Z and Cmd+Shift+Z on Mac).', { exact: true })).toBeVisible()
+})
+
+test('undo and redo share history across title and story blocks', async ({ page }) => {
+  const title = page.locator('#editor-title')
+  const block = page.getByRole('textbox', { name: 'Paragraph block', exact: true })
+  await title.fill('A title')
+  await block.fill('First paragraph')
+  await block.press('ControlOrMeta+z')
+  await expect(block).toHaveValue('')
+  await block.press('ControlOrMeta+z')
+  await expect(title).toHaveValue('')
+  await title.press('ControlOrMeta+y')
+  await expect(title).toHaveValue('A title')
+  await title.press('ControlOrMeta+y')
+  await expect(block).toHaveValue('First paragraph')
+  await expect(block).toBeFocused()
+})
+
+test('split and delete are each reversible as one step', async ({ page }) => {
+  const blocks = page.getByRole('textbox', { name: 'Paragraph block', exact: true })
+  await blocks.first().fill('hello world')
+  await blocks.first().evaluate(field => field.setSelectionRange(5, 5))
+  await blocks.first().press('Enter')
+  await expect(blocks).toHaveCount(2)
+  await expect(blocks.nth(0)).toHaveValue('hello')
+  await expect(blocks.nth(1)).toHaveValue(' world')
+  await blocks.nth(1).press('ControlOrMeta+z')
+  await expect(blocks).toHaveCount(1)
+  await expect(blocks.first()).toHaveValue('hello world')
+  await blocks.first().press('ControlOrMeta+y')
+  await expect(blocks).toHaveCount(2)
+  await blocks.nth(1).focus()
+  await page.getByRole('button', { name: 'Delete text block' }).last().click()
+  await expect(blocks).toHaveCount(1)
+  await blocks.first().press('ControlOrMeta+z')
+  await expect(blocks).toHaveCount(2)
+  await expect(blocks.nth(1)).toHaveValue(' world')
+})
+
+test('new typing clears redo history', async ({ page }) => {
+  const title = page.locator('#editor-title')
+  await title.fill('First')
+  await title.press('ControlOrMeta+z')
+  await title.press('ControlOrMeta+y')
+  await expect(title).toHaveValue('First')
+  await title.press('ControlOrMeta+z')
+  await title.fill('Second')
+  await title.press('ControlOrMeta+y')
+  await expect(title).toHaveValue('Second')
+})
+
+test('continuous typing is one step and a block merge can be undone', async ({ page }) => {
+  const title = page.locator('#editor-title')
+  const blocks = page.getByRole('textbox', { name: 'Paragraph block', exact: true })
+  await title.pressSequentially('Story', { delay: 25 })
+  await title.press('ControlOrMeta+z')
+  await expect(title).toHaveValue('')
+  await title.press('ControlOrMeta+Shift+z')
+  await expect(title).toHaveValue('Story')
+
+  await blocks.first().fill('one')
+  await blocks.first().press('End')
+  await blocks.first().press('Enter')
+  await blocks.nth(1).fill('two')
+  await blocks.nth(1).press('Home')
+  await blocks.nth(1).press('Backspace')
+  await expect(blocks).toHaveCount(1)
+  await expect(blocks.first()).toHaveValue('onetwo')
+  await blocks.first().press('ControlOrMeta+z')
+  await expect(blocks).toHaveCount(2)
+  await expect(blocks.nth(0)).toHaveValue('one')
+  await expect(blocks.nth(1)).toHaveValue('two')
+})
+
+test('multi-block clipboard paste is one undo step', async ({ page }) => {
+  const blocks = page.getByRole('textbox', { name: 'Paragraph block', exact: true })
+  await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', {
+    configurable: true,
+    value: { readText: async () => 'alpha\nbeta' },
+  }))
+  await blocks.first().focus()
+  await blocks.first().press('ControlOrMeta+v')
+  await expect(blocks).toHaveCount(2)
+  await expect(blocks.nth(0)).toHaveValue('alpha')
+  await expect(blocks.nth(1)).toHaveValue('beta')
+  await blocks.first().press('ControlOrMeta+z')
+  await expect(blocks).toHaveCount(1)
+  await expect(blocks.first()).toHaveValue('')
+})
+
+test('a loaded draft is the history baseline and undo saves restored writing', async ({ page }) => {
+  const saves = []
+  await page.route('**/api/drafts/loaded', route => {
+    if (route.request().method() === 'GET') return route.fulfill({ json: { data: {
+      id: 'loaded', title: 'Saved title', format: 'article', version: 1, tags: [],
+      blocks: [{ id: 'saved-block', type: 'text', content: 'Saved body' }],
+    } } })
+    saves.push(route.request().postDataJSON())
+    return route.fulfill({ json: { data: { id: 'loaded', version: saves.length + 1 } } })
+  })
+  await page.goto('/studio?draft=loaded')
+  await page.reload()
+  const title = page.locator('#editor-title')
+  await expect(title).toHaveValue('Saved title')
+  await title.press('ControlOrMeta+z')
+  await expect(title).toHaveValue('Saved title')
+  await title.fill('Changed title')
+  await title.press('ControlOrMeta+z')
+  await expect(title).toHaveValue('Saved title')
+  await expect.poll(() => saves.some(save => save.title === 'Saved title')).toBe(true)
+})
+
+test('image descriptions undo with their block and restore input focus', async ({ page }) => {
+  const block = page.getByRole('textbox', { name: 'Paragraph block', exact: true })
+  await block.fill('/image')
+  await page.getByRole('option', { name: 'Insert Image URL' }).click()
+  const description = page.getByRole('textbox', { name: 'Image description' })
+  await description.fill('A mountain')
+  await description.press('ControlOrMeta+z')
+  await expect(description).toHaveValue('')
+  await expect(description).toBeFocused()
+  await description.press('ControlOrMeta+y')
+  await expect(description).toHaveValue('A mountain')
+  await description.press('ControlOrMeta+z')
+  await description.press('ControlOrMeta+z')
+  await expect(page.getByRole('textbox', { name: 'Paragraph block', exact: true })).toHaveValue('/image')
+})
+
+test('undo and redo controls remain usable at phone width', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 735 })
+  await page.locator('#editor-title').fill('Phone title')
+  const undo = page.getByRole('button', { name: 'Undo writing change' })
+  const redo = page.getByRole('button', { name: 'Redo writing change' })
+  await expect(undo).toBeVisible()
+  await undo.click()
+  await expect(page.locator('#editor-title')).toHaveValue('')
+  await redo.click()
+  await expect(page.locator('#editor-title')).toHaveValue('Phone title')
+  const footerBox = await page.locator('[data-editor-footer]').boundingBox()
+  const countBox = await page.getByText('0 words', { exact: true }).boundingBox()
+  expect(footerBox.y + footerBox.height - (countBox.y + countBox.height)).toBeGreaterThanOrEqual(20)
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+})
+
+test('wider screens show a lowercase italic shortcut hint beside the word count', async ({ page }) => {
+  const hint = page.locator('[data-editor-shortcuts]')
+  for (const width of [640, 1280]) {
+    await page.setViewportSize({ width, height: 800 })
+    await expect(hint).toBeVisible()
+    await expect(hint).toHaveText('(ctrl+z to undo, ctrl+y to redo)')
+    await expect(hint).toHaveCSS('font-style', 'italic')
+    const count = page.getByText('0 words', { exact: true })
+    await expect(count).toBeVisible()
+    const hintBox = await hint.boundingBox()
+    const countBox = await count.boundingBox()
+    expect(countBox.x - (hintBox.x + hintBox.width)).toBeGreaterThanOrEqual(8)
+    expect(countBox.x - (hintBox.x + hintBox.width)).toBeLessThanOrEqual(24)
+    const footerBox = await page.locator('[data-editor-footer]').boundingBox()
+    expect(footerBox.y + footerBox.height - (countBox.y + countBox.height)).toBeGreaterThanOrEqual(20)
+    await expect(page.getByRole('button', { name: 'Undo writing change', includeHidden: true })).toBeHidden()
+    await expect(page.getByRole('button', { name: 'Redo writing change', includeHidden: true })).toBeHidden()
+  }
+  await page.setViewportSize({ width: 639, height: 800 })
+  await expect(hint).toBeHidden()
+  await expect(page.getByRole('button', { name: 'Undo writing change' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Redo writing change' })).toBeVisible()
+})

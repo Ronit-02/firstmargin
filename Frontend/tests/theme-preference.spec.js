@@ -18,9 +18,9 @@ for (const theme of ['light', 'dark']) {
     await page.emulateMedia({ colorScheme: theme })
     await page.goto('/')
     await assertTheme(page, theme)
-    const explore = page.getByRole('navigation', { name: 'Desktop primary navigation' }).getByRole('button', { name: 'Explore', exact: true })
-    await expect(explore.locator('svg').first()).toHaveAttribute('stroke', 'currentColor')
-    await expect.poll(() => explore.evaluate(element => getComputedStyle(element.querySelector('svg')).stroke === getComputedStyle(element).color)).toBe(true)
+    const trending = page.getByRole('navigation', { name: 'Desktop primary navigation' }).getByRole('link', { name: 'Trending', exact: true })
+    await expect(trending.locator('svg').first()).toHaveAttribute('stroke', 'currentColor')
+    await expect.poll(() => trending.evaluate(element => getComputedStyle(element.querySelector('svg')).stroke === getComputedStyle(element).color)).toBe(true)
     expect(await page.evaluate(() => localStorage.getItem('ink-theme'))).toBeNull()
     await page.emulateMedia({ colorScheme: opposite })
     await assertTheme(page, opposite)
@@ -28,7 +28,7 @@ for (const theme of ['light', 'dark']) {
     await assertTheme(page, opposite)
     expect(await page.evaluate(() => localStorage.getItem('ink-theme'))).toBeNull()
     await page.goto('/explore/trending')
-    await expect(explore.locator('svg').first()).toHaveCSS('stroke', opposite === 'dark' ? 'rgb(238, 236, 232)' : 'rgb(25, 25, 25)')
+    await expect(trending.locator('svg').first()).toHaveCSS('stroke', opposite === 'dark' ? 'rgb(238, 236, 232)' : 'rgb(25, 25, 25)')
   })
 
   test(`explicit ${theme} choice overrides the system and persists across reload and routes`, async ({ page }) => {

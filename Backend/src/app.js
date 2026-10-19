@@ -9,6 +9,7 @@ const { createRequestTimingMiddleware, createErrorMonitor, logInternalError } = 
 const seo = require('../controllers/seo.controller.js');
 const healthController = require('../controllers/health.controller.js');
 const { createRateLimiter } = require('../middlewares/rate-limit.middleware.js');
+const { normalizeLegacyRequest, addLegacyResponseAliases } = require('../middlewares/legacy-terminology.middleware.js');
 
 const app = express();
 const errorMonitor = createErrorMonitor({ url: config.ERROR_MONITOR_URL });
@@ -63,6 +64,7 @@ app.use(express.json({
     if (req.originalUrl === '/api/v1/billing/webhook') req.rawBody = Buffer.from(buffer);
   },
 }));  // for express framework
+app.use('/api', normalizeLegacyRequest, addLegacyResponseAliases);
 const productionRequestLog = morgan((tokens, req, res) => JSON.stringify({
   requestId: req.requestId,
   method: tokens.method(req, res),
@@ -71,7 +73,7 @@ const productionRequestLog = morgan((tokens, req, res) => JSON.stringify({
   responseTimeMs: Number(tokens['response-time'](req, res)),
   contentLength: tokens.res(req, res, 'content-length') || null,
 }));
-app.use(process.env.NODE_ENV === 'production' ? productionRequestLog : morgan('dev'));
+app.use(productionRequestLog);
 app.use(cookieParser());   // for parsing cookies
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));  // for parsing form-data
 const mutationLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, max: 300, keyPrefix: 'api-mutation' });

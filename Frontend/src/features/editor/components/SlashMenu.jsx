@@ -29,11 +29,11 @@ export default function SlashMenu({
   useEffect(() => {
     function handleKey(e) {
       if (e.isComposing || (!anchorRef.current?.contains(e.target) && !menuRef.current?.contains(e.target))) return
-      if (e.key === 'Tab') {
+      if (!['ArrowDown', 'ArrowUp', 'Enter', 'Tab', 'Escape'].includes(e.key)) return
+      if (e.key === 'Tab' && !filtered[selected]) {
         onClose()
         return
       }
-      if (!['ArrowDown', 'ArrowUp', 'Enter', 'Escape'].includes(e.key)) return
       // Own these keys before the editor can move focus to a different block.
       e.preventDefault()
       e.stopPropagation()
@@ -41,7 +41,7 @@ export default function SlashMenu({
         if (filtered.length) setSelected((s) => (s + 1) % filtered.length)
       } else if (e.key === 'ArrowUp') {
         if (filtered.length) setSelected((s) => (s - 1 + filtered.length) % filtered.length)
-      } else if (e.key === 'Enter') {
+      } else if (e.key === 'Enter' || e.key === 'Tab') {
         if (filtered[selected]) {
           onSelect(filtered[selected])
         }

@@ -13,7 +13,7 @@ import { ListSkeleton, PostFeedSkeleton } from '@/shared/components/ui/Skeleton'
 import { QuestionCard } from '../Explore/QuestionsTab'
 
 const TABS = [
-  { id: 'posts', label: 'Posts' },
+  { id: 'posts', label: 'Stories' },
   { id: 'writers', label: 'Writers' },
   { id: 'shorts', label: 'Shorts' },
   { id: 'questions', label: 'Questions' },
@@ -94,6 +94,7 @@ export default function SearchPage() {
   const sort = sortOptions.some(option => option.id === params.get('sort')) ? params.get('sort') : 'relevance'
   const result = retainRetryView(useDiscoverySearch(query, activeTab, { topic, time, sort }))
   const items = result.data?.data?.[activeTab] || []
+  const resultTypes = { posts: ['story', 'stories'], writers: ['writer', 'writers'], shorts: ['short', 'shorts'], questions: ['question', 'questions'] }[activeTab]
 
   const setActiveTab = nextTab => {
     const next = new URLSearchParams(params)
@@ -138,7 +139,7 @@ export default function SearchPage() {
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
           <div className="min-w-0">
             <h1 className="text-[21px] font-semibold tracking-[-0.025em] text-[var(--color-text)]">Search results</h1>
-            {query.length >= 1 && <p className="mt-1 text-[12px] text-[var(--color-text-secondary)]">Matching “{query}” across Ink Rider</p>}
+            {query.length >= 1 && <p className="mt-1 text-[12px] text-[var(--color-text-secondary)]">Matching “{query}” across firstmargin</p>}
           </div>
           {(topicOptions.length > 1 || timeOptions.length > 1 || sortOptions.length > 1) && <FilterPopover activeFilterCount={activeFilterCount} title="Refine results" description="Narrow the search without leaving the page." onClear={clearFilters}>
             {topicOptions.length > 1 && <div className="mt-4"><p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)]">Topic</p><div className="flex flex-wrap gap-2">{topicOptions.map(option => <button key={option.id} type="button" aria-pressed={topic === option.id} onClick={() => updateFilter('topic', option.id, 'all')} className={`button-target min-h-11 rounded-full border px-3 py-2 text-[11px] transition-colors sm:min-h-0 ${topic === option.id ? 'border-[var(--color-text)] bg-[var(--color-text)] text-[var(--color-text-inverted)]' : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-text-secondary)]'}`}>{option.label}</button>)}</div></div>}
@@ -155,15 +156,16 @@ export default function SearchPage() {
       </div>
 
       <div id="search-results-panel" role="tabpanel" aria-labelledby={`search-tab-${activeTab}`}>
+      {query.trim().length >= 1 && !result.isPending && !result.isError && <p className="mb-3 text-[12px] text-[var(--color-text-muted)]">Showing {items.length} {resultTypes[items.length === 1 ? 0 : 1]}</p>}
       {query.trim().length < 1 && <SearchState title="What are you curious about?" detail="Use the search bar above to find published stories, writer profiles, and reader questions." />}
-      {result.isPending && query.trim().length >= 1 && (['writers', 'questions'].includes(activeTab) ? <ListSkeleton count={4} label={activeTab === 'questions' ? 'Loading question results' : 'Loading writer results'} /> : <PostFeedSkeleton count={3} label={`Loading ${activeTab === 'shorts' ? 'short-read' : 'article'} search results`} />)}
+      {result.isPending && query.trim().length >= 1 && (['writers', 'questions'].includes(activeTab) ? <ListSkeleton count={4} label={activeTab === 'questions' ? 'Loading question results' : 'Loading writer results'} /> : <PostFeedSkeleton count={3} short={activeTab === 'shorts'} label={`Loading ${activeTab === 'shorts' ? 'short' : 'story'} search results`} />)}
       {result.isError && <SearchState isError busy={result.isFetching} title="Search is unavailable" detail="Please check your connection and try again." onRetry={() => result.refetch()} />}
       {!result.isPending && !result.isError && query.trim().length >= 1 && items.length === 0 && (
-        <SearchState title={`No ${activeTab} found`} detail="Try a broader phrase or a different spelling." />
+        <SearchState title={`No ${activeTab === 'posts' ? 'stories' : activeTab} found`} detail="Try a broader phrase or a different spelling." />
       )}
       {items.length > 0 && <section aria-live="polite" className={activeTab === 'shorts' ? 'card-grid card-grid--short gap-4' : ''}>
         {activeTab === 'posts'
-          ? items.map(post => <DiscoveryPostCard key={post.id} post={post} />)
+          ? items.map(post => <DiscoveryPostCard key={post.id} post={post} flushTop={false} />)
           : activeTab === 'writers'
             ? items.map(writer => <WriterResult key={writer.id} writer={writer} />)
             : activeTab === 'questions'

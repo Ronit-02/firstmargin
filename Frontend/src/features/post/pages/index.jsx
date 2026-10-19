@@ -89,6 +89,8 @@ function ArticlePage() {
   const shareTriggerRef = useRef(null)
   const saveTriggerRef = useRef(null)
   const seriesTriggerRef = useRef(null)
+  const summaryTriggerRef = useRef(null)
+  const audioTriggerRef = useRef(null)
   const progress = useReadingProgress(pageRef, readingEndRef)
   usePersistReadingProgress(postId, progress, loggedIn)
   const recordedPostId = useRef(null)
@@ -193,7 +195,7 @@ function ArticlePage() {
   // Keep the existing skeleton visible until a post response is available so a
   // reload cannot dereference an absent response and blank the page.
   if (fetchPostIsLoading || (!postData && !isError)) return <PageFrame><PostDetailSkeleton as="div" className="!m-0 !max-w-[760px] !p-0" /></PageFrame>;
-  if (isError && isMissingResourceError(error)) return <MissingResourceState eyebrow="Article unavailable" title="This article is no longer available" detail="It may have been removed, unpublished, or the link may be incorrect. Explore recent stories instead." recoveryTo="/" recoveryLabel="Explore stories" />;
+  if (isError && isMissingResourceError(error)) return <MissingResourceState eyebrow="Story unavailable" title="This story is no longer available" detail="It may have been removed, unpublished, or the link may be incorrect. Explore recent stories instead." recoveryTo="/" recoveryLabel="Explore stories" />;
   if (isError) return <PostErrorState onRetry={refetch} />;
   const postBlocks = parsePostBlocks(postData.body)
   if (!postBlocks) return <PostErrorState onRetry={() => navigate('/')} invalidContent />
@@ -212,12 +214,13 @@ function ArticlePage() {
 
   const readingTools = <AIStickyButtons
     showSummary={showSummary} readAloud={readAloud}
+    summaryRef={summaryTriggerRef} audioRef={audioTriggerRef}
     onSummary={() => openPremiumPanel(setShowSummary, setReadAloud)}
     onAudio={() => openPremiumPanel(setReadAloud, setShowSummary)}
   />
   const readingPanel = <>
-    {showSummary && (capabilities.has('article_summary') ? <SummaryPanel postId={postId} /> : <AccessPanel capability="article_summary" />)}
-    {readAloud && (capabilities.has('read_aloud') ? <ReadAloudPanel text={articleText} /> : <AccessPanel capability="read_aloud" />)}
+    {showSummary && capabilities.has('article_summary') && <SummaryPanel postId={postId} />}
+    {readAloud && capabilities.has('read_aloud') && <ReadAloudPanel text={articleText} />}
   </>
 
   return (
@@ -265,46 +268,47 @@ function ArticlePage() {
               <AuthorMeta author={postData.author} readTime={postData?.readTime || '5 mins'} date={postData.createdAt} size="md" stacked variant="article" />
             </div>
 
-            <div role="group" aria-label="Article actions" className="flex flex-wrap items-center gap-1.5 shrink-0 max-w-full">
+            <div role="group" aria-label="Story actions" className="flex flex-wrap items-center gap-1.5 shrink-0 max-w-full">
               
-              <AppreciationButton isLiked={postData.isLiked} count={postData.likesCount} label={postData.isLiked ? 'Remove appreciation' : 'Appreciate this article'} disabled={likeMutation.isPending} onClick={handleLike} />
+              <AppreciationButton isLiked={postData.isLiked} count={postData.likesCount} label={postData.isLiked ? 'Remove appreciation' : 'Appreciate this story'} disabled={likeMutation.isPending} onClick={handleLike} />
 
-              <button ref={saveTriggerRef} data-button-style="action" type="button" onClick={handleBookmark}
-                aria-label={postData.isBookmarked ? 'Manage saved article' : 'Save this article'}
+              <Button ref={saveTriggerRef} type="button" onClick={handleBookmark}
+                aria-label={postData.isBookmarked ? 'Manage saved story' : 'Save this story'}
                 aria-haspopup="dialog"
                 aria-pressed={postData.isBookmarked}
-                className={`min-h-11 rounded-full border border-(--color-border) px-3 flex items-center justify-center gap-2 text-[13px] font-medium cursor-pointer transition-all duration-150 hover:opacity-80
-                  disabled:opacity-60 ${postData.isBookmarked ? 'bg-(--color-accent) text-(--color-text-inverted)' : 'bg-(--color-surface) text-(--color-text-secondary)'}`}>
-                <BookmarkIcon filled={postData.isBookmarked} />
-                <span>{postData.isBookmarked ? 'Saved' : 'Save'}</span>
-              </button>
+                variant="action"
+                leadingIcon={<BookmarkIcon filled={postData.isBookmarked} />}
+                className="!min-h-11 !px-3 hover:opacity-80">
+                {postData.isBookmarked ? 'Saved' : 'Save'}
+              </Button>
 
-              {postData.canAddToSeries && <button ref={seriesTriggerRef} data-button-style="action" type="button" onClick={() => setShowSeries(true)} aria-label="Add this article to a series" aria-haspopup="dialog" className="min-h-11 rounded-full border border-(--color-border) px-3 flex items-center justify-center gap-2 text-[13px] font-medium text-(--color-text-secondary) transition-all duration-150 hover:opacity-80"><SeriesActionIcon /><span>Series</span></button>}
+              {postData.canAddToSeries && <Button ref={seriesTriggerRef} type="button" onClick={() => setShowSeries(true)} aria-label="Add this story to a series" aria-haspopup="dialog" variant="action" leadingIcon={<SeriesActionIcon />} className="!min-h-11 !px-3">Series</Button>}
               
               {/* Share */}
               <div className="relative">
-                <button ref={shareTriggerRef} type="button" onClick={e => { e.stopPropagation(); setShowShare(v => !v) }}
-                  aria-label="Share this article"
+                <Button ref={shareTriggerRef} type="button" onClick={e => { e.stopPropagation(); setShowShare(v => !v) }}
+                  aria-label="Share this story"
                   aria-expanded={showShare}
                   aria-haspopup="dialog"
                   aria-controls={showShare ? 'article-share-menu' : undefined}
-                  className="min-h-11 px-3 rounded-full text-(--color-text-secondary) flex items-center justify-center gap-2 text-[13px] font-medium cursor-pointer transition-all hover:bg-(--color-bg-alt)">
-                  <ShareIcon />
-                  <span>Share</span>
-                </button>
-                {showShare && <ShareMenu anchorRef={shareTriggerRef} onClose={closeShareMenu} id="article-share-menu" label="Share article" contentName="Article" url={`${window.location.origin}/post/${postId}`} />}
+                  variant="action" leadingIcon={<ShareIcon />} className="!min-h-11 !px-3">
+                  Share
+                </Button>
+                {showShare && <ShareMenu anchorRef={shareTriggerRef} onClose={closeShareMenu} id="article-share-menu" label="Share story" contentName="Story" url={`${window.location.origin}/post/${postId}`} />}
               </div>
 
-              <button
+              <Button
                 type="button"
                 onClick={handleReportOpen}
                 aria-label={reportTitle(postData.format === 'short' ? 'short' : 'post')}
                 aria-haspopup="dialog"
                 aria-expanded={showReport}
                 title={reportTitle(postData.format === 'short' ? 'short' : 'post')}
-                  className="w-11 h-11 rounded-full text-(--color-text-muted) hover:bg-(--color-bg-alt) hover:text-(--color-text-secondary) flex items-center justify-center cursor-pointer transition-all">
-                <FlagIcon />
-              </button>
+                variant="action"
+                leadingIcon={<FlagIcon />}
+                className="!min-h-11 !px-3 text-(--color-text-muted) hover:text-(--color-text-secondary)">
+                Report
+              </Button>
             </div>
             
           </div>
@@ -316,11 +320,11 @@ function ArticlePage() {
 
           <Divider className="mb-6" />
 
-          {postData.depthContext && <aside className="mb-7 flex flex-wrap items-center justify-between gap-4 rounded-[14px] border border-(--color-border) bg-(--color-bg-alt) p-4"><div className="min-w-0"><p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-(--color-text-muted)">{postData.depthContext.deeper ? 'Go deeper' : 'Need the quick version?'}</p><p className="mt-1 text-[13px] font-semibold text-(--color-text)">{postData.depthContext.deeper?.title || postData.depthContext.quick?.title}</p></div>{postData.depthContext.deeper ? <Link to={`/post/${postData.depthContext.deeper.id}`} className="button-target inline-flex min-h-10 items-center justify-center rounded-full border border-(--color-border) bg-(--color-surface) px-[18px] py-2 text-[13px] font-medium whitespace-nowrap text-(--color-text) transition-all duration-150 hover:bg-(--color-bg-alt) focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-offset-2 sm:min-h-0">Read full article →</Link> : <Button className="min-h-10 sm:min-h-0" variant="secondary" onClick={() => setShortReadId(postData.depthContext.quick.id)}>Read short →</Button>}</aside>}
+          {postData.depthContext && <aside className="mb-7 flex flex-wrap items-center justify-between gap-4 rounded-[14px] border border-(--color-border) bg-(--color-bg-alt) p-4"><div className="min-w-0"><p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-(--color-text-muted)">{postData.depthContext.deeper ? 'Go deeper' : 'Need the quick version?'}</p><p className="mt-1 text-[13px] font-semibold text-(--color-text)">{postData.depthContext.deeper?.title || postData.depthContext.quick?.title}</p></div>{postData.depthContext.deeper ? <Link to={`/post/${postData.depthContext.deeper.id}`} className="button-target inline-flex min-h-10 items-center justify-center rounded-full border border-(--color-border) bg-(--color-surface) px-[18px] py-2 text-[13px] font-medium whitespace-nowrap text-(--color-text) transition-all duration-150 hover:bg-(--color-bg-alt) focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-offset-2 sm:min-h-0">Read full story →</Link> : <Button className="min-h-10 sm:min-h-0" variant="secondary" onClick={() => setShortReadId(postData.depthContext.quick.id)}>Read short →</Button>}</aside>}
 
           {likeMutation.isError && (
             <p role="alert" className="text-[12px] text-[var(--color-danger)] mb-4">
-              We couldn't update that article action. Please try again.
+              We couldn't update that story action. Please try again.
             </p>
           )}
 
@@ -331,17 +335,12 @@ function ArticlePage() {
           )}
 
           {/* Body */}
-          <article aria-label="Article body" className="w-full min-w-0">
+          <article aria-label="Story body" className="w-full min-w-0">
             <PostBody body={postBlocks} />
           </article>
 
           {postData.seriesContext && <nav aria-label="Story series progression" className="mt-8 w-full min-w-0">
-            {postData.seriesContext.next
-              ? <Link to={`/post/${postData.seriesContext.next.id}`} aria-label={`Next post in the series: ${postData.seriesContext.next.title}`} className="group button-target flex min-h-24 min-w-0 flex-col items-start justify-center gap-2 rounded-[14px] border border-(--color-border) bg-(--color-bg-alt) px-5 py-4 text-(--color-text) transition-colors hover:border-(--color-accent) focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-offset-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-                <span className="block w-full min-w-0 sm:flex-1"><span className="block text-[11px] font-semibold uppercase tracking-[0.1em] text-(--color-text-muted)">Up next in this series{Number.isInteger(postData.seriesContext.position) && Number.isInteger(postData.seriesContext.total) ? ` · Part ${postData.seriesContext.position + 2} of ${postData.seriesContext.total}` : ''}</span><span data-series-next-title className="mt-1 block truncate text-[18px] font-semibold leading-snug" style={{ fontFamily: 'var(--font-display)' }}>{postData.seriesContext.next.title}</span></span>
-                <span data-series-next-action aria-hidden="true" className="shrink-0 whitespace-nowrap text-[13px] font-semibold text-(--color-accent)">Read next →</span>
-              </Link>
-              : <Link to={`/series/${postData.seriesContext.id}`} aria-label="View the series" className="group button-target flex min-h-24 min-w-0 flex-col items-start justify-center gap-2 rounded-[14px] border border-(--color-border) bg-(--color-bg-alt) px-5 py-4 text-(--color-text) transition-colors hover:border-(--color-accent) focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-offset-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4"><span className="block w-full min-w-0 sm:flex-1"><span className="block text-[11px] font-semibold uppercase tracking-[0.1em] text-(--color-text-muted)">Series complete</span><span className="mt-1 block truncate text-[18px] font-semibold leading-snug" style={{ fontFamily: 'var(--font-display)' }}>Explore the full series</span></span><span aria-hidden="true" className="shrink-0 whitespace-nowrap text-[13px] font-semibold text-(--color-accent)">View series →</span></Link>}
+            <Link to={`/series/${postData.seriesContext.id}`} aria-label={`View series: ${postData.seriesContext.title}`} className="group button-target flex min-h-24 min-w-0 flex-col items-start justify-center gap-2 rounded-[14px] border border-(--color-border) bg-(--color-bg-alt) px-5 py-4 text-(--color-text) transition-colors hover:border-(--color-accent) focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-offset-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4"><span className="block w-full min-w-0 sm:flex-1"><span className="block text-[11px] font-semibold uppercase tracking-[0.1em] text-(--color-text-muted)">This story is part of a series{Number.isInteger(postData.seriesContext.position) && Number.isInteger(postData.seriesContext.total) ? ` · Part ${postData.seriesContext.position + 1} of ${postData.seriesContext.total}` : ''}</span><span data-series-next-title className="mt-1 block truncate text-[18px] font-semibold leading-snug" style={{ fontFamily: 'var(--font-display)' }}>{postData.seriesContext.title}</span></span><span data-series-next-action aria-hidden="true" className="shrink-0 whitespace-nowrap text-[13px] font-semibold text-(--color-accent)">View series →</span></Link>
           </nav>}
 
           <Divider className="my-10" />
@@ -362,7 +361,7 @@ function ArticlePage() {
           </section>}
           {moreShorts.length > 0 && <section className="mt-14 w-full max-w-none" aria-labelledby="more-shorts-from-author-heading">
             <div className="mb-6">
-              <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--color-text-muted)]">Short reads</p>
+              <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--color-text-muted)]">Shorts</p>
               <h2 id="more-shorts-from-author-heading" className="text-[24px] font-bold tracking-[-0.03em] text-[var(--color-text)]" style={{ fontFamily: 'var(--font-display)' }}>Shorts from {postData.author?.username || 'this writer'}</h2>
             </div>
             <div className="card-grid card-grid--short gap-4">
@@ -381,6 +380,8 @@ function ArticlePage() {
           </div>
         )}
       </PageFrame>
+      {showSummary && !capabilities.has('article_summary') && <AccessPanel capability="article_summary" onClose={() => setShowSummary(false)} returnFocusRef={summaryTriggerRef} />}
+      {readAloud && !capabilities.has('read_aloud') && <AccessPanel capability="read_aloud" onClose={() => setReadAloud(false)} returnFocusRef={audioTriggerRef} />}
       {showSave && <AddToCollectionDialog postId={postId} title={postData.title} isBookmarked={Boolean(postData.isBookmarked)} saveMode returnFocusRef={saveTriggerRef} onClose={() => setShowSave(false)} />}
       {showSeries && <AddToSeriesDialog postId={postId} title={postData.title} format="article" returnFocusRef={seriesTriggerRef} onClose={() => setShowSeries(false)} />}
       {shortReadId && <ShortReadModal postId={shortReadId} onClose={() => setShortReadId(null)} />}
@@ -389,7 +390,7 @@ function ArticlePage() {
 }
 
 function PostErrorState({ invalidContent = false, onRetry }) {
-  const title = 'The article could not be loaded'
+  const title = 'The story could not be loaded'
   const detail = invalidContent
     ? 'The published content is not in a readable format. Please return to discovery and try another story.'
     : 'Something went wrong while loading this story. You can try again or return to discovery.'
@@ -397,7 +398,7 @@ function PostErrorState({ invalidContent = false, onRetry }) {
   return (
     <PageFrame>
       <div role="alert" className="max-w-[620px] border-y border-[var(--color-border)] py-16">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-accent)]">Article</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-accent)]">Story</p>
         <h1 className="mt-3 text-[clamp(28px,5vw,44px)] font-bold tracking-[-0.045em] text-[var(--color-text)]" style={{ fontFamily: 'var(--font-display)' }}>{title}</h1>
         <p className="mt-4 text-[14px] leading-7 text-[var(--color-text-secondary)]">{detail}</p>
         <div className="mt-7 flex flex-wrap gap-2">
@@ -414,7 +415,7 @@ function PostMetadata({ post, blocks }) {
     const previousTitle = document.title
     const description = blocks.filter(block => !['image', 'divider', 'code'].includes(block.type)).map(block => String(block.content || '')).join(' ').replace(/\s+/g, ' ').trim().slice(0, 160)
     const canonicalUrl = `${window.location.origin}/post/${post._id}`
-    document.title = `${post.title} · Ink-Rider`
+    document.title = `${post.title} · firstmargin`
     const ensureMeta = (selector, attributes) => {
       let node = document.head.querySelector(selector)
       if (!node) { node = document.createElement('meta'); node.dataset.inkRiderDynamic = 'true'; document.head.appendChild(node) }
@@ -433,7 +434,7 @@ function PostMetadata({ post, blocks }) {
     const structured = document.createElement('script')
     structured.type = 'application/ld+json'
     structured.dataset.inkRiderDynamic = 'true'
-    structured.textContent = JSON.stringify({ '@context': 'https://schema.org', '@type': 'Article', headline: post.title, description, image: post.coverImage || undefined, datePublished: post.createdAt, dateModified: post.updatedAt || post.createdAt, author: { '@type': 'Person', name: post.author?.username || 'Ink-Rider writer', url: post.author?.handle ? `${window.location.origin}/author/${post.author.handle}` : undefined }, mainEntityOfPage: canonicalUrl })
+    structured.textContent = JSON.stringify({ '@context': 'https://schema.org', '@type': 'Article', headline: post.title, description, image: post.coverImage || undefined, datePublished: post.createdAt, dateModified: post.updatedAt || post.createdAt, author: { '@type': 'Person', name: post.author?.username || 'firstmargin writer', url: post.author?.handle ? `${window.location.origin}/author/${post.author.handle}` : undefined }, mainEntityOfPage: canonicalUrl })
     document.head.appendChild(structured)
     return () => {
       document.title = previousTitle

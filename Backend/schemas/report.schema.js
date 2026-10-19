@@ -19,7 +19,7 @@ const reportSchema = new mongoose.Schema({
   },
   subjectType: {
     type: String,
-    enum: ['post', 'comment', 'question', 'answer', 'user'],
+    enum: ['publication', 'comment', 'question', 'answer', 'user'],
     required: true,
     index: true,
   },

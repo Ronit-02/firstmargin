@@ -1,3 +1,5 @@
+/* eslint-disable react-hooks/exhaustive-deps -- The observer depends on the stable query members it consumes. */
+import { useEffect, useRef } from 'react'
 import retainRetryView from '@/shared/utils/retainRetryView'
 import { useSearchParams } from 'react-router-dom'
 import useDiscoveryFeed from '../../hooks/useDiscoveryFeed'
@@ -10,6 +12,7 @@ import FilterBar from '@/shared/components/ui/FilterBar'
 import { tagFilterOptions } from '@/shared/utils/availableFilterOptions'
 
 export default function TrendingTab() {
+  const feedSentinelRef = useRef(null)
   const [params, setParams] = useSearchParams()
   const requestedSort = params.get('trendingSort')
   const sort = ['popular', 'latest'].includes(requestedSort) ? requestedSort : 'popular'
@@ -22,6 +25,16 @@ export default function TrendingTab() {
   const articleOfDay = posts.find(post => post.format !== 'short')
   const trendingStories = filteredPosts.filter(post => post.format !== 'short' && post.id !== articleOfDay?.id)
   const trendingShorts = filteredPosts.filter(post => post.format === 'short')
+  useEffect(() => {
+    const node = feedSentinelRef.current
+    if (!node || !('IntersectionObserver' in window)) return undefined
+    const root = node.closest('[data-app-scroll]')
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting && feed.hasNextPage && !feed.isFetchingNextPage) feed.fetchNextPage()
+    }, { root, rootMargin: '520px 0px' })
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [feed.fetchNextPage, feed.hasNextPage, feed.isFetchingNextPage])
   const resetFilters = () => {
     setParams(current => {
       const next = new URLSearchParams(current)
@@ -51,8 +64,9 @@ export default function TrendingTab() {
       {!feed.isPending && !feed.isError && posts.length === 0 && <p className="py-12 text-[13px] text-[var(--color-text-muted)]">Popular stories will appear as readers begin responding.</p>}
       {trendingStories.map(post => <DiscoveryPostCard key={post.id} post={post} />)}
       </section>
-      {trendingShorts.length > 0 && <section className="mt-10" aria-labelledby="trending-shorts-heading"><h2 id="trending-shorts-heading" className="mb-4 text-[18px] font-bold text-[var(--color-text)]">Trending short reads</h2><div className="card-grid card-grid--short gap-4">{trendingShorts.map(post => <DiscoveryPostCard key={post.id} post={post} variant="grid" />)}</div></section>}
-      {feed.hasNextPage && <button type="button" onClick={() => feed.fetchNextPage()} disabled={feed.isFetchingNextPage} className="button-target mt-8 px-5 py-2.5 rounded-full border border-[var(--color-border)] text-[12px] font-semibold disabled:opacity-50" aria-busy={feed.isFetchingNextPage}>{'Load more'}</button>}
+      {trendingShorts.length > 0 && <section className="mt-10" aria-labelledby="trending-shorts-heading"><h2 id="trending-shorts-heading" className="mb-4 text-[18px] font-bold text-[var(--color-text)]">Trending shorts</h2><div className="card-grid card-grid--short gap-4">{trendingShorts.map(post => <DiscoveryPostCard key={post.id} post={post} variant="grid" />)}</div></section>}
+      <div ref={feedSentinelRef} aria-hidden="true" className="h-1" />
+      {feed.isFetchingNextPage && <div className="fade-in mt-8 mb-4"><PostFeedSkeleton count={2} /></div>}
     </section>
   )
 }

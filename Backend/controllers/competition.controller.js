@@ -1,26 +1,31 @@
 const mongoose = require('mongoose');
 const Competition = require('../schemas/competition.schema');
 const Profile = require('../schemas/profile.schema');
-const Post = require('../schemas/post.schema');
+const Publication = require('../schemas/publication.schema');
 const CompetitionAudit = require('../schemas/competition-audit.schema');
 const CompetitionAppeal = require('../schemas/competition-appeal.schema');
+const User = require('../schemas/user.schema');
 const { getVoteRisk, getVoteSignals, recordVoteSignal, removeVoteSignal } = require('../services/competition-fraud.service');
 const { notify } = require('../services/notification.service');
-const { publicPostClause } = require('../services/post-access.service');
+const { publicPostClause } = require('../services/publication-access.service');
 const { rankCompetitionEntries } = require('../services/competition-scoring.service');
+const { isNewMode, processCompetition, processDueCompetitions } = require('../services/competition-lifecycle.service');
 
-const { presentDiscoveryPosts } = require('../services/post-presenter.service');
+const { presentDiscoveryPosts } = require('../services/publication-presenter.service');
 
 const isValidId = id => mongoose.isValidObjectId(id);
 const effectiveStatus = (competition, now = new Date()) => {
   if (competition.status === 'closed') return 'closed';
   if (competition.openDate > now) return 'draft';
   if (competition.closeDate > now) return 'open';
+  if (competition.competitionType === 'reader_choice') return 'closed';
+  if (competition.competitionType === 'collective_choice') return 'judging';
   if (competition.resultsDate && competition.resultsDate <= now) return 'closed';
   return 'judging';
 };
 const isVotingOpen = (competition, now = new Date()) => {
   const status = effectiveStatus(competition, now);
+  if (isNewMode(competition)) return status === 'open';
   return ['open', 'judging'].includes(status) && (!competition.resultsDate || competition.resultsDate > now);
 };
 const competitionStatusCandidates = status => ({
@@ -42,7 +47,7 @@ const canVoteEntry = (competition, entry, actorId, now = new Date()) => {
   if (competition.votingMode === 'judges') return { allowed: false, reason: 'VOTING_CLOSED' };
   if (entry.status === 'disqualified') return { allowed: false, reason: 'ENTRY_DISQUALIFIED' };
   if (entry.author?.toString() === actorId) return { allowed: false, reason: 'SELF_VOTE' };
-  if ((entry.likes || []).some(id => id.toString() === actorId)) return { allowed: false, reason: 'ALREADY_VOTED' };
+  if ((entry.votes || []).some(id => id.toString() === actorId)) return { allowed: false, reason: 'ALREADY_VOTED' };
   return { allowed: true, reason: null };
 };
 const estimateReadTime = body => {
@@ -80,6 +85,8 @@ const presentCompetition = (competition, actorId, includeEntries = false) => {
     openDate: competition.openDate,
     closeDate: competition.closeDate,
     resultsDate: competition.resultsDate,
+    judgeRoster: competition.judgeRoster || [],
+    noWinnerReason: competition.noWinnerReason || null,
     votingMode: competition.votingMode,
     competitionType: competition.competitionType,
     rules: competition.rules,
@@ -88,31 +95,32 @@ const presentCompetition = (competition, actorId, includeEntries = false) => {
     isEntered: actorId ? competition.entries.some(entry => entry.author?._id?.toString() === actorId || entry.author?.toString() === actorId) : false,
   };
   if (includeEntries) {
-    const ranking = rankCompetitionEntries(competition.entries, competition.votingMode);
+    const ranking = status === 'closed' || !isNewMode(competition) ? rankCompetitionEntries(competition.entries, competition.votingMode) : [];
     const rankingById = new Map(ranking.map(item => [item.id, item]));
     data.entries = competition.entries.map(entry => {
       const ranked = rankingById.get(entry._id.toString());
       return ({
       id: entry._id,
       note: entry.note,
-      likesCount: entry.likesCount || entry.likes?.length || 0,
+      votesCount: entry.votesCount || entry.votes?.length || 0,
       score: ranked?.score ?? null,
       rank: ranked?.rank ?? null,
       judgeScore: ranked?.judgeScore ?? 0,
+      judgeScores: entry.judgeScores?.map(score => ({ judgeId: score.judgeId, submittedBy: score.submittedBy || score.judgeId, craft: score.craft, originality: score.originality, relevance: score.relevance, note: score.note || '' })) || [],
       status: entry.status,
       disqualificationReason: entry.disqualificationReason || null,
-      isVoted: actorId ? entry.likes.some(id => id.toString() === actorId) : false,
+      isVoted: actorId ? entry.votes.some(id => id.toString() === actorId) : false,
       isWinner: competition.winnerEntryIds.some(id => id.toString() === entry._id.toString()),
       author: entry.author,
-      post: entry.post ? {
-        _id: entry.post._id,
-        title: entry.post.title,
-        format: entry.post.format || 'article',
-        coverImage: entry.post.coverImage || extractFirstImage(entry.post.body),
-        createdAt: entry.post.createdAt,
-        readTime: estimateReadTime(entry.post.body),
-        likesCount: entry.post.likesCount || 0,
-        commentsCount: entry.post.commentsCount || 0,
+      publication: entry.publication ? {
+        _id: entry.publication._id,
+        title: entry.publication.title,
+        format: entry.publication.format || 'story',
+        coverImage: entry.publication.coverImage || extractFirstImage(entry.publication.body),
+        createdAt: entry.publication.createdAt,
+        readTime: estimateReadTime(entry.publication.body),
+        appreciationsCount: entry.publication.appreciationsCount || 0,
+        commentsCount: entry.publication.commentsCount || 0,
       } : null,
       createdAt: entry.createdAt,
       });
@@ -125,6 +133,7 @@ const getCompetitions = async (req, res) => {
   try {
     const status = req.query.status ? String(req.query.status) : null;
     if (status && !['draft', 'open', 'judging', 'closed'].includes(status)) return res.status(400).json({ message: 'Invalid competition status' });
+    await processDueCompetitions();
     const competitions = await Competition.find(status ? { status: { $in: competitionStatusCandidates(status) } } : {})
       .sort({ closeDate: -1 })
       .limit(50);
@@ -138,20 +147,30 @@ const getCompetitions = async (req, res) => {
 const getCompetitionById = async (req, res) => {
   try {
     if (!isValidId(req.params.id)) return res.status(400).json({ message: 'Invalid competition id' });
+    const current = await Competition.findById(req.params.id);
+    if (current) await processCompetition(current);
     const competition = await Competition.findById(req.params.id)
       .populate({ path: 'entries.author', select: 'picture username' })
-      .populate({ path: 'entries.post', match: publicPostClause(), select: 'title format coverImage createdAt body likesCount commentsCount' });
+      .populate({ path: 'entries.publication', match: publicPostClause(), select: 'title format coverImage createdAt body appreciationsCount commentsCount' });
     if (!competition) return res.status(404).json({ message: 'Competition not found' });
     const data = presentCompetition(competition, req.auth?.userId, true);
-    const postEntries = competition.entries.filter(entry => entry.post);
-    const summaries = postEntries.length ? await presentDiscoveryPosts(postEntries.map(entry => ({ ...entry.post.toObject(), author: entry.author })), req.auth?.userId) : [];
+    if (competition.entries.some(entry => entry.judgeScores.length) || competition.judgeRoster?.length) {
+      const ids = [...new Set([...(competition.judgeRoster || []).map(String), ...competition.entries.flatMap(entry => entry.judgeScores.flatMap(score => [String(score.judgeId), String(score.submittedBy || score.judgeId)]))])];
+      const judges = ids.length ? await User.find({ _id: { $in: ids } }).select('username').lean() : [];
+      const names = new Map(judges.map(user => [String(user._id), user.username]));
+      data.judgeRoster = (competition.judgeRoster || []).map(id => ({ id, username: names.get(String(id)) || 'Moderator' }));
+      data.entries = data.entries.map(entry => ({ ...entry, judgeScores: entry.judgeScores.map(score => ({ ...score, moderatorName: names.get(String(score.judgeId)) || 'Moderator', submittedByName: names.get(String(score.submittedBy)) || 'Staff member' })) }));
+    }
+    if (data.status !== 'closed' && !['moderator', 'admin'].includes(req.auth?.role)) data.entries = data.entries.map(entry => ({ ...entry, judgeScores: [] }));
+    const postEntries = competition.entries.filter(entry => entry.publication);
+    const summaries = postEntries.length ? await presentDiscoveryPosts(postEntries.map(entry => ({ ...entry.publication.toObject(), author: entry.author })), req.auth?.userId) : [];
     const summariesById = new Map(summaries.map(post => [post.id.toString(), post]));
     const authorIds = [...new Set(data.entries.map(entry => entry.author?._id?.toString()).filter(Boolean))];
     const profiles = authorIds.length ? await Profile.find({ userId: { $in: authorIds } }).select('userId handle').lean() : [];
     const handlesByAuthor = new Map(profiles.map(profile => [profile.userId.toString(), profile.handle]));
     data.entries = data.entries.map(entry => ({
       ...entry,
-      post: entry.post ? { ...entry.post, ...summariesById.get(entry.post._id.toString()), coverImage: entry.post.coverImage } : null,
+      publication: entry.publication ? { ...entry.publication, ...summariesById.get(entry.publication._id.toString()), coverImage: entry.publication.coverImage } : null,
       author: entry.author ? { ...entry.author.toObject(), handle: handlesByAuthor.get(entry.author._id.toString()) || null } : null,
     }));
     return res.status(200).json({ data });
@@ -165,18 +184,18 @@ const getEligiblePosts = async (req, res) => {
   const competition = await Competition.findById(req.params.id).select('entries status openDate closeDate');
   if (!competition) return res.status(404).json({ message: 'Competition not found' });
   if (effectiveStatus(competition) !== 'open') return res.status(400).json({ message: 'Competition is not open' });
-  const enteredPostIds = competition.entries.map(entry => entry.post);
-  const posts = await Post.find({ author: req.auth.userId, _id: { $nin: enteredPostIds }, ...publicPostClause() })
+  const enteredPostIds = competition.entries.map(entry => entry.publication);
+  const posts = await Publication.find({ author: req.auth.userId, _id: { $nin: enteredPostIds }, ...publicPostClause() })
     .sort({ createdAt: -1 }).select('title coverImage createdAt');
   return res.status(200).json({ data: posts.map(post => ({ id: post._id, title: post.title, image: post.coverImage, createdAt: post.createdAt })) });
 };
 
 const enterCompetition = async (req, res) => {
   try {
-    const postId = req.body?.postId;
+    const publicationId = req.body?.publicationId;
     const note = String(req.body?.note || '').trim();
-    if (!isValidId(req.params.id) || !isValidId(postId) || note.length > 500) return res.status(400).json({ message: 'Invalid competition entry' });
-    const post = await Post.findOne({ _id: postId, author: req.auth.userId, ...publicPostClause() }).select('_id currentRevision');
+    if (!isValidId(req.params.id) || !isValidId(publicationId) || note.length > 500) return res.status(400).json({ message: 'Invalid competition entry' });
+    const post = await Publication.findOne({ _id: publicationId, author: req.auth.userId, ...publicPostClause() }).select('_id currentRevision');
     if (!post) return res.status(403).json({ message: 'You can only enter your own post' });
     const now = new Date();
     const competition = await Competition.findOneAndUpdate(
@@ -185,7 +204,7 @@ const enterCompetition = async (req, res) => {
         'entries.author': { $ne: req.auth.userId },
         $expr: { $lt: [{ $size: '$entries' }, '$maxEntries'] },
       },
-      { $push: { entries: { author: req.auth.userId, post: post._id, postRevision: post.currentRevision || 1, note, likes: [], likesCount: 0 } } },
+      { $push: { entries: { author: req.auth.userId, publication: post._id, publicationRevision: post.currentRevision || 1, note, votes: [], votesCount: 0 } } },
       { returnDocument: 'after' }
     );
     if (competition) return res.status(201).json({ data: { entered: true } });
@@ -202,8 +221,35 @@ const voteEntry = async (req, res) => {
   try {
     if (!isValidId(req.params.id) || !isValidId(req.params.entryId)) return res.status(400).json({ message: 'Invalid competition or entry id' });
     const now = new Date();
+    const current = await Competition.findById(req.params.id);
+    if (!current) return res.status(404).json({ message: 'Competition not found' });
+    if (isNewMode(current)) {
+      const selected = current.entries.id(req.params.entryId);
+      if (!selected) return res.status(404).json({ message: 'Entry not found' });
+      if (!isVotingOpen(current, now)) return res.status(409).json({ message: 'Voting is closed' });
+      if (selected.status === 'disqualified') return res.status(409).json({ message: 'This entry is not eligible for voting' });
+      if (String(selected.author) === req.auth.userId) return res.status(403).json({ message: 'You cannot vote for your own entry' });
+      const previous = current.entries.find(entry => entry.votes.some(id => String(id) === req.auth.userId));
+      if (String(previous?._id) === req.params.entryId) return res.json({ data: { isVoted: true, votesCount: selected.votesCount } });
+      const signals = getVoteSignals(req);
+      if (!previous) {
+        const risk = await getVoteRisk({ competitionId: req.params.id, ipHash: signals.ipHash, userAgentHash: signals.userAgentHash, now });
+        if (risk.blocked) return res.status(429).json({ error: { code: 'COMPETITION_VOTE_REVIEW', message: 'Voting activity from this network needs review before more votes can be recorded.' } });
+      }
+      const voterId = new mongoose.Types.ObjectId(req.auth.userId);
+      const targetId = new mongoose.Types.ObjectId(req.params.entryId);
+      const updated = await Competition.findOneAndUpdate(
+        { _id: current._id, status: 'open', $expr: { $and: [{ $lte: ['$openDate', '$$NOW'] }, { $gt: ['$closeDate', '$$NOW'] }] }, competitionType: { $in: ['reader_choice', 'collective_choice'] }, entries: { $elemMatch: { _id: targetId, status: 'submitted', author: { $ne: voterId } } } },
+        [{ $set: { entries: { $map: { input: '$entries', as: 'entry', in: { $mergeObjects: ['$$entry', { votes: { $cond: [{ $eq: ['$$entry._id', targetId] }, { $setUnion: [{ $setDifference: ['$$entry.votes', [voterId]] }, [voterId]] }, { $setDifference: ['$$entry.votes', [voterId]] }] }, votesCount: { $cond: [{ $eq: ['$$entry._id', targetId] }, { $size: { $setUnion: [{ $setDifference: ['$$entry.votes', [voterId]] }, [voterId]] } }, { $size: { $setDifference: ['$$entry.votes', [voterId]] } }] } }] } } } } }],
+        { returnDocument: 'after' },
+      );
+      if (!updated) return res.status(409).json({ message: 'Voting is closed or this entry is unavailable' });
+      if (previous && String(previous._id) !== req.params.entryId) await removeVoteSignal({ competitionId: current._id, entryId: previous._id, voterId });
+      await recordVoteSignal({ competitionId: current._id, entryId: targetId, voterId, ...signals });
+      return res.json({ data: { isVoted: true, votesCount: updated.entries.id(targetId).votesCount } });
+    }
     const signals = getVoteSignals(req);
-    const alreadyVoted = await Competition.exists({ _id: req.params.id, entries: { $elemMatch: { _id: req.params.entryId, likes: req.auth.userId } } });
+    const alreadyVoted = await Competition.exists({ _id: req.params.id, entries: { $elemMatch: { _id: req.params.entryId, votes: req.auth.userId } } });
     if (!alreadyVoted) {
       const risk = await getVoteRisk({ competitionId: req.params.id, ipHash: signals.ipHash, userAgentHash: signals.userAgentHash, now });
       if (risk.blocked) {
@@ -215,9 +261,9 @@ const voteEntry = async (req, res) => {
       {
         _id: req.params.id, status: { $in: ['open', 'judging'] }, votingMode: { $in: ['readers', 'hybrid'] },
         $or: [{ resultsDate: null }, { resultsDate: { $gt: now } }],
-      entries: { $elemMatch: { _id: req.params.entryId, status: 'submitted', author: { $ne: req.auth.userId }, likes: { $ne: req.auth.userId } } },
+      entries: { $elemMatch: { _id: req.params.entryId, status: 'submitted', author: { $ne: req.auth.userId }, votes: { $ne: req.auth.userId } } },
       },
-      { $addToSet: { 'entries.$[entry].likes': req.auth.userId }, $inc: { 'entries.$[entry].likesCount': 1 } },
+      { $addToSet: { 'entries.$[entry].votes': req.auth.userId }, $inc: { 'entries.$[entry].votesCount': 1 } },
       { returnDocument: 'after', arrayFilters: [{ 'entry._id': req.params.entryId }] }
     );
     if (!updated) {
@@ -229,12 +275,12 @@ const voteEntry = async (req, res) => {
       if (votePolicy.reason === 'SELF_VOTE') return res.status(403).json({ message: 'You cannot vote for your own entry' });
       if (votePolicy.reason === 'ENTRY_DISQUALIFIED') return res.status(409).json({ message: 'This entry is not eligible for voting' });
       if (votePolicy.reason === 'VOTING_CLOSED') return res.status(409).json({ message: 'Voting is closed' });
-      if (votePolicy.reason === 'ALREADY_VOTED') return res.status(200).json({ data: { isVoted: true, likesCount: entry.likesCount || entry.likes.length } });
+      if (votePolicy.reason === 'ALREADY_VOTED') return res.status(200).json({ data: { isVoted: true, votesCount: entry.votesCount || entry.votes.length } });
       return res.status(409).json({ message: 'Vote could not be recorded' });
     }
     const entry = updated.entries.id(req.params.entryId);
     await recordVoteSignal({ competitionId: updated._id, entryId: entry._id, voterId: req.auth.userId, ...signals });
-    return res.status(200).json({ data: { isVoted: true, likesCount: entry.likesCount } });
+    return res.status(200).json({ data: { isVoted: true, votesCount: entry.votesCount } });
   } catch (error) {
     return res.status(500).json({ message: 'Unable to vote for entry' });
   }
@@ -246,21 +292,36 @@ const removeEntryVote = async (req, res) => {
     const now = new Date();
     const existing = await Competition.findById(req.params.id);
     if (!existing) return res.status(404).json({ message: 'Competition not found' });
+    if (isNewMode(existing)) {
+      const entry = existing.entries.id(req.params.entryId);
+      if (!entry) return res.status(404).json({ message: 'Entry not found' });
+      if (!isVotingOpen(existing, now)) return res.status(409).json({ message: 'Voting is closed' });
+      const voterId = new mongoose.Types.ObjectId(req.auth.userId);
+      const targetId = new mongoose.Types.ObjectId(req.params.entryId);
+      const updated = await Competition.findOneAndUpdate(
+        { _id: existing._id, status: 'open', $expr: { $and: [{ $lte: ['$openDate', '$$NOW'] }, { $gt: ['$closeDate', '$$NOW'] }] }, 'entries._id': targetId },
+        [{ $set: { entries: { $map: { input: '$entries', as: 'entry', in: { $cond: [{ $eq: ['$$entry._id', targetId] }, { $mergeObjects: ['$$entry', { votes: { $setDifference: ['$$entry.votes', [voterId]] }, votesCount: { $size: { $setDifference: ['$$entry.votes', [voterId]] } } }] }, '$$entry'] } } } } }],
+        { returnDocument: 'after' },
+      );
+      if (!updated) return res.status(409).json({ message: 'Voting is closed' });
+      await removeVoteSignal({ competitionId: existing._id, entryId: targetId, voterId });
+      return res.json({ data: { isVoted: false, votesCount: updated.entries.id(targetId).votesCount } });
+    }
     const existingEntry = existing.entries.id(req.params.entryId);
     if (!existingEntry) return res.status(404).json({ message: 'Entry not found' });
     if (existingEntry.status === 'disqualified') return res.status(409).json({ message: 'This entry is not eligible for voting' });
     if (!isVotingOpen(existing, now)) return res.status(409).json({ message: 'Voting is closed' });
     const updated = await Competition.findOneAndUpdate(
-      { _id: req.params.id, status: { $in: ['open', 'judging'] }, votingMode: { $in: ['readers', 'hybrid'] }, $or: [{ resultsDate: null }, { resultsDate: { $gt: now } }], entries: { $elemMatch: { _id: req.params.entryId, likes: req.auth.userId, likesCount: { $gt: 0 } } } },
-      { $pull: { 'entries.$[entry].likes': req.auth.userId }, $inc: { 'entries.$[entry].likesCount': -1 } },
+      { _id: req.params.id, status: { $in: ['open', 'judging'] }, votingMode: { $in: ['readers', 'hybrid'] }, $or: [{ resultsDate: null }, { resultsDate: { $gt: now } }], entries: { $elemMatch: { _id: req.params.entryId, votes: req.auth.userId, votesCount: { $gt: 0 } } } },
+      { $pull: { 'entries.$[entry].votes': req.auth.userId }, $inc: { 'entries.$[entry].votesCount': -1 } },
       { returnDocument: 'after', arrayFilters: [{ 'entry._id': req.params.entryId }] }
     );
     if (!updated) {
-      return res.status(200).json({ data: { isVoted: false, likesCount: existingEntry.likesCount || existingEntry.likes.length } });
+      return res.status(200).json({ data: { isVoted: false, votesCount: existingEntry.votesCount || existingEntry.votes.length } });
     }
     const entry = updated.entries.id(req.params.entryId);
     await removeVoteSignal({ competitionId: updated._id, entryId: entry._id, voterId: req.auth.userId });
-    return res.status(200).json({ data: { isVoted: false, likesCount: entry.likesCount } });
+    return res.status(200).json({ data: { isVoted: false, votesCount: entry.votesCount } });
   } catch (error) {
     return res.status(500).json({ message: 'Unable to remove entry vote' });
   }
@@ -273,9 +334,8 @@ const createCompetition = async (req, res) => {
     const coverImage = String(req.body.coverImage || '').trim();
     const openDate = new Date(req.body.openDate);
     const closeDate = new Date(req.body.closeDate);
-    const resultsDate = req.body.resultsDate ? new Date(req.body.resultsDate) : null;
-    const votingMode = req.body.votingMode || 'readers';
-    const competitionType = req.body.competitionType || 'theme';
+    const competitionType = req.body.competitionType;
+    const votingMode = competitionType === 'collective_choice' ? 'hybrid' : 'readers';
     const rules = Array.isArray(req.body.rules) ? req.body.rules.map(rule => String(rule).trim()).filter(Boolean).slice(0, 20) : [];
     let coverImageUrl = '';
     if (coverImage) {
@@ -288,9 +348,8 @@ const createCompetition = async (req, res) => {
       }
     }
     if (!title || title.length > 180 || description.length > 5000 || coverImageUrl.length > 2000 || Number.isNaN(openDate.getTime()) || Number.isNaN(closeDate.getTime()) || closeDate <= openDate) return res.status(400).json({ message: 'Invalid competition details' });
-    if (!['readers', 'judges', 'hybrid'].includes(votingMode) || !['theme', 'timed', 'collaborative', 'reader_choice'].includes(competitionType)) return res.status(400).json({ message: 'Invalid competition mode' });
-    if (resultsDate && (Number.isNaN(resultsDate.getTime()) || resultsDate <= closeDate)) return res.status(400).json({ message: 'Results date must follow the closing date' });
-    const competition = await Competition.create({ title, description, coverImage: coverImageUrl, openDate, closeDate, resultsDate, votingMode, competitionType, rules, status: 'open', createdBy: req.auth.userId });
+    if (!['reader_choice', 'collective_choice'].includes(competitionType) || req.body.votingMode || req.body.resultsDate) return res.status(400).json({ message: 'Invalid competition type' });
+    const competition = await Competition.create({ title, description, coverImage: coverImageUrl, openDate, closeDate, votingMode, competitionType, rules, status: 'open', createdBy: req.auth.userId });
     await CompetitionAudit.create({ competitionId: competition._id, actorId: req.auth.userId, action: 'created', details: { votingMode, competitionType } });
     return res.status(201).json({ data: presentCompetition(competition, req.auth.userId) });
   } catch { return res.status(500).json({ message: 'Unable to create competition' }); }
@@ -302,22 +361,54 @@ const scoreEntry = async (req, res) => {
     const scores = ['craft', 'originality', 'relevance'].reduce((result, key) => ({ ...result, [key]: Number(req.body[key]) }), {});
     const note = String(req.body.note || '').trim();
     if (Object.values(scores).some(value => !Number.isInteger(value) || value < 1 || value > 10) || note.length > 1000) return res.status(400).json({ message: 'Scores must be whole numbers from 1 to 10' });
-    const competition = await Competition.findOne({ _id: req.params.id, votingMode: { $in: ['judges', 'hybrid'] }, 'entries._id': req.params.entryId });
+    let competition = await Competition.findOne({ _id: req.params.id, votingMode: { $in: ['judges', 'hybrid'] }, 'entries._id': req.params.entryId });
     if (!competition) return res.status(404).json({ message: 'Scorable entry not found' });
+    if (competition.competitionType === 'collective_choice') competition = await processCompetition(competition);
     const entry = competition.entries.id(req.params.entryId);
     const scorePolicy = canScoreEntry(competition, entry);
     if (!scorePolicy.allowed) return res.status(409).json({ message: scorePolicy.reason === 'ENTRY_DISQUALIFIED' ? 'Disqualified entries cannot be scored' : scorePolicy.reason === 'COMPETITION_CLOSED' ? 'Closed competitions cannot be scored' : 'Judge scoring opens after voting closes' });
-    const existing = entry.judgeScores.find(score => score.judgeId.toString() === req.auth.userId);
-    if (existing) Object.assign(existing, scores, { note });
-    else entry.judgeScores.push({ judgeId: req.auth.userId, ...scores, note });
-    await competition.save();
-    await CompetitionAudit.create({ competitionId: competition._id, actorId: req.auth.userId, action: 'scored', details: { entryId: entry._id } });
+    if (competition.competitionType === 'collective_choice') {
+      const representedId = req.body.moderatorId || req.auth.userId;
+      if (!isValidId(representedId) || !competition.judgeRoster.some(id => String(id) === String(representedId))) return res.status(403).json({ message: 'The moderator is not on this competition’s judge roster' });
+      const actor = await User.findById(req.auth.userId).select('role accountStatus');
+      if (!actor || actor.accountStatus === 'suspended' || (actor.role !== 'admin' && String(representedId) !== req.auth.userId)) return res.status(403).json({ message: 'Only an active roster moderator or admin may fill this scoring slot' });
+      const recorded = entry.judgeScores.find(score => String(score.judgeId) === String(representedId));
+      if (recorded && actor.role !== 'admin') return res.status(409).json({ message: 'This moderator has already submitted a score' });
+      const updated = recorded
+        ? await Competition.findOneAndUpdate(
+          { _id: competition._id, status: 'judging', entries: { $elemMatch: { _id: entry._id, status: 'submitted', 'judgeScores.judgeId': new mongoose.Types.ObjectId(representedId) } } },
+          { $set: { 'entries.$[entry].judgeScores.$[slot].craft': scores.craft, 'entries.$[entry].judgeScores.$[slot].originality': scores.originality, 'entries.$[entry].judgeScores.$[slot].relevance': scores.relevance, 'entries.$[entry].judgeScores.$[slot].note': note } },
+          { arrayFilters: [{ 'entry._id': entry._id, 'entry.status': 'submitted' }, { 'slot.judgeId': new mongoose.Types.ObjectId(representedId) }], returnDocument: 'after' },
+        )
+        : await Competition.findOneAndUpdate(
+          { _id: competition._id, status: 'judging', entries: { $elemMatch: { _id: entry._id, status: 'submitted', 'judgeScores.judgeId': { $ne: new mongoose.Types.ObjectId(representedId) } } } },
+          { $push: { 'entries.$.judgeScores': { judgeId: representedId, submittedBy: req.auth.userId, ...scores, note } } },
+          { returnDocument: 'after' },
+        );
+      if (!updated) return res.status(409).json({ message: 'This scoring slot is complete or judging has closed' });
+      competition = recorded ? updated : await processCompetition(updated);
+      await CompetitionAudit.create({ competitionId: competition._id, actorId: req.auth.userId, action: recorded ? 'score_edited' : 'scored', details: { entryId: entry._id, moderatorId: representedId, submittedBy: recorded?.submittedBy || req.auth.userId, ...(recorded ? { previous: { craft: recorded.craft, originality: recorded.originality, relevance: recorded.relevance }, next: scores } : {}) } });
+    } else {
+      const representedId = req.body.moderatorId || req.auth.userId;
+      if (!isValidId(representedId)) return res.status(400).json({ message: 'Invalid moderator id' });
+      const existing = entry.judgeScores.find(score => String(score.judgeId) === String(representedId));
+      if (String(representedId) !== req.auth.userId && (req.auth.role !== 'admin' || !existing)) return res.status(403).json({ message: 'Only an admin may edit another moderator’s score' });
+      if (!existing && req.auth.role === 'admin' && entry.judgeScores.length) return res.status(409).json({ message: 'A moderator score already exists; edit it instead of adding another score' });
+      if (existing) Object.assign(existing, scores, { note });
+      else entry.judgeScores.push({ judgeId: req.auth.userId, ...scores, note });
+      await competition.save();
+      await CompetitionAudit.create({ competitionId: competition._id, actorId: req.auth.userId, action: existing ? 'score_edited' : 'scored', details: { entryId: entry._id, moderatorId: representedId } });
+    }
     return res.json({ data: { entryId: entry._id, score: (scores.craft + scores.originality + scores.relevance) / 3 } });
   } catch { return res.status(500).json({ message: 'Unable to score entry' }); }
 };
 
 const publishResults = async (req, res) => {
   try {
+    if (isValidId(req.params.id)) {
+      const current = await Competition.findById(req.params.id);
+      if (current && isNewMode(current)) return res.status(409).json({ message: 'Results are announced automatically' });
+    }
     if (!isValidId(req.params.id) || !Array.isArray(req.body.winnerEntryIds) || req.body.winnerEntryIds.length < 1 || req.body.winnerEntryIds.length > 5 || req.body.winnerEntryIds.some(id => !isValidId(id))) return res.status(400).json({ message: 'Select between one and five valid winners' });
     let competition = await Competition.findById(req.params.id);
     if (!competition) return res.status(404).json({ message: 'Competition not found' });

@@ -31,14 +31,14 @@ const toggleFollow = async ({ followerId, followingId }) => {
   return result;
 };
 
-const toggleSave = ({ userId, postId }) => withTransaction(async session => {
+const toggleSave = ({ userId, publicationId }) => withTransaction(async session => {
   const options = session ? { session } : undefined;
-  const existing = await withOptionalSession(Save.findOne({ userId, postId }), session);
+  const existing = await withOptionalSession(Save.findOne({ userId, publicationId }), session);
   if (existing) {
     await Save.deleteOne({ _id: existing._id }, options);
     return { isBookmarked: false };
   }
-  await Save.create([{ userId, postId }], options);
+  await Save.create([{ userId, publicationId }], options);
   return { isBookmarked: true };
 });
 

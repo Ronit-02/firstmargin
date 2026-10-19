@@ -71,7 +71,7 @@ export default function PostCardMenu({ post, onHide, variant = 'list', compactMo
     {reportOpen && <ReportModal title={reportTitle(reportSubject)} onClose={() => setReportOpen(false)} returnFocusRef={triggerRef}>
       <ReportForm subject={reportSubject} mutation={reportMutation} onClose={() => setReportOpen(false)} />
     </ReportModal>}
-    {shareOpen && <ShareMenu anchorRef={triggerRef} id={`story-share-${instanceId}`} label="Share article" contentName="Story" url={`${window.location.origin}/post/${post.id}`} onClose={({ restoreFocus = false } = {}) => { setShareOpen(false); if (restoreFocus) requestAnimationFrame(() => triggerRef.current?.focus()) }} />}
+    {shareOpen && <ShareMenu anchorRef={triggerRef} id={`story-share-${instanceId}`} label="Share story" contentName="Story" url={`${window.location.origin}/post/${post.id}`} onClose={({ restoreFocus = false } = {}) => { setShareOpen(false); if (restoreFocus) requestAnimationFrame(() => triggerRef.current?.focus()) }} />}
     {saveOpen && <AddToCollectionDialog postId={post.id} title={post.title} isBookmarked={Boolean(post.isBookmarked)} saveMode returnFocusRef={triggerRef} onClose={() => setSaveOpen(false)} />}
     {seriesOpen && <AddToSeriesDialog postId={post.id} title={post.title} format={post.format === 'short' ? 'short' : 'article'} returnFocusRef={triggerRef} onClose={() => setSeriesOpen(false)} />}
   </>

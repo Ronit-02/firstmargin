@@ -1,5 +1,9 @@
 # Modal and overlay audit
 
+## Desktop sign-out choice — 2026-10-18
+
+The signed-in desktop Account menu uses one icon beside the user name to open a native `ModalLayer` choice dialog. It reuses `ModalHeader` and the existing logout actions for this session or all devices. Pending requests disable both choices; dismissal restores focus to the account trigger. The mobile Account sheet and logout endpoints remain unchanged. This adds a sign-out purpose to the historical modal inventory below.
+
 ## Dismiss controls — 2026-10-16
 
 Active modals with a header Close icon no longer repeat a dismiss-only Cancel button in the footer. This covers collection and series creation/edit/deletion, question creation, competition entry, publishing, comment editing/deletion, draft/post deletion, and reporting. The header Close icon remains the dismissal control, with existing Escape/backdrop behavior and pending-write guards. Series creation keeps Back because it changes the modal step. Inline comment editor and page-level Edit profile retain Cancel because those controls do not dismiss a modal. Focused tests now target header Close; frontend lint and build passed, while browser interaction remains unverified.
@@ -53,7 +57,7 @@ The original 2026-10-07 audit covered nine user-facing modal types. Reporting be
 | Delete collection? | `Frontend/src/features/collection/components/CollectionCard.jsx` | Owned collection options → Delete collection | Small Cancel delete target; light close-icon contrast |
 | Short read | `Frontend/src/features/discovery/components/ShortReadModal.jsx` | Short card / series entry / related short | Comment draft loss; secondary-text contrast; shared comment metadata wrapping |
 | Account | `Frontend/src/features/user/components/MobileProfileSheet.tsx` | Mobile Account | Core audited behavior passes; see physical-device limitations |
-| Search Ink Rider | `Frontend/src/features/discovery/components/MobileSearchDialog.tsx` | Mobile navbar search | Core audited behavior passes; full-screen search intentionally has no outside backdrop target |
+| Search firstmargin | `Frontend/src/features/discovery/components/MobileSearchDialog.tsx` | Mobile navbar search | Core audited behavior passes; full-screen search intentionally has no outside backdrop target |
 | Comments | `Frontend/src/features/post/components/CommentsModal.tsx` | Post comment-count control | Comment draft loss; secondary-text contrast; long comment-author wrapping |
 
 The shared modal implementations were exercised in saved Light/Dark mode at 320×360 and 1280×720. Account and mobile search were exercised at the mobile size only because they intentionally dismiss at the desktop breakpoint. Every type was also exercised with live system Light→Dark→Light changes while open, without a saved override. Guest checks cover Account, mobile search, comments, and short reading; creation/entry actions retain member gating.

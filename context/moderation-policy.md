@@ -1,4 +1,4 @@
-# Ink-Rider moderation policy
+# firstmargin moderation policy
 
 Last reviewed: 2026-09-08
 

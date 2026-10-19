@@ -1,14 +1,16 @@
-# Ink-Rider
+# firstmargin
 
-Ink-Rider connects the two sides of writing that most platforms keep apart. Readers can say what they want to understand. Writers can see that demand, respond with useful work, and earn an audience through relevance and quality rather than arriving with a large following.
+### A writing community where reader demand becomes writer opportunity.
+
+firstmargin connects the two sides of writing that most platforms keep apart. Readers can say what they want to understand. Writers can see that demand, respond with useful work, and earn an audience through relevance and quality rather than arriving with a large following.
 
 It combines thoughtful discovery, open publishing, reader questions, writing competitions, collections, and community participation in one responsive web experience. Primary articles remain free to read.
 
-## Why Ink-Rider exists
+## Why firstmargin exists
 
 Writers often struggle with two questions: what should I write, and how will anyone find it? Readers have the opposite problem. They know what they want to learn, but search and social feeds do not always lead them to the right explanation.
 
-Ink-Rider closes that gap.
+firstmargin closes that gap.
 
 Readers ask questions and support existing requests. Writers receive a ranked opportunity feed based on subject fit, demand, and freshness. A response can stay concise inside the discussion or become a full published article. Everyone who followed the question can return when an answer appears.
 
@@ -20,7 +22,7 @@ Questions are a first-class community space, not comments attached to an article
 
 ### Discovery is not a popularity contest
 
-Ink-Rider combines topic interest, followed writers, freshness, reading quality, and controlled exploration. It deliberately limits repeated authors and topics so new writers have a real path into the feed. Readers can also see why a story appeared and mark recommendations as irrelevant.
+firstmargin combines topic interest, followed writers, freshness, reading quality, and controlled exploration. It deliberately limits repeated authors and topics so new writers have a real path into the feed. Readers can also see why a story appeared and mark recommendations as irrelevant.
 
 ### Published knowledge stays open
 
@@ -46,15 +48,15 @@ Writers use the same account. There is no application process or progressive rol
 
 ### Community participants
 
-Reading and publishing are not separate identities in Ink-Rider. A reader can answer a question, a writer can judge a competition, and either can curate a collection or join a discussion. The product is built around participation rather than follower counts alone.
+Reading and publishing are not separate identities in firstmargin. A reader can answer a question, a writer can judge a competition, and either can curate a collection or join a discussion. The product is built around participation rather than follower counts alone.
 
-### Members and supporters
+### Members
 
-Membership adds optional experiences while public articles remain readable. Members can receive eligible early access, summaries, workshops, creator extras, and direct-request benefits. Creator support is tracked separately from platform membership so readers can choose where their support goes.
+Membership adds optional experiences while public articles remain readable. Members can receive eligible early access, summaries, workshops, creator extras, and direct-request benefits.
 
 ### Moderators and administrators
 
-Staff review reports, competition activity, and aggregate fraud signals. Moderation decisions are designed to be scoped, reversible, appealable, and auditable. The policy is approved, but destructive enforcement is not active yet. Current staff controls record reviews and recommendations without silently removing content or accounts.
+Staff review reports and competition activity. Moderation decisions are designed to be scoped, reversible, appealable, and auditable. The policy is approved, but destructive enforcement is not active yet. Current staff controls record reviews and recommendations without silently removing content or accounts.
 
 ## Core experiences
 
@@ -93,9 +95,9 @@ Staff review reports, competition activity, and aggregate fraud signals. Moderat
 - Public and private collections with ordered reading lists
 - Personal saved library and reading history
 - Notifications for questions, writers, competitions, workshops, and membership activity
-- Workshops, creator updates, early access, and creator support
+- Workshops, creator updates, and early access
 
-## The Ink-Rider loop
+## The firstmargin loop
 
 1. A reader discovers a useful story or asks for one that does not exist.
 2. Community demand makes the request more visible.

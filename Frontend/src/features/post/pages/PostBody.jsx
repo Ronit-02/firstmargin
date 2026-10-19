@@ -1,5 +1,21 @@
 /* eslint-disable jsx-a11y/no-noninteractive-element-interactions -- Image load failure is an error event, not a user interaction. */
 import { useState } from 'react'
+import ImageBox from '@/shared/components/ui/ImageBox'
+
+// Render only the editor's supported inline markers. React escapes the text nodes.
+const renderInline = value => {
+  const text = String(value || '')
+  const parts = []
+  const pattern = /(\*\*([^*\n]+)\*\*|\*([^*\n]+)\*)/g
+  let cursor = 0
+  for (const match of text.matchAll(pattern)) {
+    if (match.index > cursor) parts.push(text.slice(cursor, match.index))
+    parts.push(match[2] ? <strong key={match.index}>{match[2]}</strong> : <em key={match.index}>{match[3]}</em>)
+    cursor = match.index + match[0].length
+  }
+  if (cursor < text.length) parts.push(text.slice(cursor))
+  return parts
+}
 
 const isSafeImageUrl = value => {
   if (typeof value !== 'string' || value.length > 2_048) return false
@@ -21,12 +37,8 @@ function ImageBlock({ item }) {
 
   if (hasError) {
     return (
-      <div
-        role="img"
-        aria-label={label}
-        className="mb-6 flex min-h-24 items-center justify-center rounded-lg bg-(--color-bg-alt) px-4 py-6 text-center text-[13px] text-(--color-text-muted)"
-      >
-        Image unavailable
+      <div className="mb-6">
+        <ImageBox height={96} radius="8px" placeholderLabel={label} fallbackVariant="inline" />
       </div>
     )
   }
@@ -54,10 +66,10 @@ const renderBlock = (item, compact) => {
       return (
         <p
           key={item.id}
-          className={`${compact ? 'text-[15px]' : 'text-[17px]'} break-words leading-[1.82] mb-5 text-(--color-text)`}
-          style={{ fontFamily: 'var(--font-sans)' }}
+          className={`${compact ? 'text-[14px] font-light leading-[1.7]' : 'text-[17px] leading-[1.82]'} break-words mb-5 text-(--color-text)`}
+          style={{ fontFamily: compact ? 'var(--font-sans)' : 'var(--font-reading)' }}
         >
-          {item.content}
+          {renderInline(item.content)}
         </p>
       );
 
@@ -65,10 +77,10 @@ const renderBlock = (item, compact) => {
       return (
         <h1
           key={item.id}
-          className="break-words text-[28px] font-bold leading-[1.3] mb-6 text-(--color-text)"
+          className={`${compact ? 'text-[20px] font-normal leading-[1.35]' : 'text-[28px] font-bold leading-[1.3]'} break-words mb-6 text-(--color-text)`}
           style={{ fontFamily: 'var(--font-display)' }}
         >
-          {item.content}
+          {renderInline(item.content)}
         </h1>
       );
 
@@ -76,10 +88,10 @@ const renderBlock = (item, compact) => {
       return (
         <h2
           key={item.id}
-          className="break-words text-[24px] font-semibold leading-[1.35] mb-5 text-(--color-text)"
+          className={`${compact ? 'text-[18px] font-normal leading-[1.4]' : 'text-[24px] font-semibold leading-[1.35]'} break-words mb-5 text-(--color-text)`}
           style={{ fontFamily: 'var(--font-display)' }}
         >
-          {item.content}
+          {renderInline(item.content)}
         </h2>
       );
 
@@ -87,10 +99,10 @@ const renderBlock = (item, compact) => {
       return (
         <h3
           key={item.id}
-          className="text-[20px] font-semibold leading-[1.4] mb-4 text-(--color-text)"
+          className={`${compact ? 'text-[16px] font-normal leading-[1.45]' : 'text-[20px] font-semibold leading-[1.4]'} mb-4 text-(--color-text)`}
           style={{ fontFamily: 'var(--font-display)' }}
         >
-          {item.content}
+          {renderInline(item.content)}
         </h3>
       );
 
@@ -99,9 +111,9 @@ const renderBlock = (item, compact) => {
         <blockquote
           key={item.id}
           className="border-l-4 pl-4 italic mb-5 text-(--color-text) opacity-80"
-          style={{ fontFamily: 'var(--font-sans)' }}
+          style={{ fontFamily: compact ? 'var(--font-sans)' : 'var(--font-reading)' }}
         >
-          {item.content}
+          {renderInline(item.content)}
         </blockquote>
       );
 
@@ -109,7 +121,7 @@ const renderBlock = (item, compact) => {
       return (
         <pre
           key={item.id}
-          className="bg-(--color-bg-alt) text-(--color-text) p-4 rounded-lg mb-5 overflow-x-auto text-[13px]"
+          className="font-mono bg-(--color-bg-alt) text-(--color-text) p-4 rounded-lg mb-5 overflow-x-auto text-[13px] leading-[1.7]"
         >
           <code>{item.content}</code>
         </pre>

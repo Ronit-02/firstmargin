@@ -9,6 +9,7 @@ const Session = require('../schemas/session.schema');
 const OTP = require('../schemas/otp.schema');
 const config = require('../config/config');
 const { createProfileForUser } = require('../services/profile.service');
+const { profileAvatarPublicIdFromUrl } = require('../utils/cloudinary');
 
 const refreshCookieOptions = {
     httpOnly: true,
@@ -55,8 +56,8 @@ const clearRefreshCookie = (res) => {
 };
 
 const createGoogleUsername = async (name, email) => {
-    const base = String(name || email.split('@')[0] || 'Ink Rider writer')
-        .trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 24) || 'ink-rider-writer';
+    const base = String(name || email.split('@')[0] || 'firstmargin writer')
+        .trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 24) || 'firstmargin-writer';
     let username = base;
     let suffix = 1;
     while (await User.exists({ username })) {
@@ -117,10 +118,13 @@ const googleLogin = async (req, res) => {
             if (user.accountStatus === 'suspended') return res.status(403).json({ success: false, message: 'Unable to sign in' });
             user.googleId = claims.sub;
             user.verified = true;
-            if (!user.picture) {
-                user.picture = claims.picture || randomAvatar();
+            const previousPicture = user.picture || null;
+            const currentProfile = await Profile.findOne({ userId: user._id }).select('avatarUrl');
+            const customAvatar = profileAvatarPublicIdFromUrl(currentProfile?.avatarUrl, user._id);
+            user.picture = customAvatar ? currentProfile.avatarUrl : claims.picture || user.picture || randomAvatar();
+            if (!customAvatar && (user.picture !== previousPicture || !previousPicture)) {
                 await Profile.updateOne(
-                    { userId: user._id, avatarUrl: null },
+                    { userId: user._id, $or: [{ avatarUrl: null }, { avatarUrl: previousPicture }] },
                     { $set: { avatarUrl: user.picture } },
                 );
             }
@@ -130,9 +134,10 @@ const googleLogin = async (req, res) => {
             await createProfileForUser({ userId: user._id, username: user.username, picture: user.picture });
         }
 
+        const profile = await Profile.findOne({ userId: user._id }).select('avatarUrl');
         const { accessToken, refreshToken } = await createSessionTokens(user, req);
         res.cookie('refreshToken', refreshToken, refreshCookieOptions);
-        return res.status(200).json({ success: true, message: 'Google login successful', token: accessToken, username: user.username, avatarUrl: user.picture || null, email, role: user.role });
+        return res.status(200).json({ success: true, message: 'Google login successful', token: accessToken, username: user.username, avatarUrl: profile?.avatarUrl || user.picture || null, email, role: user.role });
     } catch (err) {
         console.error(`[${req.requestId}] Google login failed`);
         if (err?.code === 'GOOGLE_NOT_CONFIGURED') return res.status(503).json({ success: false, code: err.code, message: 'Google authentication is not configured' });
@@ -176,7 +181,7 @@ const login = async (req, res) => {
             // Sending OTP to user's email
             await sendEmail(
                 normalizedEmail,
-                'Ink Rider - Email Verification',
+                'firstmargin - Email Verification',
                 `Your OTP for email verification is ${otp}`,
                 otpHtml
             )
@@ -294,7 +299,7 @@ const signup = async (req, res) => {
         // Sending OTP to user's email
         await sendEmail(
             normalizedEmail,
-            'Ink Rider - Email Verification',
+            'firstmargin - Email Verification',
             `Your OTP for email verification is ${otp}`,
             otpHtml
         )
@@ -487,7 +492,7 @@ const resendOtp = async (req, res) => {
         // Sending OTP to user's email
         await sendEmail(
             normalizedEmail,
-            'Ink Rider - Email Verification',
+            'firstmargin - Email Verification',
             `Your OTP for email verification is ${otp}`,
             otpHtml
         )
@@ -550,12 +555,13 @@ const refreshToken = async (req, res) => {
         await session.save();
         res.cookie('refreshToken', newRefreshToken, refreshCookieOptions);
 
+        const profile = await Profile.findOne({ userId: user._id }).select('avatarUrl');
         return res.status(200).json({
             success: true,
             message: 'Token refreshed successfully',
             accessToken: newAccessToken,
             user: user.username,
-            avatarUrl: user.picture || null,
+            avatarUrl: profile?.avatarUrl || user.picture || null,
             email: user.email,
             role: user.role
         });

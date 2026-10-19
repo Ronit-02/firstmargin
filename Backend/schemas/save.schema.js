@@ -8,9 +8,9 @@ const saveSchema = new mongoose.Schema({
         required: true,
         index: true,
     },
-    postId: {
+    publicationId: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Post',
+        ref: 'Publication',
         required: true,
         index: true,
     },
@@ -19,6 +19,6 @@ const saveSchema = new mongoose.Schema({
 });
 
 // Prevent duplicate saves
-saveSchema.index({ userId: 1, postId: 1 }, { unique: true });
+saveSchema.index({ userId: 1, publicationId: 1 }, { unique: true });
 
 module.exports = mongoose.model('Save', saveSchema);

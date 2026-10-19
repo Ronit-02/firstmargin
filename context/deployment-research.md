@@ -1,4 +1,4 @@
-# Ink-Rider deployment planning
+# firstmargin deployment planning
 
 Last reviewed: 2026-09-08
 

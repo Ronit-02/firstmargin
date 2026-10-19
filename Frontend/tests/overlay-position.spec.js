@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 
 const id = '507f1f77bcf86cd799439021'
-const story = { id, _id: id, title: 'A story near the bottom edge', excerpt: 'Stories for curious readers.', abstract: 'Stories for curious readers.', author: { username: 'Leila Noor', handle: 'leila-noor' }, createdAt: '2026-09-08', tags: ['science'], readTime: '1 min read', likesCount: 1, commentsCount: 0, body: JSON.stringify([{ id: 'text', type: 'text', content: 'A thoughtful short read. '.repeat(60) }]) }
+const story = { id, _id: id, title: 'A story near the bottom edge', excerpt: 'Stories for curious readers.', abstract: 'Stories for curious readers.', author: { username: 'Leila Noor', handle: 'leila-noor' }, createdAt: '2026-09-08', tags: ['science'], readTime: '1 min read', likesCount: 1, commentsCount: 0, body: JSON.stringify([{ id: 'text', type: 'text', content: 'A thoughtful short. '.repeat(60) }]) }
 const collection = { id, title: 'A small reading library', description: 'Stories worth keeping together.', postsCount: 3, isOwner: true, visibility: 'public', author: { username: 'Leila Noor' } }
 
 async function mockApi(page) {

@@ -80,16 +80,15 @@ export default function AddToCollectionDialog({ postId, title, onClose, returnFo
           {collections.isPending && <p role="status" className="text-[13px] text-[var(--color-text-secondary)]">Loading your collections…</p>}
           {collections.isError && <div><p role="alert" className="text-[13px] text-[var(--color-danger)]">Your collections could not be loaded.</p><Button variant="secondary" className="mt-3" disabled={collections.isFetching || pending} aria-busy={collections.isFetching} onClick={() => collections.refetch()}>Try again</Button></div>}
           {!collections.isPending && !collections.isError && <>
-            {collections.data?.pages.every(page => page.data.length === 0)
+            {collections.data?.pages.every(page => page.data.length === 0) && !collections.hasNextPage
               ? <p className="text-[13px] text-[var(--color-text-secondary)]">You have no collections yet.</p>
               : <Select id={`${id}-collection`} label="Choose one of your collections" value={selectedCollectionId}
-                onChange={value => { setSelectedCollectionId(value); add.reset() }} disabled={pending}
+                onChange={value => { setSelectedCollectionId(value); add.reset() }} disabled={pending} pagination={collections} paginationDisabled={pending}
                 options={collections.data?.pages.flatMap(page => page.data).map(collection => ({
                   value: collection.id, label: collection.title, badge: collection.containsPost
                     ? `${collection.visibility[0].toUpperCase()}${collection.visibility.slice(1)} · Already added`
                     : `${collection.visibility[0].toUpperCase()}${collection.visibility.slice(1)}`,
                 })) || []} className="max-w-none" />}
-            {collections.hasNextPage && <Button variant="secondary" className="mt-3" disabled={collections.isFetchingNextPage || pending} aria-busy={collections.isFetchingNextPage} onClick={() => collections.fetchNextPage()}>Load more collections</Button>}
           </>}
           {add.isError && <p role="alert" className="mt-3 text-[13px] text-[var(--color-danger)]">{errorMessage(add.error, 'The story could not be added. Try again.')}</p>}
           <div className="mt-5 flex flex-wrap justify-end gap-2"><Button variant="secondary" disabled={pending} onClick={() => { add.reset(); setCreating(true) }}>Create new collection</Button><Button disabled={pending || !selectedCollectionId || selectedCollectionAlreadyContainsPost} aria-busy={pending} onClick={() => addTo(selectedCollectionId)}>{selectedCollectionAlreadyContainsPost ? 'Already in collection' : saveMode ? 'Save story' : 'Add to collection'}</Button></div>

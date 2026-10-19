@@ -5,7 +5,6 @@ const WorkshopAttendance = require('../schemas/workshop-attendance.schema');
 const { isSafeHttpUrl } = require('../utils/safe-url');
 const CreatorUpdate = require('../schemas/creator-update.schema');
 const CreatorRequest = require('../schemas/creator-request.schema');
-const CreatorSupport = require('../schemas/creator-support.schema');
 const { hasCapability } = require('../services/entitlement.service');
 const { notify } = require('../services/notification.service');
 
@@ -21,6 +20,13 @@ const listWorkshops = async (req, res) => {
       .select('-meetingUrl').sort({ startsAt: 1 }).populate('hostId', 'username picture');
     return res.json({ data: workshops });
   } catch { return res.status(500).json({ message: 'Unable to load workshops' }); }
+};
+
+const listMyWorkshops = async (req, res) => {
+  try {
+    const workshops = await Workshop.find({ hostId: req.auth.userId }).select('-meetingUrl').sort({ startsAt: -1 }).limit(100);
+    return res.json({ data: workshops });
+  } catch { return res.status(500).json({ message: 'Unable to load your workshops' }); }
 };
 
 const createWorkshop = async (req, res) => {
@@ -69,11 +75,16 @@ const listCreatorUpdates = async (req, res) => {
       if (!mongoose.isValidObjectId(req.query.creatorId)) return res.status(400).json({ message: 'Invalid creator id' });
       filter.creatorId = req.query.creatorId;
     }
-    const supported = await CreatorSupport.find({ supporterId: req.auth.userId, status: 'active' }).select('creatorId');
-    const supportedIds = new Set(supported.map(item => item.creatorId.toString()));
     const updates = await CreatorUpdate.find(filter).sort({ publishedAt: -1 }).limit(50).populate('creatorId', 'username picture');
-    return res.json({ data: updates.filter(update => update.audience === 'members' || supportedIds.has(update.creatorId._id.toString())) });
+    return res.json({ data: updates });
   } catch { return res.status(500).json({ message: 'Unable to load creator updates' }); }
+};
+
+const listMyCreatorUpdates = async (req, res) => {
+  try {
+    const updates = await CreatorUpdate.find({ creatorId: req.auth.userId }).sort({ publishedAt: -1, createdAt: -1 }).limit(100);
+    return res.json({ data: updates });
+  } catch { return res.status(500).json({ message: 'Unable to load your creator updates' }); }
 };
 
 const createCreatorUpdate = async (req, res) => {
@@ -81,7 +92,7 @@ const createCreatorUpdate = async (req, res) => {
     const title = String(req.body.title || '').trim();
     const body = String(req.body.body || '').trim();
     const audience = req.body.audience || 'members';
-    if (!title || title.length > 140 || !body || body.length > 10000 || !['members', 'supporters'].includes(audience)) return res.status(400).json({ message: 'Invalid creator update' });
+    if (!title || title.length > 140 || !body || body.length > 10000 || audience !== 'members') return res.status(400).json({ message: 'Invalid creator update' });
     const update = await CreatorUpdate.create({ creatorId: req.auth.userId, title, body, audience, status: 'published', publishedAt: new Date() });
     return res.status(201).json({ data: update });
   } catch { return res.status(500).json({ message: 'Unable to publish creator update' }); }
@@ -101,7 +112,7 @@ const createCreatorRequest = async (req, res) => {
     const used = await CreatorRequest.countDocuments({ requesterId: req.auth.userId, periodKey });
     if (used >= 3) return res.status(429).json({ message: 'Monthly direct request limit reached' });
     const request = await CreatorRequest.create({ requesterId: req.auth.userId, creatorId: req.params.creatorId, subject, details, periodKey });
-    await notify({ recipientId: req.params.creatorId, actorId: req.auth.userId, type: 'direct_request_received', title: 'New direct request', body: subject, href: '/members', entityType: 'creator_request', entityId: request._id });
+    await notify({ recipientId: req.params.creatorId, actorId: req.auth.userId, type: 'direct_request_received', title: 'New direct request', body: subject, href: '/studio?writingTab=requests', entityType: 'creator_request', entityId: request._id });
     return res.status(201).json({ data: request, remainingThisMonth: 2 - used });
   } catch { return res.status(500).json({ message: 'Unable to send creator request' }); }
 };
@@ -126,36 +137,4 @@ const updateReceivedRequest = async (req, res) => {
   } catch { return res.status(500).json({ message: 'Unable to update creator request' }); }
 };
 
-const listMySupport = async (req, res) => {
-  try {
-    const support = await CreatorSupport.find({ supporterId: req.auth.userId, status: 'active' }).populate('creatorId', 'username picture');
-    return res.json({ data: support });
-  } catch { return res.status(500).json({ message: 'Unable to load creator support' }); }
-};
-
-const setCreatorSupport = async (req, res) => {
-  try {
-    if (!mongoose.isValidObjectId(req.params.creatorId)) return res.status(400).json({ message: 'Invalid creator id' });
-    if (req.params.creatorId === req.auth.userId) return res.status(400).json({ message: 'You cannot support yourself' });
-    if (!await requireCapability(res, req.auth.userId, 'behind_scenes')) return;
-    const allocationPercent = Number(req.body.allocationPercent || 100);
-    if (!Number.isInteger(allocationPercent) || allocationPercent < 1 || allocationPercent > 100) return res.status(400).json({ message: 'Allocation must be between 1 and 100 percent' });
-    const existing = await CreatorSupport.find({ supporterId: req.auth.userId, status: 'active', creatorId: { $ne: req.params.creatorId } }).select('allocationPercent');
-    if (existing.reduce((sum, item) => sum + item.allocationPercent, 0) + allocationPercent > 100) return res.status(409).json({ message: 'Creator support allocations cannot exceed 100 percent' });
-    const support = await CreatorSupport.findOneAndUpdate({ supporterId: req.auth.userId, creatorId: req.params.creatorId }, { $set: { status: 'active', allocationPercent } }, { upsert: true, returnDocument: 'after' });
-    return res.json({ data: support });
-  } catch (error) {
-    if (error?.code === 11000) return res.status(409).json({ message: 'Creator support already changed' });
-    return res.status(500).json({ message: 'Unable to update creator support' });
-  }
-};
-
-const removeCreatorSupport = async (req, res) => {
-  try {
-    if (!mongoose.isValidObjectId(req.params.creatorId)) return res.status(400).json({ message: 'Invalid creator id' });
-    await CreatorSupport.updateOne({ supporterId: req.auth.userId, creatorId: req.params.creatorId }, { $set: { status: 'canceled' } });
-    return res.status(204).send();
-  } catch { return res.status(500).json({ message: 'Unable to update creator support' }); }
-};
-
-module.exports = { listWorkshops, createWorkshop, registerWorkshop, listCreatorUpdates, createCreatorUpdate, createCreatorRequest, listReceivedRequests, updateReceivedRequest, listMySupport, setCreatorSupport, removeCreatorSupport };
+module.exports = { listWorkshops, listMyWorkshops, createWorkshop, registerWorkshop, listCreatorUpdates, listMyCreatorUpdates, createCreatorUpdate, createCreatorRequest, listReceivedRequests, updateReceivedRequest };

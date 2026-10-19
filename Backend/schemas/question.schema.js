@@ -36,9 +36,9 @@ const questionSchema = new mongoose.Schema({
     upvotes:   [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     createdAt: { type: Date, default: Date.now },
   }],
-  relatedArticles: [{
+  relatedPublications: [{
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Post',
+    ref: 'Publication',
   }],
   followers: [{
     type: mongoose.Schema.Types.ObjectId,

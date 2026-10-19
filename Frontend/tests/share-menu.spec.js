@@ -4,11 +4,11 @@ import { test, expect } from '@playwright/test'
 const post = { id: '507f1f77bcf86cd799439021', title: 'A focused idea', excerpt: 'A useful short explanation.', author: { username: 'Maya Sen', handle: 'maya-sen' }, tags: ['science'], readTime: '1 min read', createdAt: '2026-09-08T00:00:00Z', likesCount: 0, commentsCount: 0 }
 const collection = { id: '507f1f77bcf86cd799439030', title: 'Useful ideas', description: 'A reading list.', visibility: 'public', author: post.author, postsCount: 0, posts: [], isOwner: false }
 const surfaces = [
-  { name: 'post detail', path: `/post/${post.id}`, trigger: 'Share this article', label: 'Share article', target: `/post/${post.id}` },
-  { name: 'short detail', path: '/shorts', trigger: 'Share this short read', label: 'Share short read', target: `/post/${post.id}`, short: true },
+  { name: 'post detail', path: `/post/${post.id}`, trigger: 'Share this story', label: 'Share story', target: `/post/${post.id}` },
+  { name: 'short detail', path: '/shorts', trigger: 'Share this short', label: 'Share short', target: `/post/${post.id}`, short: true },
   { name: 'collection detail', path: `/collections/${collection.id}`, trigger: 'Share this collection', label: 'Share collection', target: `/collections/${collection.id}` },
-  { name: 'discovery card', path: '/search?q=science', trigger: `More options for ${post.title}`, label: 'Share article', target: `/post/${post.id}`, card: true },
-  { name: 'featured story', path: '/explore/trending', trigger: `More options for ${post.title}`, label: 'Share article', target: `/post/${post.id}`, card: true },
+  { name: 'discovery card', path: '/search?q=science', trigger: `More options for ${post.title}`, label: 'Share story', target: `/post/${post.id}`, card: true },
+  { name: 'featured story', path: '/explore/trending', trigger: `More options for ${post.title}`, label: 'Share story', target: `/post/${post.id}`, card: true },
   { name: 'collection card', path: '/collections', trigger: `More options for ${collection.title}`, label: 'Share collection', target: `/collections/${collection.id}`, card: true },
 ]
 

@@ -1,9 +1,9 @@
-const Post = require('../schemas/post.schema');
+const Publication = require('../schemas/publication.schema');
 const Profile = require('../schemas/profile.schema');
 const Question = require('../schemas/question.schema');
 const { presentQuestions } = require('./question.controller');
-const { presentDiscoveryPosts } = require('../services/post-presenter.service');
-const { getPostAccessContext, accessiblePostClause } = require('../services/post-access.service');
+const { presentDiscoveryPosts } = require('../services/publication-presenter.service');
+const { getPostAccessContext, accessiblePostClause } = require('../services/publication-access.service');
 const publicAccessClause = () => ({ publicationStatus: { $ne: 'unpublished' }, $or: [{ publicAt: { $lte: new Date() } }, { publicAt: null }, { publicAt: { $exists: false } }] });
 const escapeRegex = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const topicTags = {
@@ -28,7 +28,7 @@ const buildTextMatch = (query, fields = ['title', 'body', 'tags']) => ({
   })),
 });
 
-// Suggestions use only public metadata; no article bodies or private reading history.
+// Suggestions use only public metadata; no story bodies or private reading history.
 const buildSuggestionPipeline = (query, filters, limit) => {
   const normalizedQuery = query.toLowerCase().replace(/[-_\s]+/g, ' ').trim();
   const phrase = normalizedQuery.split(' ').map(escapeRegex).join('\\s+');
@@ -46,7 +46,7 @@ const buildSuggestionPipeline = (query, filters, limit) => {
     ] } } },
     { $unwind: '$candidates' },
     { $project: {
-      postId: '$_id', sourceRank: '$candidates.sourceRank',
+      publicationId: '$_id', sourceRank: '$candidates.sourceRank',
       text: { $trim: { input: { $replaceAll: { input: { $replaceAll: {
         input: { $toLower: '$candidates.text' }, find: '-', replacement: ' ',
       } }, find: '_', replacement: ' ' } } } },
@@ -56,8 +56,8 @@ const buildSuggestionPipeline = (query, filters, limit) => {
       in: { $concat: ['$$value', { $cond: [{ $eq: ['$$value', ''] }, '', ' '] }, '$$this.match'] },
     } } } },
     { $match: { text: { $regex: wordPrefix }, $expr: { $lte: [{ $strLenCP: '$text' }, 100] } } },
-    // A repeated tag/title on one article counts as one supporting article.
-    { $group: { _id: { text: '$text', postId: '$postId' }, sourceRank: { $min: '$sourceRank' } } },
+    // A repeated tag/title on one story counts as one supporting story.
+    { $group: { _id: { text: '$text', publicationId: '$publicationId' }, sourceRank: { $min: '$sourceRank' } } },
     { $group: { _id: '$_id.text', articleCount: { $sum: 1 }, sourceRank: { $min: '$sourceRank' } } },
     { $addFields: { matchRank: { $cond: [
       { $eq: ['$_id', { $literal: normalizedQuery }] }, 0,
@@ -115,7 +115,7 @@ const search = async (req, res) => {
       const suggestionLimit = Math.min(limit, 5);
       const filters = [formatFilter, topicFilter, timeFilter].filter(Boolean);
       const [suggestions, profiles] = await Promise.all([
-        includePosts ? Post.aggregate(buildSuggestionPipeline(query, filters, suggestionLimit)) : [],
+        includePosts ? Publication.aggregate(buildSuggestionPipeline(query, filters, suggestionLimit)) : [],
         includeWriters ? Profile.find({
           writerStatus: 'writer',
           $and: query.split(/\s+/).filter(Boolean).map(term => ({ $or: [
@@ -134,7 +134,7 @@ const search = async (req, res) => {
     const accessContext = includeQuestions ? await getPostAccessContext(req.auth?.userId) : null;
     const [postDocuments, profileDocuments, questionDocuments] = await Promise.all([
       includePosts
-        ? Post.find({
+        ? Publication.find({
             $and: [
               buildTextMatch(query),
               publicAccessClause(),
@@ -143,9 +143,9 @@ const search = async (req, res) => {
               ...(timeFilter ? [timeFilter] : []),
             ],
           })
-            .select('title format coverImage body tags likesCount commentsCount createdAt author')
+            .select('title format coverImage body tags appreciationsCount commentsCount createdAt author')
             .populate({ path: 'author', select: 'picture username' })
-            .sort(sort === 'latest' ? { createdAt: -1, _id: -1 } : { likesCount: -1, createdAt: -1, _id: -1 })
+            .sort(sort === 'latest' ? { createdAt: -1, _id: -1 } : { appreciationsCount: -1, createdAt: -1, _id: -1 })
             .limit(limit)
         : Promise.resolve([]),
       includeWriters
@@ -173,9 +173,9 @@ const search = async (req, res) => {
               ...(timeFilter ? [timeFilter] : []),
             ],
           })
-            .select('text context tags upvotesCount upvotes answers._id relatedArticles status createdAt author')
+            .select('text context tags upvotesCount upvotes answers._id relatedPublications status createdAt author')
             .populate({ path: 'author', select: 'picture username' })
-            .populate({ path: 'relatedArticles', match: accessiblePostClause(accessContext), select: 'title format coverImage author createdAt body tags likesCount commentsCount', populate: { path: 'author', select: 'username picture' } })
+            .populate({ path: 'relatedPublications', match: accessiblePostClause(accessContext), select: 'title format coverImage author createdAt body tags appreciationsCount commentsCount', populate: { path: 'author', select: 'username picture' } })
             .sort(sort === 'latest' ? { createdAt: -1, _id: -1 } : { upvotesCount: -1, createdAt: -1, _id: -1 })
             .limit(limit)
         : Promise.resolve([]),

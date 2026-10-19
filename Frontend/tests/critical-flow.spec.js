@@ -19,7 +19,7 @@ test('reader can draft, publish, read, save, comment, and reload a short article
   await page.getByRole('button', { name: 'Write a post', exact: true }).click()
   await page.getByRole('dialog', { name: 'What do you want to write?' }).getByRole('button', { name: /^Short/ }).click()
   await expect(page.locator('input[type=file]')).toHaveCount(0)
-  await page.getByPlaceholder('A focused idea…').fill('A browser-tested short reading flow')
+  await page.getByPlaceholder('A focused idea…').fill('A browser-tested shorting flow')
   await page.getByPlaceholder('Press / for formatting options').fill('This short article verifies the complete reader and writer journey from draft to durable discussion.')
   await expect(page).toHaveURL(/\/studio\?draft=/, { timeout: 10_000 })
   await page.getByRole('button', { name: 'Publish', exact: true }).click()

@@ -1,3 +1,4 @@
+import InfiniteScrollSentinel from '@/shared/components/ui/InfiniteScrollSentinel'
 import ModalHeader from '@/shared/components/ui/ModalHeader'
 import retainRetryView from '@/shared/utils/retainRetryView'
 import ModalLayer from '@/shared/components/ui/ModalLayer'
@@ -42,13 +43,13 @@ export function QuestionCard({ question, sort = 'hot' }) {
           <span data-button-icon aria-hidden="true" className="block text-[11px]">▲</span><span className="block text-[12px] font-semibold tabular-nums">{question.upvotesCount}</span>
         </button>
       </div>
-      <h2 className="min-w-0 break-words text-[18px] leading-[1.35] font-bold text-[var(--color-text)]" style={{ fontFamily: 'var(--font-display)' }}>
+      <h2 className="min-w-0 line-clamp-3 break-words text-[18px] leading-[1.35] font-bold text-[var(--color-text)]" style={{ fontFamily: 'var(--font-display)' }}>
         <Link to={`/explore/questions/${question.id}`} className="rounded-[4px] after:absolute after:inset-0 after:content-[''] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-offset-2">{question.text}</Link>
       </h2>
       {question.context && <p className="mt-4 break-words text-[14px] leading-6 text-[var(--color-text-secondary)] line-clamp-2">{question.context}</p>}
       {question.tags.length > 0 && <div ref={tagsRef} className="mt-3 flex min-w-0 flex-nowrap gap-x-2 overflow-hidden">{question.tags.map((tag, index) => <Link key={tag} to={categoryPath(tag)} aria-label={`Questions about ${tag}`} aria-hidden={index >= visibleTags} className={`relative z-10 inline-flex min-h-11 shrink-0 items-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] ${index >= visibleTags ? 'invisible' : ''}`}><Tag label={`#${tag}`} /></Link>)}</div>}
       <div className="mt-5 flex flex-col items-start gap-4 text-[13px] sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-        <span className="text-[var(--color-text-secondary)]"><strong className="font-semibold text-[var(--color-text)]">{question.answersCount}</strong> {question.answersCount === 1 ? 'short answer' : 'short answers'} · <strong className="font-semibold text-[var(--color-text)]">{question.responsePosts.length}</strong> {question.responsePosts.length === 1 ? 'article response' : 'article responses'}</span>
+        <span className="text-[var(--color-text-secondary)]"><strong className="font-semibold text-[var(--color-text)]">{question.answersCount}</strong> {question.answersCount === 1 ? 'short answer' : 'short answers'} · <strong className="font-semibold text-[var(--color-text)]">{question.responsePosts.length}</strong> {question.responsePosts.length === 1 ? 'story response' : 'story responses'}</span>
         <div className="relative z-10 flex items-center gap-2">
           <button type="button" aria-haspopup="dialog" onClick={() => loggedIn ? setResponseOpen(true) : signIn()} className={`button-target ${responseButtonClass} border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-text-inverted)]`}><span className="text-[var(--color-text-inverted)]">Add response</span></button>
           {question.responsePosts.length > 0 && <Link to={`/explore/questions/${question.id}#response-posts-title`} className={`${responseButtonClass} border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-alt)]`}>View responses</Link>}
@@ -140,12 +141,12 @@ export default function QuestionsTab() {
   }
 
   return <div>
-    <PageHeader eyebrow="Reader demand" title="What should writers explore next?" description="Ask for the article you wish existed. Duplicate requests become upvotes, helping writers see real demand." actions={<div className="flex flex-wrap items-center gap-3"><Button onClick={() => loggedIn ? setShowAsk(true) : signIn()}><span aria-hidden="true" className="mr-1 text-[17px] leading-none">+</span>Ask a question</Button>{questions.length > 0 && <FilterBar label="Topic" value={topic} onReset={resetFilters} onChange={value => updateFilter('questionTopic', value, 'all')} options={topicOptions} sortOptions={[{ id: 'hot', label: 'Most upvoted' }, { id: 'newest', label: 'Newest' }]} sortValue={sort} onSortChange={value => updateFilter('questionSort', value, 'hot')} />}</div>} />
+    <PageHeader eyebrow="Reader demand" title="What should writers explore next?" description="Ask for the story you wish existed. Duplicate requests become upvotes, helping writers see real demand." actions={<div className="flex flex-wrap items-center gap-3"><Button onClick={() => loggedIn ? setShowAsk(true) : signIn()}><span aria-hidden="true" className="mr-1 text-[17px] leading-none">+</span>Ask a question</Button>{questions.length > 0 && <FilterBar label="Topic" value={topic} onReset={resetFilters} onChange={value => updateFilter('questionTopic', value, 'all')} options={topicOptions} sortOptions={[{ id: 'hot', label: 'Most upvoted' }, { id: 'newest', label: 'Newest' }]} sortValue={sort} onSortChange={value => updateFilter('questionSort', value, 'hot')} />}</div>} />
     {query.isPending && <ListSkeleton count={4} label="Loading reader questions" />}
     {query.isError && <div role="alert" className="py-12 text-center"><p className="text-[13px] text-[var(--color-danger)]">Questions could not be loaded.</p><Button className="mt-4" variant="secondary" onClick={() => query.refetch()} aria-busy={query.isFetching} disabled={query.isFetching}>Try again</Button></div>}
     {!query.isPending && !query.isError && filteredQuestions.length === 0 && <p className="py-12 text-center text-[13px] text-[var(--color-text-muted)]">No questions match this topic.</p>}
     {filteredQuestions.map(question => <QuestionCard key={question.id} question={question} sort={sort} />)}
-    {query.hasNextPage && <div className="pt-8 text-center"><Button variant="secondary" onClick={() => query.fetchNextPage()} disabled={query.isFetchingNextPage} aria-busy={query.isFetchingNextPage}>{'Load more'}</Button></div>}
+    <InfiniteScrollSentinel query={query} className="pt-8" />
     {showAsk && <AskModal onClose={() => setShowAsk(false)} />}
   </div>
 }

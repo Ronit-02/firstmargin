@@ -1,5 +1,9 @@
 # Notifications audit
 
+## Direct-request destination after Studio consolidation — 2026-10-18
+
+New `direct_request_received` notifications open `/studio?writingTab=requests`, where received requests now live. The inbox maps older received-request notifications pointing to `/members` or `/studio?writingTab=creator` to Requests, including ordinary and modified link activation. Other notification types, recipient-scoped read state, APIs, and stored records remain unchanged. The seed fixture uses the new destination.
+
 Audited: 2026-10-09.
 
 ## Phone inbox placement — 2026-10-15
@@ -60,7 +64,7 @@ Implementation files: NotificationsPage.jsx, Navbar.jsx, Profile/index.jsx, new 
 
 The inbox was a guarded `/notifications` page with PageHeader, serif title, DM Sans rows, semantic theme colors, unread dots, timestamps, and Mark all read. Navbar polls a compact query for its desktop unread badge. Mobile Account had no notification entry. Unread links mark the item read before navigating; failures retain the inbox with toast feedback. Initial loading and ordinary-error retry exist. The backend returns 20-item cursor pages, but the previous UI could not reach older items.
 
-The requested change presents the inbox in shared ModalLayer over the originating route. Close/Escape/backdrop restore that route and focus; direct `/notifications` entries open over Home and close to Home. A member-only Account row provides mobile access. The title/rows, theme/typography, authentication, unread polling, mutation feedback, global outage recovery, public path, and backend contracts are preserved. Load more uses existing API cursors with a separate inbox query beneath the shared notification invalidation prefix. As of 2026-10-10, guests on /notifications see the centered screen-specific Sign In prompt inside AppLayout; authentication opens only from its button and notification reads remain gated. Signed-in inbox background/dismissal behavior is preserved.
+The requested change presents the inbox in shared ModalLayer over the originating route. Close/Escape/backdrop restore that route and focus; direct `/notifications` entries open over Home and close to Home. A member-only Account row provides mobile access. The title/rows, theme/typography, authentication, unread polling, mutation feedback, global outage recovery, public path, and backend contracts are preserved. Scroll pagination uses existing API cursors with a separate inbox query beneath the shared notification invalidation prefix. As of 2026-10-10, guests on /notifications see the centered screen-specific Sign In prompt inside AppLayout; authentication opens only from its button and notification reads remain gated. Signed-in inbox background/dismissal behavior is preserved.
 
 Frontend owns route background state, modal focus/viewport behavior, and query presentation. Existing Express routes call notification controllers/services; the Mongoose notification record stores recipient/actor, type, title/body, href/entity, and readAt. Recipient scoping is enforced for reads and mutations. No backend, schema, or delivery-provider changes are required.
 

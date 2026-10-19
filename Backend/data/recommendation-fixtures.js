@@ -5,7 +5,7 @@ const post = ({ id, author, topic, hoursAgo, likes = 0 }) => ({
   author: { _id: author, username: author },
   topics: topic ? [{ _id: topic }] : [],
   createdAt: new Date(asOf.getTime() - hoursAgo * 3_600_000),
-  likesCount: likes,
+  appreciationsCount: likes,
 });
 
 const baseContext = {

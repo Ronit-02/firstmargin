@@ -15,8 +15,8 @@ test('shared discovery pills expose selected state and phone-sized targets', asy
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/explore/competitions', { waitUntil: 'domcontentloaded' })
 
-  const active = page.getByRole('button', { name: 'Active (0)', exact: true })
-  const inactive = page.getByRole('button', { name: 'Inactive (0)', exact: true })
+  const active = page.getByRole('button', { name: 'Ongoing', exact: true })
+  const inactive = page.getByRole('button', { name: 'Past', exact: true })
   await expect(active).toHaveAttribute('aria-pressed', 'true')
   await expect(inactive).toHaveAttribute('aria-pressed', 'false')
 
@@ -240,7 +240,7 @@ test('search input keeps a visible keyboard focus indicator with custom outline 
   await page.goto('/search?q=city', { waitUntil: 'domcontentloaded' })
 
   await page.getByRole('navigation', { name: 'Global navigation' }).getByRole('combobox').focus()
-  const dialog = page.getByRole('dialog', { name: 'Search Ink Rider' })
+  const dialog = page.getByRole('dialog', { name: 'Search firstmargin' })
   const searchInput = dialog.getByRole('combobox')
   await expect(searchInput).toBeFocused()
   await expect.poll(() => dialog.getByRole('search').evaluate(element => getComputedStyle(element).borderColor)).toBe('rgb(25, 25, 25)')
@@ -303,7 +303,7 @@ test('short-read recovery is announced and retryable on phone', async ({ page })
 
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/shorts', { waitUntil: 'domcontentloaded' })
-  await expect(page.getByRole('alert')).toContainText('Short reads could not be loaded.')
+  await expect(page.getByRole('alert')).toContainText('Shorts could not be loaded.')
   expect((await page.getByRole('button', { name: 'Try again' }).boundingBox())?.height).toBeGreaterThanOrEqual(44)
 })
 
@@ -343,7 +343,7 @@ test('mobile primary navigation exposes phone-sized links and an Account action'
   await expect(navigation).toBeVisible()
   const links = navigation.getByRole('link')
   await expect(links).toHaveCount(4)
-  await expect(links).toHaveText(['Home', 'Explore', 'Shorts', 'Collections'])
+  await expect(links).toHaveText(['Home', 'Explore', 'Shorts', 'Browse'])
   for (const link of await links.all()) {
     expect((await link.boundingBox())?.height).toBeGreaterThanOrEqual(44)
   }
@@ -411,6 +411,114 @@ test('desktop sidebar width persists across reloads', async ({ page }) => {
   await expect(page.getByRole('separator', { name: 'Resize sidebar' })).toHaveAttribute('aria-valuenow', '220')
 })
 
+for (const width of [768, 1280]) {
+  test(`desktop sidebar toggles to an icon rail at ${width}px`, async ({ page }) => {
+    await page.route(url => url.pathname.startsWith('/api/'), async route => {
+      const path = new URL(route.request().url()).pathname
+      if (path === '/api/auth/refresh-token') return route.fulfill({ status: 401, json: { message: 'Signed out' } })
+      return route.fulfill({ json: { data: [], meta: { nextCursor: null } } })
+    })
+    await page.setViewportSize({ width, height: 800 })
+    await page.goto('/explore/trending')
+    await page.evaluate(() => {
+      localStorage.removeItem('ink-rider.sidebar-collapsed')
+      localStorage.removeItem('ink-rider.sidebar-open')
+      localStorage.removeItem('ink-rider.sidebar-width')
+    })
+    await page.reload()
+
+    const sidebar = page.locator('aside.sidebar-desktop')
+    const navigation = sidebar.getByRole('navigation', { name: 'Desktop primary navigation' })
+    await expect(sidebar).toBeVisible()
+    await expect(navigation.getByRole('heading', { level: 2 })).toHaveText(['Browse', 'Catalog', 'Your space'])
+    await expect(navigation.getByRole('link')).toHaveText(['Home', 'Trending', 'Questions', 'Competitions', 'Shorts', 'Collections', 'Series', 'Studio'])
+    await expect(navigation.getByRole('button', { name: 'Browse' })).toHaveAttribute('aria-expanded', 'true')
+    await expect(navigation.getByRole('button', { name: 'Catalog' })).toHaveAttribute('aria-expanded', 'true')
+    await expect(navigation.getByRole('button', { name: 'Your space' })).toHaveAttribute('aria-expanded', 'true')
+    await expect(navigation.getByRole('button', { name: 'Explore' })).toHaveCount(0)
+    const browseLabel = await navigation.getByRole('button', { name: 'Browse' }).getByText('Browse').boundingBox()
+    const trendingLabel = await navigation.getByRole('link', { name: 'Trending' }).getByText('Trending').boundingBox()
+    expect(trendingLabel.x - browseLabel.x).toBeGreaterThan(12)
+    await navigation.getByRole('button', { name: 'Browse' }).click()
+    await expect(navigation.getByRole('link', { name: 'Trending' })).toBeHidden()
+    await expect(navigation.getByRole('link', { name: 'Studio' })).toBeVisible()
+    await navigation.getByRole('button', { name: 'Browse' }).click()
+    await expect(navigation.getByRole('link', { name: 'Trending' })).toBeVisible()
+    await navigation.getByRole('button', { name: 'Catalog' }).click()
+    await expect(navigation.getByRole('link', { name: 'Collections' })).toBeHidden()
+    await expect(navigation.getByRole('link', { name: 'Series' })).toBeHidden()
+    await expect(navigation.getByRole('link', { name: 'Trending' })).toBeVisible()
+    await navigation.getByRole('button', { name: 'Catalog' }).click()
+    await expect(navigation.getByRole('link', { name: 'Collections' })).toBeVisible()
+    await navigation.getByRole('button', { name: 'Your space' }).click()
+    await expect(navigation.getByRole('link', { name: 'Studio' })).toBeHidden()
+    await navigation.getByRole('button', { name: 'Your space' }).click()
+    await expect(navigation.getByRole('link', { name: 'Studio' })).toBeVisible()
+    if (width === 1280) {
+      await navigation.getByRole('button', { name: 'Browse' }).click()
+      await expect(navigation.getByRole('link', { name: 'Trending' })).toBeHidden()
+    }
+    await expect(sidebar.getByRole('button', { name: 'Collapse sidebar' })).toBeVisible()
+    await expect(sidebar.getByRole('button', { name: 'Collapse sidebar' }).locator('svg path')).toHaveAttribute('d', 'm11 4-5 5 5 5')
+    const sidebarBox = await sidebar.boundingBox()
+    const toggleBox = await sidebar.getByRole('button', { name: 'Collapse sidebar' }).boundingBox()
+    expect(toggleBox.width).toBe(32)
+    expect(toggleBox.height).toBe(32)
+    expect(toggleBox.x + toggleBox.width).toBeGreaterThan(sidebarBox.x + sidebarBox.width - 20)
+    expect(toggleBox.y).toBeLessThan(sidebarBox.y + 60)
+    await expect(page.getByRole('navigation', { name: 'Global navigation' }).getByRole('button', { name: /sidebar/i })).toHaveCount(0)
+    const resize = sidebar.getByRole('separator', { name: 'Resize sidebar' })
+    await resize.focus()
+    await resize.press('ArrowRight')
+    await expect(resize).toHaveAttribute('aria-valuenow', '220')
+
+    if (width === 1280) {
+      const widths = await page.evaluate(async () => {
+        const rail = document.querySelector('aside.sidebar-desktop')
+        const before = rail.getBoundingClientRect().width
+        rail.querySelector('[aria-label="Collapse sidebar"]').click()
+        await new Promise(resolve => window.setTimeout(resolve, 90))
+        return { before, during: rail.getBoundingClientRect().width }
+      })
+      expect(widths.during).toBeLessThan(widths.before)
+      expect(widths.during).toBeGreaterThan(64)
+    } else {
+      await sidebar.getByRole('button', { name: 'Collapse sidebar' }).click()
+    }
+    await expect(sidebar).toBeVisible()
+    await expect.poll(() => sidebar.evaluate(element => element.getBoundingClientRect().width)).toBe(64)
+    await expect(sidebar.getByRole('button', { name: 'Expand sidebar' }).locator('svg path')).toHaveAttribute('d', 'm7 4 5 5-5 5')
+    expect((await sidebar.getByRole('button', { name: 'Expand sidebar' }).boundingBox()).width).toBe(32)
+    await expect(resize).toHaveCount(0)
+    await expect(navigation.getByRole('link', { name: 'Home' })).toBeVisible()
+    await expect(navigation.getByRole('link', { name: 'Trending' })).toHaveAttribute('href', '/explore/trending')
+    await expect(navigation.getByRole('link', { name: 'Questions' })).toBeVisible()
+    await expect(navigation.getByRole('link', { name: 'Competitions' })).toBeVisible()
+    await expect(navigation.getByRole('link', { name: 'Collections' })).toBeVisible()
+    await expect(navigation.getByRole('link', { name: 'Series' })).toBeVisible()
+    await expect(navigation.getByText('Browse')).toHaveCount(0)
+    await expect(navigation.getByText('Catalog')).toHaveCount(0)
+    await expect(navigation.getByRole('link', { name: 'Settings' })).toHaveCount(0)
+    await expect(navigation.getByText('Studio')).toHaveClass(/max-w-0/)
+    await page.screenshot({ path: `node_modules/.cache/profile-unified-save/sidebar-rail-${width}.png` })
+    if (width === 1280) {
+      await sidebar.getByRole('button', { name: 'Expand sidebar' }).click()
+      await expect(navigation.getByRole('button', { name: 'Browse' })).toHaveAttribute('aria-expanded', 'false')
+      await expect(navigation.getByRole('link', { name: 'Trending' })).toBeHidden()
+      await sidebar.getByRole('button', { name: 'Collapse sidebar' }).click()
+      await expect.poll(() => sidebar.evaluate(element => element.getBoundingClientRect().width)).toBe(64)
+    }
+    await page.reload()
+    await expect(sidebar.getByRole('button', { name: 'Expand sidebar' })).toBeVisible()
+    await expect.poll(() => sidebar.evaluate(element => element.getBoundingClientRect().width)).toBe(64)
+
+    await sidebar.getByRole('button', { name: 'Expand sidebar' }).click()
+    await expect.poll(() => sidebar.evaluate(element => element.getBoundingClientRect().width)).toBe(220)
+    await expect(sidebar.getByRole('separator', { name: 'Resize sidebar' })).toBeVisible()
+    await expect(navigation.getByRole('button', { name: 'Browse' })).toHaveAttribute('aria-expanded', 'true')
+  })
+}
+
 test('desktop sidebar expands without motion when reduced motion is requested', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.route(url => url.pathname.startsWith('/api/'), async route => {
@@ -430,9 +538,15 @@ test('desktop sidebar expands without motion when reduced motion is requested', 
   await page.setViewportSize({ width: 1280, height: 800 })
   await page.goto('/', { waitUntil: 'domcontentloaded' })
 
-  const explore = page.getByRole('button', { name: 'Explore' })
-  await explore.click()
+  const browse = page.getByRole('button', { name: 'Browse' })
+  await browse.click()
+  await expect(page.getByRole('link', { name: 'Trending' })).toBeHidden()
+  await browse.click()
   await expect(page.getByRole('link', { name: 'Trending' })).toBeVisible()
+  const sidebar = page.locator('aside.sidebar-desktop')
+  expect(await sidebar.evaluate(element => parseFloat(getComputedStyle(element).transitionDuration))).toBeLessThan(0.001)
+  await sidebar.getByRole('button', { name: 'Collapse sidebar' }).click()
+  await expect.poll(() => sidebar.evaluate(element => element.getBoundingClientRect().width)).toBe(64)
 })
 
 test('short-read comments remain inline without a redundant footer button', async ({ page }) => {
@@ -443,7 +557,7 @@ test('short-read comments remain inline without a redundant footer button', asyn
       return route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ message: 'Signed out' }) })
     }
     if (url.pathname === '/api/short-series/series-1') {
-      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: { id: 'series-1', title: 'A walkable city', description: 'Two practical short reads.', entriesCount: 1, isOwner: false, author: { username: 'Maya Sen' }, entries: [{ id: 'short-1', title: 'Start with the street' }] } }) })
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: { id: 'series-1', title: 'A walkable city', description: 'Two practical shorts.', entriesCount: 1, isOwner: false, author: { username: 'Maya Sen' }, entries: [{ id: 'short-1', title: 'Start with the street' }] } }) })
     }
     if (url.pathname === '/api/post/short-1') {
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ postData: { _id: 'short-1', title: 'Start with the street', body: JSON.stringify([{ id: 'block-1', type: 'paragraph', text: 'A short idea worth reading.' }]), author: { username: 'Maya Sen' }, readTime: '1 min read', commentsCount: 0, likesCount: 0, isLiked: false, isBookmarked: false } }) })
@@ -549,7 +663,7 @@ test('short-series owner controls expose phone-sized reorder targets', async ({ 
       return route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ data: { id: 'series-1', title: 'A walkable city', description: 'Two practical short reads.', entriesCount: 2, isOwner: true, author: { username: 'Maya Sen' }, entries: [{ id: 'short-1', title: 'Start with the street' }, { id: 'short-2', title: 'Design for a slower city' }] } }),
+        body: JSON.stringify({ data: { id: 'series-1', title: 'A walkable city', description: 'Two practical shorts.', entriesCount: 2, isOwner: true, author: { username: 'Maya Sen' }, entries: [{ id: 'short-1', title: 'Start with the street' }, { id: 'short-2', title: 'Design for a slower city' }] } }),
       })
     }
     return route.abort('blockedbyclient')

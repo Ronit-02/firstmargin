@@ -85,7 +85,7 @@ const getOTPHTML = (otp) => {
                     color: #111827;
                     font-size: 28px;
                   ">
-                    Ink Rider
+                    firstmargin
                   </h1>
 
                   <p style="
@@ -183,7 +183,7 @@ const getOTPHTML = (otp) => {
                     font-size: 12px;
                     line-height: 20px;
                   ">
-                    © ${new Date().getFullYear()} Ink Rider. All rights reserved.
+                    © ${new Date().getFullYear()} firstmargin. All rights reserved.
                   </p>
 
                   <p style="

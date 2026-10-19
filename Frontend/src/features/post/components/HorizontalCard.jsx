@@ -57,7 +57,7 @@ export default function HorizontalCard({ article }) {
           <button
             onClick={e => { e.stopPropagation(); setSaved(v => !v) }}
             type="button"
-            aria-label={saved ? `Remove ${article.title} from saved articles` : `Save ${article.title}`}
+            aria-label={saved ? `Remove ${article.title} from saved stories` : `Save ${article.title}`}
             aria-pressed={saved}
             className={`ml-auto flex-shrink-0 min-h-10 min-w-10 rounded-full flex items-center justify-center
               border border-[var(--color-border)] transition-all duration-150 opacity-0 group-hover:opacity-100

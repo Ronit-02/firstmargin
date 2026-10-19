@@ -1,6 +1,6 @@
-# Ink-Rider agent instructions
+# firstmargin agent instructions
 
-This file is the repository-level operating contract for every coding agent working in Ink-Rider.
+This file is the repository-level operating contract for every coding agent working in firstmargin.
 
 ## Required reading before development
 
@@ -16,7 +16,7 @@ Do not begin development until this reading is complete. If the context is missi
 
 ## Preserve the existing project
 
-Work strictly on top of the existing project. Ink-Rider must be extended on top of what is already built. Existing code, UI, design language, routes, schemas, APIs, folder structure, and business logic are the source of truth.
+Work strictly on top of the existing project. firstmargin must be extended on top of what is already built. Existing code, UI, design language, routes, schemas, APIs, folder structure, and business logic are the source of truth.
 
 - Do not redesign the UI or replace the homepage/page structure.
 - Do not change typography, colors, spacing, card structure, navigation, or interaction patterns merely for consistency or personal preference.

@@ -1,15 +1,17 @@
 const User = require('../schemas/user.schema');
-const Post = require('../schemas/post.schema');
+const Publication = require('../schemas/publication.schema');
 const Save = require('../schemas/save.schema');
-const Like = require('../schemas/like.schema');
+const Appreciation = require('../schemas/appreciation.schema');
 const Profile = require('../schemas/profile.schema');
 const mongoose = require('mongoose');
+const fs = require('fs');
 const { createProfileForUser } = require('../services/profile.service');
+const { uploadProfileAvatar, profileAvatarPublicIdFromUrl, removeProfileAvatar } = require('../utils/cloudinary');
 const InteractionEvent = require('../schemas/interaction-event.schema');
 const { hasCapability } = require('../services/entitlement.service');
 const { toggleFollow: toggleFollowWorkflow, toggleSave: toggleSaveWorkflow } = require('../services/user-relationship.service');
 const { setLike, addComment: addCommentWorkflow } = require('../services/engagement.service');
-const { presentDiscoveryPosts } = require('../services/post-presenter.service');
+const { presentDiscoveryPosts } = require('../services/publication-presenter.service');
 
 const isValidId = (id) => mongoose.isValidObjectId(id);
 
@@ -18,7 +20,7 @@ const getMe = async (req, res) => {
     const [user, profile, postCount] = await Promise.all([
       User.findById(req.auth.userId).select('username picture bio role followersCount followingCount createdAt'),
       Profile.findOne({ userId: req.auth.userId }).select('handle displayName bio avatarUrl websiteUrl writerStatus membershipEnabled directRequestsEnabled'),
-      Post.countDocuments({ author: req.auth.userId }),
+      Publication.countDocuments({ author: req.auth.userId }),
     ]);
     if (!user) return res.status(404).json({ message: 'User not found' });
     return res.status(200).json({
@@ -47,8 +49,8 @@ const getMe = async (req, res) => {
 
 const getMyPosts = async (req, res) => {
   try {
-    const posts = await Post.find({ author: req.auth.userId })
-      .select('title coverImage format tags likesCount commentsCount metadata publicationStatus currentRevision publicAt createdAt author body')
+    const posts = await Publication.find({ author: req.auth.userId })
+      .select('title coverImage format tags appreciationsCount commentsCount metadata publicationStatus currentRevision publicAt createdAt author body')
       .populate({ path: 'author', select: 'username picture' })
       .sort({ createdAt: -1 });
     const summaries = await presentDiscoveryPosts(posts, req.auth.userId);
@@ -129,6 +131,49 @@ const updateProfile = async (req, res) => {
   }
 };
 
+const updateProfileAvatar = async (req, res) => {
+  let uploadedPublicId = null;
+  let saved = false;
+  try {
+    if (!req.file) return res.status(400).json({ message: 'Choose a profile picture to upload' });
+    const user = await User.findById(req.auth.userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    const profile = await Profile.findOne({ userId: user._id }) || await createProfileForUser({
+      userId: user._id, username: user.username, picture: user.picture, bio: user.bio,
+    });
+    const previousAvatarUrl = profile.avatarUrl;
+    const previousUserPicture = user.picture;
+    const upload = await uploadProfileAvatar(req.file.path, user._id);
+    if (!upload?.secure_url || !upload?.public_id) throw new Error('Avatar upload returned no image');
+    uploadedPublicId = upload.public_id;
+
+    user.picture = upload.secure_url;
+    await user.save();
+    try {
+      profile.avatarUrl = upload.secure_url;
+      await profile.save();
+    } catch (error) {
+      user.picture = previousUserPicture;
+      await user.save().catch(() => console.error(`[${req.requestId}] Avatar user-picture rollback failed`));
+      throw error;
+    }
+    saved = true;
+
+    const previousPublicId = profileAvatarPublicIdFromUrl(previousAvatarUrl, user._id);
+    if (previousPublicId && previousPublicId !== uploadedPublicId) {
+      await removeProfileAvatar(previousPublicId).catch(() => console.error(`[${req.requestId}] Previous profile avatar cleanup failed`));
+    }
+    return res.status(200).json({ profile: { avatarUrl: upload.secure_url } });
+  } catch {
+    if (uploadedPublicId && !saved) {
+      await removeProfileAvatar(uploadedPublicId).catch(() => console.error(`[${req.requestId}] Failed avatar upload cleanup failed`));
+    }
+    return res.status(500).json({ message: 'Profile picture could not be saved' });
+  } finally {
+    if (req.file?.path) await fs.promises.unlink(req.file.path).catch(() => {});
+  }
+};
+
 /* POST /api/user/follow/:id — toggle follow */
 const toggleFollow = async (req, res) => {
   try {
@@ -157,19 +202,19 @@ const toggleFollow = async (req, res) => {
   }
 };
 
-/* POST /api/user/bookmark/:postId — toggle bookmark */
+/* POST /api/user/bookmark/:publicationId — toggle bookmark */
 const toggleBookmark = async (req, res) => {
   try {
-    const { postId } = req.params;
-    if (!isValidId(postId)) return res.status(400).json({ message: 'Invalid post id' });
+    const { publicationId } = req.params;
+    if (!isValidId(publicationId)) return res.status(400).json({ message: 'Invalid post id' });
 
     const user = await User.findById(req.auth.userId);
     if(!user) return res.status(404).json({ message: 'User not found' });
 
-    const post = await Post.findById(postId);
-    if (!post) return res.status(404).json({ message: 'Post not found' });
+    const post = await Publication.findById(publicationId);
+    if (!post) return res.status(404).json({ message: 'Publication not found' });
 
-    return res.status(200).json({ success: true, ...(await toggleSaveWorkflow({ userId: user._id, postId: post._id })) });
+    return res.status(200).json({ success: true, ...(await toggleSaveWorkflow({ userId: user._id, publicationId: post._id })) });
   } 
   catch (err) {
     console.error(`[${req.requestId}] Bookmark mutation failed`);
@@ -186,10 +231,10 @@ const getBookmarks = async (req, res) => {
     const saves = await Save.find({ userId: req.auth.userId })
       .sort({ createdAt: -1 })
       .populate({
-        path: 'postId',
+        path: 'publicationId',
         populate: { path: 'author', select: 'picture username bio' },
       });
-    const posts = saves.map(save => save.postId).filter(Boolean);
+    const posts = saves.map(save => save.publicationId).filter(Boolean);
     const summaries = await presentDiscoveryPosts(posts, req.auth.userId);
     return res.status(200).json(posts.map((post, index) => ({ ...post.toObject(), ...summaries[index], author: { ...post.author?.toObject(), ...summaries[index].author } })));
   } catch (err) {
@@ -203,19 +248,19 @@ const getAnalytics = async (req, res) => {
     if (!await hasCapability(req.auth.userId, 'writer_analytics')) {
       return res.status(403).json({ code: 'ENTITLEMENT_REQUIRED', message: 'Writer analytics require an active membership' });
     }
-    const posts = await Post.find({ author: req.auth.userId }).select('title likesCount commentsCount createdAt');
-    const postIds = posts.map(post => post._id);
+    const posts = await Publication.find({ author: req.auth.userId }).select('title appreciationsCount commentsCount createdAt');
+    const publicationIds = posts.map(post => post._id);
     const grouped = await InteractionEvent.aggregate([
-      { $match: { postId: { $in: postIds }, eventType: { $in: ['open', 'complete'] } } },
-      { $group: { _id: { postId: '$postId', eventType: '$eventType' }, count: { $sum: 1 } } },
+      { $match: { publicationId: { $in: publicationIds }, eventType: { $in: ['open', 'complete'] } } },
+      { $group: { _id: { publicationId: '$publicationId', eventType: '$eventType' }, count: { $sum: 1 } } },
     ]);
-    const eventCounts = new Map(grouped.map(item => [`${item._id.postId}:${item._id.eventType}`, item.count]));
+    const eventCounts = new Map(grouped.map(item => [`${item._id.publicationId}:${item._id.eventType}`, item.count]));
     const rows = posts.map(post => ({
       id: post._id,
       title: post.title,
       opens: eventCounts.get(`${post._id}:open`) || 0,
       completions: eventCounts.get(`${post._id}:complete`) || 0,
-      likes: post.likesCount || 0,
+      likes: post.appreciationsCount || 0,
       comments: post.commentsCount || 0,
       date: post.createdAt,
     }));
@@ -235,28 +280,28 @@ const getAnalytics = async (req, res) => {
   }
 };
 
-/* POST /api/user/like/:postId — toggle like on a post */
+/* POST /api/user/like/:publicationId — toggle like on a post */
 const toggleLike = async (req, res) => {
   try {
-    const { postId } = req.params;
-    if (!isValidId(postId)) return res.status(400).json({ message: 'Invalid post id' });
+    const { publicationId } = req.params;
+    if (!isValidId(publicationId)) return res.status(400).json({ message: 'Invalid post id' });
 
-    const post = await Post.findById(postId).select('_id likesCount');
-    if (!post) return res.status(404).send({ message: 'Post not found' });
+    const post = await Publication.findById(publicationId).select('_id appreciationsCount');
+    if (!post) return res.status(404).send({ message: 'Publication not found' });
 
     const userId = req.auth.userId;
-    const liked = !(await Like.exists({ userId, postId }));
-    const result = await setLike({ postId, userId, liked });
-    return res.status(200).json({ liked: result.isLiked, likesCount: result.likesCount });
+    const liked = !(await Appreciation.exists({ userId, publicationId }));
+    const result = await setLike({ publicationId, userId, liked });
+    return res.status(200).json({ liked: result.isAppreciated, appreciationsCount: result.appreciationsCount });
   } catch (err) {
     if (err?.code === 11000) {
-      return res.status(409).send({ message: 'Like state already changed' });
+      return res.status(409).send({ message: 'Appreciation state already changed' });
     }
     return res.status(500).send({ message: 'Error' });
   }
 };
 
-/* POST /api/user/comment/:postId — add comment to post */
+/* POST /api/user/comment/:publicationId — add comment to post */
 const addComment = async (req, res) => {
   try {
     const { text } = req.body;
@@ -264,16 +309,16 @@ const addComment = async (req, res) => {
     const content = text.trim();
     if (!content) return res.status(400).send({ message: 'Comment text required' });
     if (content.length > 1000) return res.status(400).send({ message: 'Comment is too long' });
-    if (!isValidId(req.params.postId)) return res.status(400).send({ message: 'Invalid post id' });
+    if (!isValidId(req.params.publicationId)) return res.status(400).send({ message: 'Invalid post id' });
 
-    const post = await Post.findById(req.params.postId).select('_id');
-    if (!post) return res.status(404).send({ message: 'Post not found' });
+    const post = await Publication.findById(req.params.publicationId).select('_id');
+    if (!post) return res.status(404).send({ message: 'Publication not found' });
 
-    const comment = await addCommentWorkflow({ postId: post._id, userId: req.auth.userId, content });
+    const comment = await addCommentWorkflow({ publicationId: post._id, userId: req.auth.userId, content });
     return res.status(201).json({ message: 'Comment added', commentId: comment.id });
   } catch (err) {
     return res.status(500).send({ message: 'Error adding comment' });
   }
 };
 
-module.exports = { getMe, getMyPosts, fetchUser, updateProfile, toggleFollow, toggleBookmark, getBookmarks, getAnalytics, toggleLike, addComment };
+module.exports = { getMe, getMyPosts, fetchUser, updateProfile, updateProfileAvatar, toggleFollow, toggleBookmark, getBookmarks, getAnalytics, toggleLike, addComment };

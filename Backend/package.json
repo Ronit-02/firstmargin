@@ -17,13 +17,16 @@
     "process:notification-deliveries": "node scripts/process-notification-deliveries.js",
     "worker:notifications": "node worker.js",
     "seed:dev": "node scripts/seed-development.js",
+    "seed:member-preview": "node scripts/seed-member-preview.js",
+    "seed:ongoing-competition": "node scripts/seed-ongoing-competition.js",
     "migrate:question-upvotes": "node scripts/backfill-question-upvotes.js",
     "migrate:engagement-counts": "node scripts/backfill-engagement-counts.js",
     "migrate:profiles": "node scripts/backfill-profiles.js",
     "migrate:post-topics": "node scripts/backfill-post-topics.js",
     "migrate:question-normalization": "node scripts/backfill-question-normalization.js",
     "migrate:collections": "node scripts/migrate-collections.js",
-    "migrate:series-membership": "node scripts/migrate-series-membership.js"
+    "migrate:series-membership": "node scripts/migrate-series-membership.js",
+    "migrate:publication-terminology": "node scripts/migrate-publication-terminology.js"
   },
   "keywords": [],
   "author": "",
