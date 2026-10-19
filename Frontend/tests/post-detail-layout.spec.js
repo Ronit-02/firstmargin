@@ -61,9 +61,9 @@ for (const [width, theme] of [[320, 'light'], [1100, 'dark']]) {
     await saveDialog.getByRole('checkbox', { name: 'Save in your Library' }).uncheck()
     await saveDialog.getByRole('button', { name: 'Remove from Library' }).click()
     await expect(actions.getByRole('button', { name: 'Save this article' })).toHaveText('Save')
-    const share = actions.getByRole('button', { name: 'Share this article' })
+    const share = actions.getByRole('button', { name: 'Share this story' })
     await share.click()
-    await expect(page.getByRole('dialog', { name: 'Share article', exact: true })).toBeVisible()
+    await expect(page.getByRole('dialog', { name: 'Share story', exact: true })).toBeVisible()
     await page.keyboard.press('Escape')
     await expect(share).toBeFocused()
     const report = actions.getByRole('button', { name: 'Report this post', exact: true })
@@ -84,7 +84,7 @@ for (const width of [320, 390, 640, 768, 1023, 1024, 1100, 1279, 1280, 1440, 192
     const author = main.getByRole('link', { name: "View Leila Noor's profile" })
     const date = main.getByText('8 September 2026', { exact: false }).first()
     const name = author.getByText(post.author.username, { exact: true })
-    const actions = main.getByRole('button', { name: 'Appreciate this article' })
+    const actions = main.getByRole('button', { name: 'Appreciate this story' })
     const tools = main.getByRole('group', { name: 'Article tools' })
     await expect(title).toBeVisible()
     const authorBox = await author.locator('..').locator('..').boundingBox()
@@ -108,7 +108,7 @@ for (const width of [320, 390, 640, 768, 1023, 1024, 1100, 1279, 1280, 1440, 192
       expect((await button.boundingBox()).height).toBeGreaterThanOrEqual(44)
     }
     await expect(actionGroup.getByRole('button', { name: 'Save this article' })).toHaveText('Save')
-    await expect(actionGroup.getByRole('button', { name: 'Share this article' })).toHaveText('Share')
+    await expect(actionGroup.getByRole('button', { name: 'Share this story' })).toHaveText('Share')
     if (width < 640 || actionBox.y >= authorBox.y + authorBox.height) {
       expect(actionBox.y).toBeGreaterThanOrEqual(authorBox.y + authorBox.height + 20)
     } else {
@@ -125,22 +125,34 @@ for (const width of [320, 390, 640, 768, 1023, 1024, 1100, 1279, 1280, 1440, 192
     }
     if (width === 390) await page.screenshot({ path: 'test-results/post-detail-mobile.png' })
     await tools.getByRole('button', { name: 'Article overview' }).click()
-    await expect(main.getByText('Member feature', { exact: true })).toBeVisible()
-    if (width < 1280) {
-      const panel = await main.getByText('Member feature', { exact: true }).boundingBox()
-      const body = await main.getByRole('article', { name: 'Article body' }).boundingBox()
-      expect(panel.y).toBeGreaterThan(toolsBox.y)
-      expect(panel.y).toBeLessThan(body.y)
-    } else {
-      expect((await main.getByRole('article', { name: 'Article body' }).boundingBox()).width).toBeGreaterThanOrEqual(360)
-    }
+    const memberDialog = page.getByRole('dialog', { name: 'Member feature' })
+    await expect(memberDialog.getByText(/Article overviews is included/)).toBeVisible()
+    await expect(main.getByText('Member feature', { exact: true })).toHaveCount(0)
+    await memberDialog.getByRole('button', { name: 'Close member feature' }).click()
+    await expect(tools.getByRole('button', { name: 'Article overview' })).toBeFocused()
     await tools.getByRole('button', { name: 'Read aloud' }).click()
-    await expect(main.getByText(/Read aloud is included/)).toBeVisible()
-    await expect(main.getByText(/Article overviews is included/)).toHaveCount(0)
+    await expect(memberDialog.getByText(/Read aloud is included/)).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(memberDialog).toHaveCount(0)
+    await expect(tools.getByRole('button', { name: 'Read aloud' })).toBeFocused()
     expect(await main.evaluate(node => node.scrollWidth > node.clientWidth)).toBe(false)
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false)
   })
 }
+
+test('nonmember article tools open and dismiss the membership modal', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 900 })
+  await mockArticle(page)
+  await page.goto(`/post/${postId}`)
+  const trigger = page.getByRole('group', { name: 'Article tools' }).getByRole('button', { name: 'Article overview' })
+  await trigger.click()
+  const dialog = page.getByRole('dialog', { name: 'Member feature' })
+  await expect(dialog.getByRole('button', { name: 'Become a member' })).toBeVisible()
+  await expect(dialog.getByRole('button', { name: 'Close member feature' })).toBeFocused()
+  await page.mouse.click(5, 5)
+  await expect(dialog).toHaveCount(0)
+  await expect(trigger).toBeFocused()
+})
 
 test('entitled tools stay inline on mobile and move to the desktop rail on resize', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 900 })
@@ -174,7 +186,7 @@ test('guest article tools preserve the sign-in flow', async ({ page }) => {
   await mockArticle(page, { member: false })
   await page.goto(`/post/${postId}`)
   await page.getByRole('button', { name: 'Article overview', exact: true }).click()
-  await expect(page.getByRole('dialog', { name: 'Sign in to Ink Rider' })).toBeVisible()
+  await expect(page.getByRole('dialog', { name: 'Sign in to firstmargin' })).toBeVisible()
   await expect(page).not.toHaveURL(/\/login/)
 })
 

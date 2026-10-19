@@ -16,12 +16,12 @@ const collectionSchema = new mongoose.Schema({
     ref: 'User',
     required: true,
   },
-  posts: [{
+  publications: [{
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Post',
+    ref: 'Publication',
   }],
   items: [{
-    post: { type: mongoose.Schema.Types.ObjectId, ref: 'Post', required: true },
+    publication: { type: mongoose.Schema.Types.ObjectId, ref: 'Publication', required: true },
     position: { type: Number, required: true, min: 0 },
     addedAt: { type: Date, default: Date.now },
   }],

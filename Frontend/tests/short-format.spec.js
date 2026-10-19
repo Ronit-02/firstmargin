@@ -37,7 +37,7 @@ for (const width of [320, 1280]) {
     await page.setViewportSize({ width, height: 900 })
     await page.goto(`/collections/${collectionId}`)
     const articles = page.getByRole('region', { name: 'Full articles' })
-    const shorts = page.getByRole('region', { name: 'Short reads' })
+    const shorts = page.getByRole('region', { name: 'Shorts' })
     await expect(articles.locator('[data-story-format="article"]')).toHaveCount(1)
     await expect(shorts.locator('[data-story-format="short"]')).toHaveCount(2)
     await expect(articles.getByRole('link', { name: posts[1].title, exact: true })).toHaveAttribute('href', `/post/${ids[1]}`)
@@ -50,7 +50,7 @@ for (const width of [320, 1280]) {
     await expect(next).toHaveCSS('color', 'rgb(255, 255, 255)')
     await next.click()
     await expect(page.getByRole('dialog', { name: posts[2].title })).toBeVisible()
-    await page.getByRole('button', { name: 'Close short read' }).click()
+    await page.getByRole('button', { name: 'Close short' }).click()
     await expect(trigger).toBeFocused()
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false)
   })
@@ -66,16 +66,47 @@ test('canonical short URLs use the compact reader and deeper articles retain the
   await expect(page.getByRole('heading', { name: posts[1].title, level: 1 })).toBeVisible()
   await expect(page.getByRole('dialog', { name: posts[0].title })).toHaveCount(0)
   await page.goto(`/post/${ids[0]}`)
-  await page.getByRole('button', { name: 'Next →', exact: true }).click()
+  await expect(page.getByRole('navigation', { name: 'Series progression' })).toHaveCount(0)
+  await page.goto(`/post/${ids[2]}`)
   await expect(page).toHaveURL(`/post/${ids[2]}`)
   await expect(page.getByRole('dialog', { name: posts[2].title })).toBeVisible()
+})
+
+test('shorter shows only complete tags that fit one row', async ({ page }) => {
+  await mockWriting(page)
+  const tags = ['science', 'community', 'literature', 'a-long-topic-that-cannot-fit-on-a-phone']
+  await page.route(`**/api/post/${ids[0]}`, route => route.fulfill({ json: { postData: {
+    ...posts[0], _id: ids[0], body: JSON.stringify([{ type: 'paragraph', content: 'A short.' }]), tags,
+  } } }))
+  await page.setViewportSize({ width: 320, height: 800 })
+  await page.goto(`/post/${ids[0]}`)
+  const row = page.getByLabel('Short tags')
+  await expect(row).toBeVisible()
+  await expect.poll(() => row.locator('a').count()).toBeGreaterThan(0)
+  const layout = await row.evaluate(element => {
+    const visible = [...element.children].filter(child => getComputedStyle(child).visibility !== 'hidden')
+    const hidden = [...element.children].filter(child => getComputedStyle(child).visibility === 'hidden')
+    const rowBox = element.getBoundingClientRect()
+    return {
+      visibleCount: visible.length,
+      hiddenCount: hidden.length,
+      visibleFit: visible.every(child => child.getBoundingClientRect().right <= rowBox.right + 1),
+      singleLine: visible.every(child => Math.abs(child.getBoundingClientRect().top - visible[0].getBoundingClientRect().top) < 1),
+      hiddenLinks: hidden.filter(child => child.querySelector('a')).length,
+    }
+  })
+  expect(layout.visibleCount).toBeGreaterThan(0)
+  expect(layout.hiddenCount).toBeGreaterThan(0)
+  expect(layout.visibleFit).toBe(true)
+  expect(layout.singleLine).toBe(true)
+  expect(layout.hiddenLinks).toBe(0)
 })
 
 test('mixed collection ordering swaps only within the selected format and preserves the saved ID contract', async ({ page }) => {
   const orders = await mockWriting(page, true)
   await page.goto(`/collections/${collectionId}`)
   await page.getByRole('button', { name: `Move ${posts[2].title} earlier` }).click()
-  const shorts = page.getByRole('region', { name: 'Short reads' })
+  const shorts = page.getByRole('region', { name: 'Shorts' })
   await expect(shorts.locator('h2')).toHaveText([posts[2].title, posts[0].title])
   await page.getByRole('button', { name: 'Save order', exact: true }).click()
   await expect.poll(() => orders).toEqual([[ids[2], ids[1], ids[0]]])

@@ -44,7 +44,7 @@ for (const width of [320, 390, 600, 640, 1280]) {
       expect(layout.heading.x).toBeGreaterThan(layout.image.right)
       expect(layout.fontSize).toBe(12)
     }
-    await page.getByRole('button', { name: 'Active (2)', exact: true }).click()
+    await page.getByRole('button', { name: 'Ongoing', exact: true }).click()
     await expect(page.getByRole('heading', { name: competitions[1].title })).toBeVisible()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
     await page.getByRole('button', { name: 'Filters', exact: true }).click()

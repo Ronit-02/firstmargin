@@ -3,13 +3,14 @@ const mongoose = require('mongoose');
 /* Competition — writing contest with entries */
 const entrySchema = new mongoose.Schema({
   author:  { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  post:    { type: mongoose.Schema.Types.ObjectId, ref: 'Post', required: true },
+  publication:    { type: mongoose.Schema.Types.ObjectId, ref: 'Publication', required: true },
   note:    { type: String, default: '' },
-  likes:   [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-  likesCount: { type: Number, default: 0, min: 0 },
-  postRevision: { type: Number, default: 1, min: 1 },
+  votes:   [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  votesCount: { type: Number, default: 0, min: 0 },
+  publicationRevision: { type: Number, default: 1, min: 1 },
   judgeScores: [{
     judgeId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    submittedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     craft: { type: Number, min: 1, max: 10, required: true },
     originality: { type: Number, min: 1, max: 10, required: true },
     relevance: { type: Number, min: 1, max: 10, required: true },
@@ -40,7 +41,7 @@ const competitionSchema = new mongoose.Schema({
   },
   competitionType: {
     type: String,
-    enum: ['theme', 'timed', 'collaborative', 'reader_choice'],
+    enum: ['theme', 'timed', 'collaborative', 'reader_choice', 'collective_choice'],
     default: 'theme',
   },
   rules: [{ type: String, trim: true, maxlength: 500 }],
@@ -52,6 +53,9 @@ const competitionSchema = new mongoose.Schema({
   entries:   [entrySchema],
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   winnerEntryIds: [{ type: mongoose.Schema.Types.ObjectId }],
+  judgeRoster: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  finalizedAt: { type: Date, default: null },
+  noWinnerReason: { type: String, default: null },
 }, { timestamps: true, versionKey: false });
 
 competitionSchema.index({ status: 1, closeDate: 1 });

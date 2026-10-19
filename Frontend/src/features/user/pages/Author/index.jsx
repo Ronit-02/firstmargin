@@ -1,3 +1,4 @@
+import InfiniteScrollSentinel from '@/shared/components/ui/InfiniteScrollSentinel'
 import ModalHeader from '@/shared/components/ui/ModalHeader'
 import PageFrame from '@/shared/components/layout/PageFrame'
 import retainRetryView from '@/shared/utils/retainRetryView'
@@ -15,7 +16,7 @@ import useAuth from '@/features/auth/hooks/useAuth'
 import useWriter from '../../hooks/useWriter'
 import useWriterFollow from '../../hooks/useWriterFollow'
 import useEntitlements from '@/features/membership/hooks/useEntitlements'
-import { sendCreatorRequest, supportCreator } from '@/features/membership/api/memberExperience'
+import { sendCreatorRequest } from '@/features/membership/api/memberExperience'
 import { ListSkeleton, Skeleton } from '@/shared/components/ui/Skeleton'
 import ModalLayer from '@/shared/components/ui/ModalLayer'
 import useDialogFocus from '@/shared/hooks/useDialogFocus'
@@ -66,7 +67,6 @@ export default function AuthorPage() {
   })
   const followMutation = useWriterFollow({ writerId: writer?.id, handle })
   const requestMutation = useMutation({ mutationFn: sendCreatorRequest, onSuccess: () => { setSubject(''); setDetails('') } })
-  const supportMutation = useMutation({ mutationFn: supportCreator })
 
   if (!handle) {
     return (
@@ -74,7 +74,7 @@ export default function AuthorPage() {
         <h1 className="font-bold text-[28px] text-[var(--color-text)] mb-3" style={{ fontFamily: 'var(--font-display)' }}>
           Choose a writer to view their profile
         </h1>
-        <p className="text-[14px] text-[var(--color-text-secondary)] mb-6">Search for writers by name or explore an article to discover its author.</p>
+        <p className="text-[14px] text-[var(--color-text-secondary)] mb-6">Search for writers by name or explore a story to discover its author.</p>
         <Link
           to="/search?type=writers"
           className="inline-flex items-center justify-center rounded-full border border-[var(--color-accent)] bg-[var(--color-accent)] px-[18px] py-2 text-[13px] font-medium text-[var(--color-text-inverted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-offset-2"
@@ -143,11 +143,6 @@ export default function AuthorPage() {
               <Button variant={writer.isFollowing ? 'secondary' : 'primary'} onClick={handleFollow} disabled={followMutation.isPending} aria-busy={followMutation.isPending}>
                 {writer.isFollowing ? 'Following' : 'Follow'}
               </Button>
-              {loggedIn && entitlements.data?.capabilities?.includes('behind_scenes') && (
-                <Button variant="secondary" disabled={supportMutation.isPending || supportMutation.isSuccess} onClick={() => supportMutation.mutate({ creatorId: writer.id })} aria-busy={supportMutation.isPending}>
-                  {supportMutation.isSuccess ? 'Supported' : 'Support writer'}
-                </Button>
-              )}
               {writer.directRequestsEnabled && (
                 <Button
                   variant="secondary"
@@ -160,7 +155,7 @@ export default function AuthorPage() {
                     setRequestOpen(true)
                   }}
                 >
-                  Request an article
+                  Request a story
                 </Button>
               )}
             </div>
@@ -173,7 +168,7 @@ export default function AuthorPage() {
 
         <div className="flex items-center gap-6 flex-wrap mt-4 text-[13px] text-[var(--color-text-secondary)]">
           <span><strong className="text-[var(--color-text)] tabular-nums">{writer.followersCount}</strong> followers</span>
-          <span><strong className="text-[var(--color-text)] tabular-nums">{writer.posts.length}</strong> articles</span>
+          <span><strong className="text-[var(--color-text)] tabular-nums">{writer.posts.length}</strong> published pieces</span>
           <span>Joined {formatJoinedDate(writer.joinedAt)}</span>
           {writer.websiteUrl && (
             <a href={writer.websiteUrl} target="_blank" rel="noreferrer" className="font-semibold underline underline-offset-4">
@@ -187,11 +182,10 @@ export default function AuthorPage() {
             We couldn't update your follow. Please try again.
           </p>
         )}
-        {supportMutation.isError && <p role="alert" className="mt-3 text-[12px] text-[var(--color-danger)]">Creator support could not be updated. Please try again.</p>}
         {requestOpen && (
           <ModalLayer id="direct-request-dialog" onDismiss={() => setRequestOpen(false)} aria-labelledby="direct-request-heading" className="flex items-center justify-center p-4">
           <section ref={requestDialogRef} tabIndex={-1} className="w-full max-w-[620px] overflow-y-auto rounded-[16px] border border-[var(--color-border)] bg-[var(--color-bg-alt)] p-5">
-            <ModalHeader title={`Direct request to ${writer.displayName}`} titleId="direct-request-heading" onClose={() => setRequestOpen(false)} closeLabel="Close article request" closeRef={closeRequestRef} className="-mx-5 -mt-5 mb-4" />
+            <ModalHeader title={`Direct request to ${writer.displayName}`} titleId="direct-request-heading" onClose={() => setRequestOpen(false)} closeLabel="Close story request" closeRef={closeRequestRef} className="-mx-5 -mt-5 mb-4" />
             {entitlements.isPending ? (
               <p role="status" className="mt-2 text-[12px] text-[var(--color-text-secondary)]">Checking membership…</p>
             ) : entitlements.isError ? (
@@ -212,7 +206,7 @@ export default function AuthorPage() {
                 }}
               >
                 <label htmlFor="creator-request-subject" className="block text-[12px] font-semibold text-[var(--color-text)]">Request subject</label>
-                <p id="creator-request-subject-help" className="mt-1 text-[11px] text-[var(--color-text-muted)]">Describe the article or question in one line.</p>
+                <p id="creator-request-subject-help" className="mt-1 text-[11px] text-[var(--color-text-muted)]">Describe the story or question in one line.</p>
                 <input
                   id="creator-request-subject"
                   value={subject}
@@ -260,10 +254,10 @@ export default function AuthorPage() {
           <PublishedWritingTabs value={format} onChange={value => updateFilter('authorFormat', value, 'article')} controlsId="author-writing-panel" includeCollections />
           {(format === 'collections' ? publicCollections.length : visiblePosts.length) > 0 && <FilterBar label={format === 'collections' ? 'Collections' : 'Published writing'} options={[]} sortOptions={format === 'collections' ? [{ id: 'latest', label: 'Newest' }, { id: 'popular', label: 'Most saved' }] : [{ id: 'latest', label: 'Newest' }, { id: 'oldest', label: 'Oldest' }, { id: 'popular', label: 'Most appreciated' }]} sortValue={format === 'collections' ? collectionsSort : sort} onSortChange={value => updateFilter(format === 'collections' ? 'authorCollectionSort' : 'authorSort', value, 'latest')} onReset={resetFilters} />}
         </div>
-        <div id="author-writing-panel" role="tabpanel" aria-label={`${format === 'collections' ? 'Collections' : format === 'short' ? 'Shorts' : 'Posts'} content`}>
+        <div id="author-writing-panel" role="tabpanel" aria-label={`${format === 'collections' ? 'Collections' : format === 'short' ? 'Shorts' : 'Stories'} content`}>
         {format === 'collections' ? <>
           {collections.isPending ? <ListSkeleton label="Loading author collections" /> : collections.isError ? <div role="alert"><p className="text-[13px] text-[var(--color-danger)]">Collections could not be loaded.</p><Button className="mt-4" variant="secondary" disabled={collections.isFetching} aria-busy={collections.isFetching} onClick={() => collections.refetch()}>Try again</Button></div> : publicCollections.length ? <div className="card-grid card-grid--collection gap-5">{publicCollections.map(collection => <CollectionCard key={collection.id} collection={collection} />)}</div> : <p className="py-14 text-[15px] text-[var(--color-text-secondary)]">No public collections yet.</p>}
-          {collections.hasNextPage && <div className="pt-9 text-center"><Button variant="secondary" disabled={collections.isFetchingNextPage} aria-busy={collections.isFetchingNextPage} onClick={() => collections.fetchNextPage()}>Load more</Button></div>}
+          <InfiniteScrollSentinel query={collections} className="pt-9" />
         </> : <>
 
         {visiblePosts.length > 0 ? (
@@ -272,7 +266,7 @@ export default function AuthorPage() {
           </div>
         ) : (
           <div className="py-14 border-y border-[var(--color-border)]">
-            <p className="text-[15px] text-[var(--color-text-secondary)]">{format === 'short' ? 'No published shorts yet.' : 'No published posts yet.'}</p>
+            <p className="text-[15px] text-[var(--color-text-secondary)]">{format === 'short' ? 'No published shorts yet.' : 'No published stories yet.'}</p>
           </div>
         )}
         </>}

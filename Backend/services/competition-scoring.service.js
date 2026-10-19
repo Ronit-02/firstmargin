@@ -7,7 +7,7 @@ const judgeAverage = entry => {
 
 const rankCompetitionEntries = (entries, votingMode = 'readers') => {
   const eligibleEntries = entries.filter(entry => entry.status !== 'disqualified');
-  const readerScores = eligibleEntries.map(entry => Number(entry.likesCount ?? entry.likes?.length ?? 0));
+  const readerScores = eligibleEntries.map(entry => Number(entry.votesCount ?? entry.votes?.length ?? 0));
   const maxReaderScore = Math.max(0, ...readerScores);
   const scored = eligibleEntries.map((entry, index) => {
     const readerScore = readerScores[index];
@@ -18,7 +18,7 @@ const rankCompetitionEntries = (entries, votingMode = 'readers') => {
       : votingMode === 'hybrid'
         ? ((normalizedReader + (judgeScore / 10)) / 2) * 100
         : readerScore;
-    return { entry, id: entryId(entry), score: Number(score.toFixed(4)), readerScore, judgeScore };
+    return { entry, id: entryId(entry), score, readerScore, judgeScore };
   }).sort((left, right) => (
     right.score - left.score
     || new Date(left.entry.createdAt || 0) - new Date(right.entry.createdAt || 0)

@@ -1,5 +1,9 @@
 # Article and short component audit
 
+## Home carousel excerpt space — 2026-10-18
+
+The covered grid card's excerpt flexes into the space above the engagement footer. The previous fixed three-line clamp could be clipped by a shorter flexible region, hiding the ellipsis. Grid cards with excerpts now measure that region after layout and clamp to the number of complete lines that fit, up to three, so the ellipsis is rendered on the last visible line; grid cards without excerpts keep the footer's automatic top margin. Card height, cover, typography, metadata, actions, routes, and response fields are unchanged.
+
 ## Narrow feed-card spacing — 2026-10-13
 
 The image-bearing discovery list card shown in the supplied narrow-screen screenshot had excess space around the content. Below 540 px, comfortable feed cards now use 24 px vertical insets instead of 40 px, including the first card. A follow-up centers the author within the menu row and gives the menu wrapper 8 px negative vertical margins, so its 44 px touch target does not make the row appear taller. The title starts 8 px after the compact row and remains below the menu target. This changes only spacing in `DiscoveryPostCard` and `PostCardMenu`; cover ratio, metadata, footer, actions, links, typography, colors, API, and schemas stay as before. Focused lint and production build passed on 2026-10-13. The focused browser test could not start with its API server because MongoDB was unavailable; the frontend-only attempt found no local Playwright Chromium executable. Browser geometry remains unverified.

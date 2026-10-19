@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
 import ViewportPopover from './ViewportPopover'
+import InfiniteScrollSentinel, { type PageQuery } from './InfiniteScrollSentinel'
 
 type Option = Readonly<{ value: string; label: string; badge?: string }>
 type Props = {
@@ -12,9 +13,11 @@ type Props = {
   disabled?: boolean
   required?: boolean
   className?: string
+  pagination?: PageQuery
+  paginationDisabled?: boolean
 }
 
-export default function Select({ id: suppliedId, label, value, options, onChange, describedBy, disabled = false, required = false, className = '' }: Props) {
+export default function Select({ id: suppliedId, label, value, options, onChange, describedBy, disabled = false, required = false, className = '', pagination, paginationDisabled = false }: Props) {
   const generatedId = useId()
   const id = suppliedId || generatedId
   const listId = useId()
@@ -25,7 +28,7 @@ export default function Select({ id: suppliedId, label, value, options, onChange
   const [active, setActive] = useState(0)
   const [invalid, setInvalid] = useState(false)
   const selected = options.findIndex(option => option.value === value)
-  const unavailable = disabled || options.length === 0
+  const unavailable = disabled || (options.length === 0 && !pagination?.hasNextPage)
   const valid = selected >= 0 && value !== ''
   const activeIndex = Math.max(0, Math.min(active, options.length - 1))
   const close = () => setOpen(false)
@@ -75,6 +78,7 @@ export default function Select({ id: suppliedId, label, value, options, onChange
     if (event.key === 'Escape' && open) { event.preventDefault(); event.stopPropagation(); close(); return }
     if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
       event.preventDefault()
+      if (options.length === 0) { if (!open) show(0); return }
       if (!open) show(event.key === 'Home' ? 0 : event.key === 'End' ? options.length - 1 : Math.max(0, selected))
       else setActive(index => event.key === 'Home' ? 0 : event.key === 'End' ? options.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : -1) + options.length) % options.length)
     } else if (event.key === 'Enter' || event.key === ' ') {
@@ -94,7 +98,7 @@ export default function Select({ id: suppliedId, label, value, options, onChange
   return <div className={`w-full min-w-0 ${className || 'max-w-[420px]'}`}>
     <label id={`${id}-label`} htmlFor={id} className="mb-2 block text-[13px] font-semibold text-[var(--color-text)]">{label}{required && <span aria-hidden="true"> (required)</span>}</label>
     {required && <input aria-hidden="true" tabIndex={-1} className="sr-only" required disabled={unavailable} value={selected >= 0 ? value : ''} onChange={() => {}} onInvalid={event => { event.preventDefault(); setInvalid(true); trigger.current?.focus({ preventScroll: true }); show() }} />}
-    <button ref={trigger} id={id} type="button" role="combobox" aria-labelledby={`${id}-label`} aria-describedby={[describedBy, invalid && !valid ? `${id}-error` : undefined].filter(Boolean).join(' ') || undefined} aria-required={required || undefined} aria-invalid={invalid && !valid || undefined} aria-expanded={open && !unavailable} aria-controls={open && !unavailable ? listId : undefined} aria-haspopup="listbox" aria-activedescendant={open && !unavailable ? `${listId}-${activeIndex}` : undefined} disabled={unavailable} onKeyDownCapture={handleKey} onClick={() => open ? close() : show()} className="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-alt)] px-3 py-2 text-left text-[14px] text-[var(--color-text)] hover:bg-[var(--color-surface-hover)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] disabled:cursor-not-allowed disabled:opacity-60">
+    <button ref={trigger} id={id} type="button" role="combobox" aria-labelledby={`${id}-label`} aria-describedby={[describedBy, invalid && !valid ? `${id}-error` : undefined].filter(Boolean).join(' ') || undefined} aria-required={required || undefined} aria-invalid={invalid && !valid || undefined} aria-expanded={open && !unavailable} aria-controls={open && !unavailable ? listId : undefined} aria-haspopup="listbox" aria-activedescendant={open && !unavailable && options.length > 0 ? `${listId}-${activeIndex}` : undefined} disabled={unavailable} onKeyDownCapture={handleKey} onClick={() => open ? close() : show()} className="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-alt)] px-3 py-2 text-left text-[14px] text-[var(--color-text)] hover:bg-[var(--color-surface-hover)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] disabled:cursor-not-allowed disabled:opacity-60">
       <span id={`${id}-value`} className="flex min-w-0 flex-1">{options[selected] ? optionContent(options[selected]) : 'Select an option'}</span>
       <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`select-chevron shrink-0 ${open ? 'rotate-180' : ''}`}><path d="m6 9 6 6 6-6" /></svg>
     </button>
@@ -104,6 +108,7 @@ export default function Select({ id: suppliedId, label, value, options, onChange
         {optionContent(option)}
         {option.value === value && <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0"><path d="m5 12 4 4L19 6" /></svg>}
       </button>)}
+      {pagination && <InfiniteScrollSentinel query={pagination} disabled={paginationDisabled} rootMargin="0px" label="Loading more options" />}
     </ViewportPopover>}
   </div>
 }

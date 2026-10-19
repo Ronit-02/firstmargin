@@ -10,7 +10,6 @@ Named shared appearances now live in `shared/components/ui/buttonStyles.ts`: pri
 |---|---|---|---|
 | Try again | discovery/pages/Home/index.jsx; Search/index.jsx | Button primary | Near match: local 12 px semibold vs shared md 13 px medium; still local |
 | Try again | discovery/pages/Home/HomeSections.jsx | Button secondary | Near match: local 12 px semibold outlined capsule; still local |
-| Load more stories; Load more | discovery/pages/Home/index.jsx; Explore/TrendingTab.jsx | Button secondary | Near match: outline and capsule, local padding/weight; still local |
 | Try again | Explore/TrendingTab.jsx; MobileSearchDialog.tsx | Button ghost | No exact underlined-retry style; ghost is the closest quiet-action owner |
 | Sign In | shared/components/ui/SignInPrompt.tsx; user/components/MobileProfileSheet.tsx | Button primary / secondary respectively | Near match: filled centered guest prompt and outlined sheet action use local weight/padding |
 | Sign In to join; Open Member Hub | membership/pages/MembershipPage.tsx | Button primary / ButtonLink secondary | Near match: same capsule family, local linkClass; keep guest action as button and navigation as link |
@@ -46,7 +45,7 @@ Named shared appearances now live in `shared/components/ui/buttonStyles.ts`: pri
 | More options | DiscoveryPostCard.jsx; CollectionCard.jsx; Explore/TrendingTab.jsx | ActionMenuTrigger | Cards and featured article reuse the shared trigger; featured commands are owned by PostCardMenu |
 | Move earlier; Move later | collection/pages/CollectionDetail.jsx; discovery/pages/ShortSeriesDetail.jsx | IconButton secondary | Near match: local arrow circles with their own disabled opacity; corrected from 40/32 px to 44 px |
 | Upvote / Remove upvote | Explore/QuestionsTab.jsx; QuestionDetail.jsx | Button action; IconButton action for icon-only forms | No exact shared stacked triangle/count vote component. Boundary/stacked vs inline variants are intentional; sizing corrected |
-| Vote / Voted | Explore/CompetitionDetail.jsx | No exact shared vote-card overlay component | Cover placement, count and rounded-12px contrast treatment are distinct from ordinary Button |
+| Vote / Voted | CompetitionEntryCard.jsx | No exact shared entry-vote component | Full-width placement below card content, count and rounded-12px state treatment are distinct from ordinary Button |
 | Article overview; Read aloud | post/pages/AIPanel.jsx | No exact shared responsive tool-rail style | Rounded-10px tool with phone label/desktop icon is distinct from circular IconButton; theme tokens and 44 px targets corrected |
 | Read article aloud / Pause reading | post/pages/AIPanel.jsx | IconButton primary | Migrated to shared IconButton; theme-aware glyph and 44 × 44 px target |
 | Restart | post/pages/AIPanel.jsx | Button ghost | No exact 11 px restart style; quiet action retains its local typography with corrected target |

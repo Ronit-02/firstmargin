@@ -6,7 +6,7 @@ const { connectToMongoDB } = require('../utils/mongoConnect');
 const run = async () => {
   await connectToMongoDB();
   const indexes = await ShortSeries.collection.listIndexes().toArray();
-  const legacy = indexes.find(index => index.unique && Object.keys(index.key).length === 1 && index.key['items.post'] === 1);
+  const legacy = indexes.find(index => index.unique && Object.keys(index.key).length === 1 && index.key['items.publication'] === 1);
   if (!legacy) {
     console.log('No unique series membership index to remove');
     return;

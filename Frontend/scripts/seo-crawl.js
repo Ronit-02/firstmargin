@@ -4,7 +4,7 @@ const baseUrl = process.env.SEO_CRAWL_URL
 const postPath = process.env.SEO_CRAWL_POST_PATH
 
 if (!baseUrl || !postPath) {
-  throw new Error('SEO_CRAWL_URL and SEO_CRAWL_POST_PATH are required, for example SEO_CRAWL_URL=https://inkrider.example SEO_CRAWL_POST_PATH=/post/<published-id>')
+  throw new Error('SEO_CRAWL_URL and SEO_CRAWL_POST_PATH are required, for example SEO_CRAWL_URL=https://firstmargin.example SEO_CRAWL_POST_PATH=/post/<published-id>')
 }
 
 const base = new URL(baseUrl)

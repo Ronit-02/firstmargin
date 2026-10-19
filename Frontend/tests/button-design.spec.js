@@ -40,7 +40,7 @@ async function mountControls(page, theme) {
       e(interests.default, { topics: [{ slug: 'audit', displayName: 'Interest chip' }], selected: [], onToggle: () => {} }),
       e(tools.AIStickyButtons, { showSummary: true, readAloud: true, onSummary: () => {}, onAudio: () => {} }),
       e(tools.AccessPanel, { capability: 'article_summary' }),
-      e(tools.ReadAloudPanel, { text: 'A short reading sample.' }),
+      e(tools.ReadAloudPanel, { text: 'A shorting sample.' }),
     )))
   })
   await page.getByRole('button', { name: 'md primary', exact: true }).waitFor()

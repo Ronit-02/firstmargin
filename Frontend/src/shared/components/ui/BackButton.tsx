@@ -9,6 +9,7 @@ type BackButtonProps = {
 }
 
 function parentPath(pathname: string) {
+  if (pathname.startsWith('/staff/competitions/')) return '/staff'
   if (pathname.startsWith('/explore/questions/')) return '/explore/questions'
   if (pathname.startsWith('/explore/competitions/')) return '/explore/competitions'
   if (pathname.startsWith('/collections/')) return '/collections'

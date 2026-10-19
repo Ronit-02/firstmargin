@@ -38,6 +38,17 @@ async function mockQuestionSearch(page, { signedIn = false } = {}) {
   return { searches, votes }
 }
 
+test('search shows the displayed result count for the selected tab', async ({ page }) => {
+  await mockQuestionSearch(page)
+  await page.goto('/search?q=coastal&type=questions')
+  const panel = page.getByRole('tabpanel')
+  await expect(panel.getByText('Showing 2 questions')).toBeVisible()
+  await page.getByRole('tab', { name: 'Stories' }).click()
+  await expect(panel.getByText('Showing 0 stories')).toBeVisible()
+  await page.goto('/search?q=absent&type=questions')
+  await expect(panel.getByText('Showing 0 questions')).toBeVisible()
+})
+
 for (const width of [320, 1280]) {
   test(`Questions search retains tabs, filters, category navigation, and guest actions at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 844 })
@@ -67,7 +78,7 @@ for (const width of [320, 1280]) {
     await expect(page).toHaveURL(url => url.pathname === '/search' && url.searchParams.get('q') === 'coastal resilience' && url.searchParams.get('type') === 'questions' && url.searchParams.get('keep') === 'reader' && !url.searchParams.has('topic') && !url.searchParams.has('time') && !url.searchParams.has('sort'))
     await filters.getByRole('button', { name: 'Close filters' }).press('Escape')
     await panel.getByRole('button', { name: 'Upvote question', exact: true }).click()
-    await expect(page.getByRole('dialog', { name: 'Sign in to Ink Rider' })).toBeVisible()
+    await expect(page.getByRole('dialog', { name: 'Sign in to firstmargin' })).toBeVisible()
     await page.keyboard.press('Escape')
     await panel.getByRole('link', { name: 'Questions about science', exact: true }).click()
     await expect(page).toHaveURL('/search?q=science&type=questions')
@@ -198,7 +209,7 @@ for (const width of [320, 369, 390, 1280]) {
     await expect(trigger).toBeFocused()
     await trigger.click()
     await expect(dialog).toBeVisible()
-    await page.getByRole('link', { name: 'Ink Rider home' }).click()
+    await page.getByRole('link', { name: 'firstmargin home' }).click()
     await expect(dialog).toHaveCount(0)
   })
 }

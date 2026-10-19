@@ -117,10 +117,11 @@ export function useAnswerUpvote(questionId) {
 
 export function useQuestionFollow(questionId) {
   const queryClient = useQueryClient()
+  const user = useSelector(state => state.auth.user)
   const { notify } = useToast()
   return useMutation({
     mutationFn: updateQuestionFollow,
-    onSuccess: data => { queryClient.setQueryData(['question', questionId], old => old ? { ...old, ...data } : old); notify(data.isFollowing ? 'Question followed.' : 'Question unfollowed.') },
+    onSuccess: data => { queryClient.setQueryData(['question', questionId, user || 'anonymous'], old => old ? { ...old, ...data } : old); notify(data.isFollowing ? 'Question followed.' : 'Question unfollowed.') },
     onError: () => notify('The question follow state could not be updated.', { tone: 'error' }),
   })
 }

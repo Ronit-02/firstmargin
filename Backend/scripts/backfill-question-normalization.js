@@ -6,7 +6,7 @@ const { normalizeQuestionText } = require('../utils/question');
 
 const run = async () => {
   await connectToMongoDB();
-  const questions = await Question.find().sort({ createdAt: 1 }).select('_id text normalizedText upvotes upvotesCount relatedArticles');
+  const questions = await Question.find().sort({ createdAt: 1 }).select('_id text normalizedText upvotes upvotesCount relatedPublications');
   const canonicalByText = new Map();
   let merged = 0;
   let updated = 0;
@@ -24,13 +24,13 @@ const run = async () => {
     }
 
     const upvotes = [...new Set([...(canonical.upvotes || []), ...(question.upvotes || [])].map(String))];
-    const relatedArticles = [...new Set([...(canonical.relatedArticles || []), ...(question.relatedArticles || [])].map(String))];
+    const relatedPublications = [...new Set([...(canonical.relatedPublications || []), ...(question.relatedPublications || [])].map(String))];
     await Question.updateOne({ _id: canonical._id }, {
-      $set: { upvotes, upvotesCount: upvotes.length, relatedArticles },
+      $set: { upvotes, upvotesCount: upvotes.length, relatedPublications },
     });
     await Question.deleteOne({ _id: question._id });
     canonical.upvotes = upvotes;
-    canonical.relatedArticles = relatedArticles;
+    canonical.relatedPublications = relatedPublications;
     merged += 1;
   }
   console.log(`Normalized ${updated} questions and merged ${merged} exact duplicates`);

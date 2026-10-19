@@ -4,6 +4,5 @@ export const fetchReports = async status => (await api.get('/api/staff/reports',
 export const reviewReport = async ({ reportId, ...input }) => (await api.post(`/api/staff/reports/${reportId}/reviews`, input)).data.data
 export const createCompetition = async input => (await api.post('/api/competition', input)).data.data
 export const scoreCompetitionEntry = async ({ competitionId, entryId, ...input }) => (await api.put(`/api/competition/${competitionId}/entries/${entryId}/score`, input)).data.data
-export const publishCompetitionResults = async ({ competitionId, winnerEntryIds }) => (await api.post(`/api/competition/${competitionId}/results`, { winnerEntryIds })).data.data
-export const fetchCompetitionFraudSignals = async minutes => (await api.get('/api/staff/competition-fraud', { params: { minutes } })).data
-export const reviewCompetitionFraudSignal = async input => (await api.post('/api/staff/competition-fraud/reviews', input)).data.data
+export const fetchStaffUsers = async ({ role, page }) => (await api.get('/api/staff/users', { params: { role, page } })).data
+export const changeStaffUserRole = async ({ userId, role }) => (await api.patch(`/api/staff/users/${userId}/role`, { role })).data.data

@@ -25,9 +25,9 @@ async function mockApi(page, { guest = false, eligibleError = false, mutationErr
 
 const surfaces = [
   { key: 'account', path: '/shorts', trigger: 'Account', name: 'Account', close: 'Close account menu', mobile: true },
-  { key: 'search', path: '/shorts', name: 'Search Ink Rider', close: 'Close search', mobile: true },
+  { key: 'search', path: '/shorts', name: 'Search firstmargin', close: 'Close search', mobile: true },
   { key: 'comments', path: '/shorts', trigger: `Comments on ${title}`, name: 'Comments', close: 'Close comments', dirty: 'Add a comment' },
-  { key: 'short', path: '/shorts', trigger: title, name: title, close: 'Close short read', dirty: 'Add a comment' },
+  { key: 'short', path: '/shorts', trigger: title, name: title, close: 'Close short', dirty: 'Add a comment' },
   { key: 'question', path: '/explore/questions', trigger: 'Ask a question', name: 'Ask the community', close: 'Close', dirty: 'Question' },
   { key: 'collection', path: '/collections', trigger: 'Create collection', name: 'Create a collection', close: 'Close', dirty: 'Title' },
   { key: 'series', path: '/series?type=short', trigger: 'Create a series', name: 'Create a short series', close: 'Close', dirty: 'Title' },
@@ -36,7 +36,7 @@ const surfaces = [
 ]
 
 async function open(page, surface) {
-  const trigger = surface.key === 'search' ? page.getByRole('navigation', { name: 'Global navigation' }).getByRole('combobox', { name: 'Search posts and writers' }) : surface.key === 'short' ? page.getByRole('link', { name: title, exact: true }) : page.getByRole('button', { name: surface.trigger, exact: true }).first()
+  const trigger = surface.key === 'search' ? page.getByRole('navigation', { name: 'Global navigation' }).getByRole('combobox', { name: 'Search stories and writers' }) : surface.key === 'short' ? page.getByRole('link', { name: title, exact: true }) : page.getByRole('button', { name: surface.trigger, exact: true }).first()
   await trigger.click()
   if (surface.key === 'delete') await page.getByRole('menuitem', { name: 'Delete collection', exact: true }).click()
   const dialog = page.getByRole('dialog', { name: surface.name, exact: true })
@@ -217,7 +217,7 @@ for (const key of ['comments', 'short']) {
     await mockApi(page, { readError: true })
     await page.goto(surface.path)
     // A short's accessible name uses the fallback label until it loads.
-    const { dialog } = await open(page, key === 'short' ? { ...surface, name: 'Short read' } : surface)
+    const { dialog } = await open(page, key === 'short' ? { ...surface, name: 'Short' } : surface)
     await expect(dialog.getByRole('alert')).toBeVisible({ timeout: 15000 })
     await expect(dialog.getByRole('button', { name: 'Try again', exact: true })).toBeVisible()
   })

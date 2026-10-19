@@ -17,7 +17,7 @@ test('a notifications service outage exposes the global server-unavailable recov
   await page.waitForURL('**/', { waitUntil: 'domcontentloaded', timeout: 30_000 })
 
   await page.goto('/notifications', { waitUntil: 'domcontentloaded' })
-  await expect(page.getByRole('heading', { name: 'Ink Rider is temporarily unavailable.' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'firstmargin is temporarily unavailable.' })).toBeVisible()
   await expect(page.getByRole('alert')).toHaveText('We can’t reach the server right now. Please try again in a moment.')
   await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible()
   await expect(page.getByText('Comments, follows, likes, answers, request updates, and competition results will appear here.')).toHaveCount(0)

@@ -122,7 +122,7 @@ for (const width of [320, 1280]) for (const theme of ['light', 'dark']) {
       const back = page.getByRole('button', { name: /^(Back|Back to previous step)$/ })
       if (['login', 'signup', 'verification'].includes(name)) {
         await expect(back).toHaveCount(0)
-        await expect(page.getByRole('link', { name: 'Return to Ink-Rider home' })).toBeVisible()
+        await expect(page.getByRole('link', { name: 'Return to firstmargin home' })).toBeVisible()
         await page.screenshot({ path: path.join(output, `${name}.png`) })
         continue
       }
@@ -216,7 +216,7 @@ test('Back remains reachable on short forms and aligned through responsive break
     const back = page.getByRole('button', { name: /^(Back|Back to previous step)$/ })
     if (name !== 'onboarding') {
       await expect(back).toHaveCount(0)
-      await page.getByRole('link', { name: 'Return to Ink-Rider home' }).click()
+      await page.getByRole('link', { name: 'Return to firstmargin home' }).click()
       await expect(page).toHaveURL('/')
       continue
     }

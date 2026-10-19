@@ -7,11 +7,12 @@ import { ListSkeleton } from '@/shared/components/ui/Skeleton'
 import PageHeader from '@/shared/components/ui/PageHeader'
 import FeaturedPostCard from '../../components/FeaturedPostCard'
 import CompetitionImage from '@/features/competition/components/CompetitionImage'
+import competitionTypeLabel from '@/features/competition/utils/competitionTypeLabel'
 import Pill from '@/shared/components/ui/Pill'
 import FilterBar from '@/shared/components/ui/FilterBar'
 import { availableFilterOptions } from '@/shared/utils/availableFilterOptions'
 
-const TYPES = [{ id: 'all', label: 'All' }, { id: 'theme', label: 'Theme' }, { id: 'timed', label: 'Timed' }, { id: 'collaborative', label: 'Collaborative' }, { id: 'reader_choice', label: 'Reader choice' }]
+const TYPES = [{ id: 'all', label: 'All' }, { id: 'theme', label: 'Theme' }, { id: 'timed', label: 'Timed' }, { id: 'collaborative', label: 'Collaborative' }, { id: 'reader_choice', label: 'Readers’ Choice' }, { id: 'collective_choice', label: 'Collective Choice' }]
 
 const formatDate = value => value ? new Date(value).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : 'To be announced'
 
@@ -21,7 +22,8 @@ function CompetitionCard({ competition }) {
     <div className="contents sm:block sm:min-w-0 sm:flex-1">
       <div className="flex min-w-0 flex-col items-start justify-center gap-2 sm:mb-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-start">
         <span className="shrink-0 whitespace-nowrap px-2.5 py-1 rounded-full bg-[var(--color-bg-alt)] text-[12px] sm:text-[10px] font-semibold uppercase text-[var(--color-text-secondary)]">{competition.status}</span>
-        <span className="text-[13px] leading-5 text-[var(--color-text-secondary)] sm:text-[11px] sm:leading-normal sm:text-[var(--color-text-muted)]">Closes {formatDate(competition.closeDate)} · {competition.entriesCount} entries</span>
+        <span className="shrink-0 whitespace-nowrap px-2.5 py-1 rounded-full bg-[var(--color-bg-alt)] text-[12px] sm:text-[10px] font-semibold text-[var(--color-text-secondary)]">{competitionTypeLabel(competition)}</span>
+        <span className="text-[13px] leading-5 text-[var(--color-text-secondary)] sm:text-[11px] sm:leading-normal sm:text-[var(--color-text-muted)]">Voting closes {formatDate(competition.closeDate)} · {competition.entriesCount} entries</span>
       </div>
       <h2 className="col-span-2 min-w-0 break-words text-[20px] leading-snug font-bold text-[var(--color-text)] sm:text-[17px] sm:leading-normal" style={{ fontFamily: 'var(--font-display)' }}>{competition.title}</h2>
       <p className="col-span-2 min-w-0 -mt-2 break-words text-[14px] leading-6 text-[var(--color-text-secondary)] sm:mt-1 sm:line-clamp-2 sm:text-[12px] sm:leading-normal">{competition.description}</p>
@@ -60,11 +62,11 @@ function CompetitionContent({ active, past }) {
   }
   return <div>
     <PageHeader eyebrow="Explore" title="Competitions" description="Recurring prompts for writers and readers to discover something new." />
-    {winner?.post && <section className="mb-12">{winner.post.format === 'short' ? <><p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)]">Recent winner · {winner.likesCount} reader votes</p><ShortCard post={{ ...winner.post, id: winner.post._id, image: winner.post.coverImage, author: winner.author }} /></> : <FeaturedPostCard post={{ ...winner.post, id: winner.post._id || winner.post.id, image: winner.post.coverImage || winner.post.image, author: winner.author }} label="Recent winner" readerVotes={winner.likesCount} />}</section>}
+    {winner?.post && <section className="mb-12">{winner.post.format === 'short' ? <><p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)]">Recent winner · {winner.votesCount} reader votes</p><ShortCard post={{ ...winner.post, id: winner.post._id, image: winner.post.coverImage, author: winner.author }} /></> : <FeaturedPostCard post={{ ...winner.post, id: winner.post._id || winner.post.id, image: winner.post.coverImage || winner.post.image, author: winner.author }} label="Recent winner" readerVotes={winner.votesCount} />}</section>}
     <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-      <div className="flex gap-2"><Pill label={`Active (${filteredActive.length})`} active={tab === 'active'} onClick={() => updateFilter('competitionTab', 'active', 'active')} /><Pill label={`Inactive (${filteredPast.length})`} active={tab === 'inactive'} onClick={() => updateFilter('competitionTab', 'inactive', 'active')} /></div>
+      <div className="flex gap-2"><Pill label="Ongoing" active={tab === 'active'} onClick={() => updateFilter('competitionTab', 'active', 'active')} /><Pill label="Past" active={tab === 'inactive'} onClick={() => updateFilter('competitionTab', 'inactive', 'active')} /></div>
       {typeOptions.length > 2 && <FilterBar label="Competition type" value={competitionType} onChange={value => updateFilter('competitionType', value, 'all')} options={typeOptions} />}
     </div>
-    {visibleCompetitions.length ? visibleCompetitions.map(item => <CompetitionCard key={item.id} competition={item} />) : <p className="py-8 text-[13px] text-[var(--color-text-muted)]">No {tab === 'active' ? 'active' : 'inactive'} competitions match this filter.</p>}
+    {visibleCompetitions.length ? visibleCompetitions.map(item => <CompetitionCard key={item.id} competition={item} />) : <p className="py-8 text-[13px] text-[var(--color-text-muted)]">No {tab === 'active' ? 'ongoing' : 'past'} competitions match this filter.</p>}
   </div>
 }

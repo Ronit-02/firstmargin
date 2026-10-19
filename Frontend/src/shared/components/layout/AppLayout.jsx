@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useSelector } from 'react-redux'
 import { matchPath, Outlet, useLocation, useNavigationType } from 'react-router-dom'
 import Navbar from './Navbar'
@@ -13,6 +13,7 @@ import { useServerUnavailable } from '@/app/serverAvailability'
 const BACK_ROUTES = [
   '/post/:id', '/author/:handle', '/explore/questions/:id',
   '/explore/competitions/:id', '/collections/:id', '/shorts/series/:id', '/series/:id',
+  '/staff/competitions/:id/judging',
   '/search', '/membership', '/history', '/profile/edit', '/opportunities',
 ]
 
@@ -46,6 +47,18 @@ export default function AppLayout() {
   const { dark, toggle: toggleTheme, themePreference, setTheme } = useTheme()
   const isServerUnavailable = useServerUnavailable()
   const scrollPositions = useRef(null)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try {
+      const stored = window.localStorage.getItem('ink-rider.sidebar-collapsed')
+      return stored === null ? window.localStorage.getItem('ink-rider.sidebar-open') === 'false' : stored === 'true'
+    } catch { return false }
+  })
+
+  const toggleSidebar = () => setSidebarCollapsed(collapsed => !collapsed)
+
+  useEffect(() => {
+    try { window.localStorage.setItem('ink-rider.sidebar-collapsed', String(sidebarCollapsed)) } catch { /* Keep the control usable without storage. */ }
+  }, [sidebarCollapsed])
 
   useLayoutEffect(() => {
     const mainContent = document.getElementById('main-content')
@@ -141,7 +154,7 @@ export default function AppLayout() {
       <div className="flex flex-1 overflow-hidden mt-14">
 
         {/* Sidebar — stays fixed height, doesn't scroll with page */}
-        <Sidebar />
+        <Sidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} />
 
         {/* Main — scrolls independently */}
         <div id="main-content" tabIndex={-1} data-app-scroll="true" className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden focus:outline-none max-md:pb-[calc(72px_+_env(safe-area-inset-bottom))]">

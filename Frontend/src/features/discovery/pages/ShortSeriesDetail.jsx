@@ -24,7 +24,7 @@ function DeleteSeriesConfirmation({ series, deletion, triggerRef, onClose, onDel
   return <ModalLayer onDismiss={dismiss} returnFocusRef={triggerRef} aria-labelledby="series-delete-title" className="grid place-items-center p-4">
     <section ref={dialogRef} tabIndex={-1} className="w-full max-w-[420px] overflow-y-auto rounded-[16px] border border-[var(--color-border)] bg-[var(--color-surface)] p-6 shadow-[var(--shadow-menu)]">
       <ModalHeader title="Delete series?" titleId="series-delete-title" onClose={dismiss} closeLabel="Close delete series" closeRef={closeRef} className="-mx-6 -mt-6" />
-      <p className="mt-3 text-[13px] leading-5 text-[var(--color-text-secondary)]">This permanently removes “{series.title}”. Posts in the series are not deleted.</p>
+      <p className="mt-3 text-[13px] leading-5 text-[var(--color-text-secondary)]">This permanently removes “{series.title}”. Stories in the series are not deleted.</p>
       {deletion.isError && <p role="alert" className="mt-3 text-[12px] text-[var(--color-danger)]">Could not delete series. Try again.</p>}
       <div className="mt-6 flex justify-end"><Button onClick={() => deletion.mutate(undefined, { onSuccess: onDeleted })} disabled={deletion.isPending} aria-busy={deletion.isPending} className="!bg-[var(--color-danger)] !border-[var(--color-danger)]">Delete series</Button></div>
     </section>
@@ -39,6 +39,8 @@ function SeriesContent({ series, id }) {
   const type = series.type || 'short'
   const eligible = useEligibleSeriesPosts(type, id, series.isOwner)
   const [draftEntries, setDraftEntries] = useState(null)
+  const [draftTitle, setDraftTitle] = useState(null)
+  const [draftDescription, setDraftDescription] = useState(null)
   const [editOpen, setEditOpen] = useState(() => Boolean(series.isOwner && location.state?.openEditSeries))
   useEffect(() => {
     if (location.state?.openEditSeries) navigate(location.pathname + location.search + location.hash, { replace: true, state: null })
@@ -49,6 +51,10 @@ function SeriesContent({ series, id }) {
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [shortReadId, setShortReadId] = useState(null)
   const entries = draftEntries || series.entries
+  const title = draftTitle ?? series.title
+  const description = draftDescription ?? series.description ?? ''
+  const validTitle = title.trim().length >= 2 && title.trim().length <= 100
+  const hasChanges = Boolean(draftEntries) || title.trim() !== series.title || description.trim() !== (series.description || '')
   const move = (index, direction) => setDraftEntries(current => {
     const next = [...(current || series.entries)]
     const target = index + direction
@@ -58,7 +64,10 @@ function SeriesContent({ series, id }) {
   })
   const remove = postId => setDraftEntries(current => (current || series.entries).filter(entry => entry.id !== postId))
   const add = post => setDraftEntries(current => [...(current || series.entries), { ...post, format: type, author: series.author }])
-  const save = () => update.mutate({ title: series.title, description: series.description, visibility: series.visibility, type, postIds: entries.map(entry => entry.id) }, { onSuccess: () => { setDraftEntries(null); setEditOpen(false) } })
+  const save = () => {
+    if (!validTitle || description.trim().length > 500 || entries.length < 2 || !hasChanges) return
+    update.mutate({ title: title.trim(), description: description.trim(), visibility: series.visibility, type, postIds: entries.map(entry => entry.id) }, { onSuccess: () => { setDraftEntries(null); setDraftTitle(null); setDraftDescription(null); setEditOpen(false) } })
+  }
   const available = (eligible.data || []).filter(post => !entries.some(entry => entry.id === post.id))
   const editButton = className => <button type="button" onClick={() => setEditOpen(true)} aria-label="Edit series" title="Edit series" aria-haspopup="dialog" className={`${className} h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]`}><PenIcon /></button>
   const shareButton = className => <button type="button" onClick={event => { shareTriggerRef.current = event.currentTarget; setShareOpen(true) }} aria-label="Share this series" title="Share this series" aria-haspopup="dialog" className={`${className} h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]`}><ShareIcon /></button>
@@ -77,7 +86,7 @@ function SeriesContent({ series, id }) {
         <div className="min-w-0 flex-1">
           <h2 className="break-words text-[19px] font-bold leading-[1.25] tracking-[-0.035em] text-[var(--color-text)] sm:text-[22px]" style={{ fontFamily: 'var(--font-display)' }}><Link to={`/post/${entry.id}`} onClick={event => { if (type !== 'short' || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); setShortReadId(entry.id) }} className="rounded-[4px] hover:text-[var(--color-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]">{entry.title}</Link></h2>
           {entry.excerpt && <p className="mt-2 line-clamp-2 break-words text-[13px] leading-[1.6] text-[var(--color-text-secondary)]">{entry.excerpt}</p>}
-          <p className="mt-3 text-[12px] text-[var(--color-text-muted)]">{entry.readTime || (type === 'short' ? 'Short read' : 'Post')}</p>
+          <p className="mt-3 text-[12px] text-[var(--color-text-muted)]">{entry.readTime || (type === 'short' ? 'Short' : 'Story')}</p>
         </div>
         {type === 'article' && entry.image && <Link to={`/post/${entry.id}`} aria-label={`Read ${entry.title}`} className="order-first block w-full shrink-0 rounded-[8px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] sm:order-last sm:w-40 lg:w-48"><ImageBox src={entry.image} alt="" height="auto" aspectRatio="16 / 9" radius="8px" /></Link>}
       </div>
@@ -85,16 +94,21 @@ function SeriesContent({ series, id }) {
     </li>)}</ol>
     {type === 'short' && shortReadId && <ShortReadModal postId={shortReadId} onClose={() => setShortReadId(null)} listIds={series.entries.map(entry => entry.id)} inSeriesView />}
     {editOpen && <ModalLayer onDismiss={() => { if (!deletion.isPending && !deleteOpen) setEditOpen(false) }} aria-labelledby="series-edit-title" className="grid place-items-center p-4">
-      <section className="w-full max-w-[640px] overflow-y-auto rounded-[20px] border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
-        <ModalHeader title="Edit series" titleId="series-edit-title" subtitle="Reorder, remove, or add writing to this series." onClose={() => { if (!deletion.isPending && !deleteOpen) setEditOpen(false) }} closeLabel="Close edit series" className="-mx-6 -mt-6" />
+      <section className="w-full max-w-[640px] max-h-[calc(var(--overlay-height)-2rem)] overflow-y-auto rounded-[20px] border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
+        <ModalHeader title="Edit series" titleId="series-edit-title" subtitle="Update the series details and reading order." onClose={() => { if (!deletion.isPending && !deleteOpen) setEditOpen(false) }} closeLabel="Close edit series" className="-mx-6 -mt-6" />
         <div className="mt-6">
-          <h2 className="text-[13px] font-semibold text-[var(--color-text)]">Series order</h2>
+          <label htmlFor="edit-series-title" className="mb-2 block text-[12px] font-semibold text-[var(--color-text)]">Title <span aria-hidden="true">(required)</span></label>
+          <input id="edit-series-title" required minLength={2} maxLength={100} value={title} onChange={event => setDraftTitle(event.target.value)} className="w-full rounded-[10px] border border-[var(--color-border)] bg-[var(--color-bg-alt)] px-3 py-2.5 text-[13px] text-[var(--color-text)]" />
+          <p className="mt-1 text-right text-[11px] text-[var(--color-text-muted)]">At least 2 characters · {title.length}/100</p>
+          <label htmlFor="edit-series-description" className="mt-4 mb-2 block text-[12px] font-semibold text-[var(--color-text)]">Description <span className="font-normal text-[var(--color-text-muted)]">(optional)</span></label>
+          <textarea id="edit-series-description" maxLength={500} value={description} onChange={event => setDraftDescription(event.target.value)} className="w-full min-h-20 rounded-[10px] border border-[var(--color-border)] bg-[var(--color-bg-alt)] p-3 text-[13px] text-[var(--color-text)]" />
+          <h2 className="mt-6 text-[13px] font-semibold text-[var(--color-text)]">Series order</h2>
           <ol className="mt-3 border-t border-[var(--color-border)]">{entries.map((entry, index) => <li key={entry.id} className="flex items-center gap-3 border-b border-[var(--color-border)] py-3"><span className="w-6 shrink-0 text-[11px] text-[var(--color-text-muted)]">{String(index + 1).padStart(2, '0')}</span><span className="min-w-0 flex-1 text-[13px] text-[var(--color-text)]">{entry.title}</span><button type="button" onClick={() => move(index, -1)} disabled={index === 0} aria-label={`Move ${entry.title} earlier`} className="button-target h-11 min-h-11 w-11 min-w-11 rounded-full border border-[var(--color-border)] disabled:opacity-30">↑</button><button type="button" onClick={() => move(index, 1)} disabled={index === entries.length - 1} aria-label={`Move ${entry.title} later`} className="button-target h-11 min-h-11 w-11 min-w-11 rounded-full border border-[var(--color-border)] disabled:opacity-30">↓</button><button type="button" onClick={() => remove(entry.id)} aria-label={`Remove ${entry.title} from series`} className="button-target h-11 min-h-11 w-11 min-w-11 rounded-full border border-[var(--color-border)]">×</button></li>)}</ol>
           <h2 className="mt-6 text-[13px] font-semibold text-[var(--color-text)]">Add {type === 'short' ? 'shorts' : 'stories'}</h2>
           {eligible.isPending && <p role="status" className="mt-3 text-[12px] text-[var(--color-text-muted)]">Loading your writing…</p>}
           {eligible.isError && <div className="mt-3"><p role="alert" className="text-[12px] text-[var(--color-danger)]">Your writing could not be loaded.</p><Button variant="secondary" className="mt-2" onClick={() => eligible.refetch()}>Try again</Button></div>}
           {!eligible.isPending && !eligible.isError && (available.length > 0 ? <div className="mt-3"><Select id="series-add-writing" label={`Choose a ${type === 'short' ? 'short' : 'story'} to add`} value="" options={available.map(post => ({ value: post.id, label: post.title }))} onChange={postId => { const post = available.find(item => item.id === postId); if (post && entries.length < 50) add(post) }} disabled={entries.length >= 50 || update.isPending || deletion.isPending} className="max-w-none" /></div> : <p className="mt-3 text-[12px] text-[var(--color-text-muted)]">No other published {type === 'short' ? 'shorts' : 'stories'} are available to add.</p>)}
-          <div className="mt-5 flex flex-wrap items-center justify-between gap-3"><Button ref={deleteTriggerRef} variant="secondary" onClick={() => setDeleteOpen(true)} disabled={update.isPending || deletion.isPending} className="!text-[var(--color-danger)]">Delete series</Button><Button onClick={save} disabled={!draftEntries || entries.length < 2 || update.isPending || deletion.isPending} aria-busy={update.isPending} className="ml-auto">Save series</Button></div>
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-3"><Button ref={deleteTriggerRef} variant="secondary" onClick={() => setDeleteOpen(true)} disabled={update.isPending || deletion.isPending} className="!text-[var(--color-danger)]">Delete series</Button><Button onClick={save} disabled={!hasChanges || !validTitle || description.trim().length > 500 || entries.length < 2 || update.isPending || deletion.isPending} aria-busy={update.isPending} className="ml-auto">Save series</Button></div>
           {draftEntries && entries.length < 2 && <p className="mt-3 text-[12px] text-[var(--color-text-secondary)]">A series needs at least two parts.</p>}{update.isError && <p role="alert" className="mt-3 text-[12px] text-[var(--color-danger)]">Could not save series</p>}
         </div>
       </section>
@@ -109,7 +123,7 @@ export default function ShortSeriesDetail() {
   const query = retainRetryView(useShortSeriesDetail(id))
   if (query.isPending) return <PageFrame><ListSkeleton count={4} label="Loading series" /></PageFrame>
   if (query.isError && isMissingResourceError(query.error)) return legacyPath
-    ? <MissingResourceState eyebrow="Short series unavailable" title="This short series is no longer available" detail="It may have been removed, made private, or the link may be incorrect. Explore other short reads instead." recoveryTo="/shorts" recoveryLabel="Explore short reads" />
+    ? <MissingResourceState eyebrow="Short series unavailable" title="This short series is no longer available" detail="It may have been removed, made private, or the link may be incorrect. Explore other shorts instead." recoveryTo="/shorts" recoveryLabel="Explore shorts" />
     : <MissingResourceState eyebrow="Series unavailable" title="This series is no longer available" detail="It may have been removed, made private, or the link may be incorrect. Explore other series instead." recoveryTo="/series" recoveryLabel="Explore series" />
   if (query.isError) return <PageFrame><div><p role="alert" className="text-[13px] text-[var(--color-danger)]">This series could not be loaded.</p><Button variant="secondary" className="mt-4" onClick={() => query.refetch()} aria-busy={query.isFetching} disabled={query.isFetching}>Try again</Button></div></PageFrame>
   return <SeriesContent key={id} id={id} series={query.data} />

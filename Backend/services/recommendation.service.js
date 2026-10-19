@@ -14,7 +14,7 @@ const rankCandidate = (post, { interestTopicIds, followedWriterIds, asOf }) => {
   const followsAuthor = followedWriterIds.has(authorId);
   const ageHours = Math.max(0, (asOf.getTime() - new Date(post.createdAt).getTime()) / 3_600_000);
   const freshness = Math.max(0, 24 - ageHours / 4);
-  const quality = Math.min(24, Math.log1p(Math.max(0, post.likesCount || 0)) * 5);
+  const quality = Math.min(24, Math.log1p(Math.max(0, post.appreciationsCount || 0)) * 5);
   const affinity = Math.min(36, matchingTopics * 18) + (followsAuthor ? 28 : 0);
   const exploration = stableExploration(`${post._id}:${asOf.toISOString().slice(0, 10)}`);
   const score = Number((affinity + freshness + quality + exploration).toFixed(4));
@@ -22,10 +22,10 @@ const rankCandidate = (post, { interestTopicIds, followedWriterIds, asOf }) => {
   let reason = 'Explore something new';
   if (followsAuthor) reason = `Because you follow ${post.author?.username || 'this writer'}`;
   else if (matchingTopics > 0) reason = 'Matches your interests';
-  else if ((post.likesCount || 0) >= 5) reason = 'Popular with readers';
+  else if ((post.appreciationsCount || 0) >= 5) reason = 'Popular with readers';
   else if (ageHours <= 24) reason = 'Recently published';
 
-  return { post, score, reason, authorId, primaryTopicId: topicIds[0] || null };
+  return { publication: post, score, reason, authorId, primaryTopicId: topicIds[0] || null };
 };
 
 const diversify = ranked => {
@@ -46,7 +46,7 @@ const diversify = ranked => {
 const rankCandidates = (posts, context) => diversify(
   posts
     .map(post => rankCandidate(post, context))
-    .sort((left, right) => right.score - left.score || String(right.post._id).localeCompare(String(left.post._id)))
+    .sort((left, right) => right.score - left.score || String(right.publication._id).localeCompare(String(left.publication._id)))
 );
 
 const roundMetric = value => Number(value.toFixed(4));
@@ -61,7 +61,7 @@ const maxConsecutive = values => values.reduce((longest, value, index) => {
 const evaluateRanking = ({ ranked, relevantIds, limit = ranked.length }) => {
   const top = ranked.slice(0, limit);
   const relevant = new Set(relevantIds.map(String));
-  const topIds = top.map(item => String(item.post._id));
+  const topIds = top.map(item => String(item.publication._id));
   const hits = topIds.filter(id => relevant.has(id)).length;
   const authors = top.map(item => item.authorId).filter(Boolean);
   const topics = top.map(item => item.primaryTopicId).filter(Boolean);
@@ -81,7 +81,7 @@ const evaluateRecommendationFixtures = fixtures => fixtures.map(fixture => {
   const ranked = rankCandidates(fixture.posts, fixture.context);
   return {
     name: fixture.name,
-    ranking: ranked.map(item => ({ id: String(item.post._id), score: item.score, reason: item.reason })),
+    ranking: ranked.map(item => ({ id: String(item.publication._id), score: item.score, reason: item.reason })),
     metrics: evaluateRanking({ ranked, relevantIds: fixture.relevantIds, limit: fixture.limit }),
   };
 });

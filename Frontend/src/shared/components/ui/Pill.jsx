@@ -1,10 +1,11 @@
 /* Pill — filter/tab toggle button */
 import { getButtonClasses } from './buttonStyles'
 
-export default function Pill({ label, active = false, size = 'md', onClick, role, ariaControls, onKeyDown, tabIndex }) {
+export default function Pill({ label, active = false, size = 'md', onClick, role, ariaControls, onKeyDown, tabIndex, id }) {
   return (
     <button
       type="button"
+      id={id}
       onClick={onClick}
       onKeyDown={onKeyDown}
       role={role}

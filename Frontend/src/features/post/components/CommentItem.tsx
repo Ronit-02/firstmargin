@@ -2,6 +2,7 @@ import { useId, useLayoutEffect, useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import Avatar from '@/shared/components/ui/Avatar'
 import Button from '@/shared/components/ui/Button'
+import InfiniteScrollSentinel from '@/shared/components/ui/InfiniteScrollSentinel'
 import useAuth from '@/features/auth/hooks/useAuth'
 import useToast from '@/shared/hooks/useToast'
 import useComments from '../hooks/useComments'
@@ -72,17 +73,17 @@ export default function CommentItem({ comment, postId, compact = false, depth = 
       <div className="flex items-start gap-3">
         <Avatar src={comment.author?.avatar} name={comment.isDeleted ? 'Deleted comment' : comment.author?.name || 'Former member'} size={compact ? 30 : 36} />
         <div className="flex-1 min-w-0">
-          <div className="flex flex-col gap-1 mb-2">
+          <div className="mb-1 flex flex-wrap items-baseline gap-x-2 gap-y-0">
             <span className="text-[13px] font-semibold text-[var(--color-text)] break-words min-w-0">
               {comment.isDeleted ? 'Deleted comment' : comment.author?.name || 'Former member'}
             </span>
-            <time dateTime={comment.createdAt} className="text-[12px] text-[var(--color-text-secondary)]">
+            <time dateTime={comment.createdAt} className="shrink-0 text-[12px] text-[var(--color-text-secondary)]">
               {new Intl.DateTimeFormat('en', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(comment.createdAt))}
             </time>
           </div>
           <CommentContent key={comment.isDeleted ? 'deleted' : comment.content} content={comment.isDeleted ? 'Comment deleted.' : comment.content} compact={compact} />
           <div className="flex flex-wrap gap-0 -ml-2">
-            {!comment.isDeleted && <Button variant="action" data-comment-like="true" className="!min-h-11 !px-2 !items-start !pt-1 !pb-0 !leading-5 gap-1.5" aria-label={`${comment.isLiked ? 'Unlike' : 'Like'} (${comment.likesCount || 0})`} aria-pressed={Boolean(comment.isLiked)} disabled={mutation.isPending} aria-busy={mutation.isPending && mutation.variables?.kind === 'like'}
+            {!comment.isDeleted && <Button variant="action" data-comment-like="true" className="!min-h-11 !px-2 !items-start !pt-1 !pb-0 !leading-5 gap-1.5" aria-label={`${comment.isLiked ? 'Remove appreciation' : 'Appreciate'} (${comment.likesCount || 0})`} aria-pressed={Boolean(comment.isLiked)} disabled={mutation.isPending} aria-busy={mutation.isPending && mutation.variables?.kind === 'like'}
               onClick={() => loggedIn ? mutation.mutate({ kind: 'like', liked: !comment.isLiked }) : signIn()}>
               <svg className="mt-0.5" aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill={comment.isLiked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
                 <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z" />
@@ -118,7 +119,7 @@ export default function CommentItem({ comment, postId, compact = false, depth = 
         {repliesQuery.isLoading && <p role="status" className="text-[12px] py-3">Loading replies…</p>}
         {repliesQuery.isError && <div><p role="alert" className="text-[12px] text-[var(--color-danger)]">We couldn't load replies.</p><Button variant="secondary" onClick={() => repliesQuery.refetch()} aria-busy={repliesQuery.isFetching}>Try again</Button></div>}
         {replies.map((reply, index) => <CommentItem key={reply.id} comment={reply} postId={postId} compact={compact} depth={depth + 1} hideBottomBorder={hideBottomBorder && index === replies.length - 1} />)}
-        {repliesQuery.hasNextPage && <Button variant="secondary" className="!min-h-11" onClick={() => repliesQuery.fetchNextPage()} aria-busy={repliesQuery.isFetchingNextPage} disabled={repliesQuery.isFetchingNextPage}>Load more replies</Button>}
+        <InfiniteScrollSentinel query={repliesQuery} label="Loading more replies" />
       </div>}
     </article>
   )

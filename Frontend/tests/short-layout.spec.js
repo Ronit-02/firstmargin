@@ -16,6 +16,37 @@ async function mockFeed(page, story = post) {
   })
 }
 
+test('Shorts loads its next cursor page on scroll without a Load more button', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 600 })
+  const requestedCursors = []
+  const firstPage = Array.from({ length: 18 }, (_, index) => ({
+    ...post,
+    id: `507f1f77bcf86cd7994390${String(index).padStart(2, '0')}`,
+    title: `Short idea ${index + 1}`,
+  }))
+  await page.route(url => url.pathname.startsWith('/api/'), route => {
+    const url = new URL(route.request().url())
+    if (url.pathname === '/api/auth/refresh-token') return route.fulfill({ status: 401, json: { message: 'Signed out' } })
+    if (url.pathname === '/api/post/shorts') {
+      const cursor = url.searchParams.get('cursor')
+      requestedCursors.push(cursor)
+      return route.fulfill({ json: cursor
+        ? { data: [{ ...post, title: 'Next short idea' }], meta: { nextCursor: null } }
+        : { data: firstPage, meta: { nextCursor: 'next-page' } } })
+    }
+    return route.fulfill({ json: { data: [], meta: { nextCursor: null } } })
+  })
+
+  await page.goto('/shorts')
+  await expect(page.getByRole('heading', { name: 'Short idea 18' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Load more', exact: true })).toHaveCount(0)
+  expect(requestedCursors).toEqual([null])
+
+  await page.locator('[data-app-scroll]').evaluate(node => { node.scrollTop = node.scrollHeight })
+  await expect(page.getByRole('heading', { name: 'Next short idea' })).toBeVisible()
+  expect(requestedCursors).toEqual([null, 'next-page'])
+})
+
 test('covered short keeps its excerpt above the footer', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await mockFeed(page, { ...post, image: '/logo/logo-dark-profile.png' })
@@ -44,6 +75,63 @@ test('long short titles stay clear of the action footer', async ({ page }) => {
   })
   expect(layout.titleBottom).toBeLessThanOrEqual(layout.footerTop)
 })
+
+for (const width of [390, 768]) {
+  test(`two-line short titles fit inside the title section at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 844 })
+    await mockFeed(page, { ...post, title: 'F**k Clone Apps, How Apps Got Smaller', tags: ['Poetry'] })
+    await page.goto('/shorts')
+    const card = page.locator('[data-story-format="short"]').first()
+    await expect(card).toBeVisible()
+    const layout = await card.evaluate(element => {
+      const heading = element.querySelector('h2')
+      const titleSection = heading.parentElement
+      const titleStyle = getComputedStyle(heading)
+      return {
+        titleBottom: heading.getBoundingClientRect().bottom,
+        sectionBottom: titleSection.getBoundingClientRect().bottom,
+        bottomPadding: parseFloat(getComputedStyle(titleSection).paddingBottom),
+        titleHeight: heading.getBoundingClientRect().height,
+        lineHeight: parseFloat(titleStyle.lineHeight),
+      }
+    })
+    expect(layout.titleHeight).toBeGreaterThan(layout.lineHeight * 1.9)
+    expect(layout.titleBottom).toBeLessThanOrEqual(layout.sectionBottom - layout.bottomPadding + 1)
+  })
+}
+
+for (const width of [390, 1280]) {
+  test(`split short card keeps first-name footer and tagless accent in bounds at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 844 })
+    await mockFeed(page, { ...post, tags: [], author: { ...post.author, username: 'Extraordinarilylongfirstname Noor' } })
+    await page.goto('/shorts')
+    const card = page.locator('[data-story-format="short"]').first()
+    await expect(card.getByRole('heading', { name: post.title })).toBeVisible()
+    const layout = await card.evaluate(element => {
+      const heading = element.querySelector('h2')
+      const author = element.querySelector('a[aria-label^="View "] span')
+      const footer = author.closest('div.border-t')
+      const actions = footer.querySelector('div.ml-auto')
+      const accent = element.querySelector('span[aria-hidden="true"].rounded-full')
+      return {
+        headingClamp: getComputedStyle(heading).webkitLineClamp,
+        authorText: author.textContent,
+        authorClipped: author.scrollWidth > author.clientWidth,
+        authorRight: author.getBoundingClientRect().right,
+        actionsLeft: actions.getBoundingClientRect().left,
+        actionsRight: actions.getBoundingClientRect().right,
+        cardRight: element.getBoundingClientRect().right,
+        accentVisible: Boolean(accent),
+      }
+    })
+    expect(layout.headingClamp).toBe('2')
+    expect(layout.authorText).toBe('Extraordinarilylongfirstname')
+    expect(layout.authorClipped).toBe(true)
+    expect(layout.authorRight).toBeLessThanOrEqual(layout.actionsLeft)
+    expect(layout.actionsRight).toBeLessThan(layout.cardRight)
+    expect(layout.accentVisible).toBe(true)
+  })
+}
 
 for (const width of [390, 1280]) {
   test(`short excerpt fills available lines at ${width}px`, async ({ page }) => {

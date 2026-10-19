@@ -1,10 +1,11 @@
 const mongoose = require('mongoose');
 const Follow = require('../schemas/follow.schema');
-const Post = require('../schemas/post.schema');
+const Publication = require('../schemas/publication.schema');
 const Profile = require('../schemas/profile.schema');
 const User = require('../schemas/user.schema');
-const Like = require('../schemas/like.schema');
+const Appreciation = require('../schemas/appreciation.schema');
 const Save = require('../schemas/save.schema');
+const { extractText } = require('../services/publication-presenter.service');
 const { notifyFollow } = require('../services/user-relationship.service');
 
 const isValidId = id => mongoose.isValidObjectId(id);
@@ -35,22 +36,22 @@ const getWriterByHandle = async (req, res) => {
     if (!profile?.userId) return res.status(404).json({ message: 'Writer not found' });
 
     const [posts, following] = await Promise.all([
-      Post.find({ author: profile.userId._id, publicationStatus: { $ne: 'unpublished' }, $or: [{ publicAt: { $lte: new Date() } }, { publicAt: null }, { publicAt: { $exists: false } }] })
+      Publication.find({ author: profile.userId._id, publicationStatus: { $ne: 'unpublished' }, $or: [{ publicAt: { $lte: new Date() } }, { publicAt: null }, { publicAt: { $exists: false } }] })
         .sort({ createdAt: -1 })
-        .select('title format coverImage tags likesCount commentsCount createdAt body'),
+        .select('title format coverImage tags appreciationsCount commentsCount createdAt body'),
       req.auth
         ? Follow.exists({ followerId: req.auth.userId, followingId: profile.userId._id })
         : Promise.resolve(null),
     ]);
 
     const likes = req.auth
-      ? await Like.find({ userId: req.auth.userId, postId: { $in: posts.map(post => post._id) } }).select('postId').lean()
+      ? await Appreciation.find({ userId: req.auth.userId, publicationId: { $in: posts.map(post => post._id) } }).select('publicationId').lean()
       : [];
-    const likedPostIds = new Set(likes.map(like => like.postId.toString()));
+    const likedPostIds = new Set(likes.map(like => like.publicationId.toString()));
     const saves = req.auth
-      ? await Save.find({ userId: req.auth.userId, postId: { $in: posts.map(post => post._id) } }).select('postId').lean()
+      ? await Save.find({ userId: req.auth.userId, publicationId: { $in: posts.map(post => post._id) } }).select('publicationId').lean()
       : [];
-    const savedPostIds = new Set(saves.map(save => save.postId.toString()));
+    const savedPostIds = new Set(saves.map(save => save.publicationId.toString()));
 
     const author = {
       id: profile.userId._id,
@@ -78,11 +79,12 @@ const getWriterByHandle = async (req, res) => {
         posts: posts.map(post => ({
           id: post._id,
           title: post.title,
-          format: post.format || 'article',
+          format: post.format || 'story',
           image: post.coverImage,
+          excerpt: extractText(post.body).slice(0, 220),
           tags: post.tags,
-          likesCount: post.likesCount,
-          isLiked: likedPostIds.has(post._id.toString()),
+          appreciationsCount: post.appreciationsCount,
+          isAppreciated: likedPostIds.has(post._id.toString()),
           isBookmarked: savedPostIds.has(post._id.toString()),
           commentsCount: post.commentsCount,
           createdAt: post.createdAt,

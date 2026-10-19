@@ -1,23 +1,23 @@
 const mongoose = require('mongoose');
-const Post = require('../schemas/post.schema');
+const Publication = require('../schemas/publication.schema');
 const Profile = require('../schemas/profile.schema');
 const ShortSeries = require('../schemas/short-series.schema');
 const { encodeCursor, decodeCursor } = require('../utils/cursor');
-const { presentDiscoveryPosts } = require('../services/post-presenter.service');
+const { presentDiscoveryPosts } = require('../services/publication-presenter.service');
 
 const isValidId = value => mongoose.isValidObjectId(value);
 const orderedItems = series => [...series.items].sort((left, right) => left.position - right.position);
 
 const present = async (seriesDocuments, actorId, includeItems = false) => {
   const now = new Date();
-  const visibleItems = series => orderedItems(series).filter(item => item.post && (
+  const visibleItems = series => orderedItems(series).filter(item => item.publication && (
     actorId === series.author?._id?.toString()
-    || (item.post.publicationStatus !== 'unpublished' && (!item.post.publicAt || item.post.publicAt <= now))
+    || (item.publication.publicationStatus !== 'unpublished' && (!item.publication.publicAt || item.publication.publicAt <= now))
   ));
   const authorIds = seriesDocuments.map(series => series.author?._id).filter(Boolean);
   const profiles = await Profile.find({ userId: { $in: authorIds } }).select('userId handle displayName avatarUrl');
   const byAuthor = new Map(profiles.map(profile => [profile.userId.toString(), profile]));
-  const entryPosts = includeItems ? await presentDiscoveryPosts(seriesDocuments.flatMap(series => visibleItems(series).map(item => ({ ...item.post.toObject(), author: series.author }))), actorId) : [];
+  const entryPosts = includeItems ? await presentDiscoveryPosts(seriesDocuments.flatMap(series => visibleItems(series).map(item => ({ ...item.publication.toObject(), author: series.author }))), actorId) : [];
   const entryById = new Map(entryPosts.map(post => [post.id.toString(), post]));
   return seriesDocuments.map(series => {
     const profile = series.author?._id ? byAuthor.get(series.author._id.toString()) : null;
@@ -29,8 +29,15 @@ const present = async (seriesDocuments, actorId, includeItems = false) => {
       visibility: series.visibility,
       type: series.type || 'short',
       entriesCount: items.length,
-      coverImage: items.find(item => item.post?.coverImage)?.post.coverImage || null,
+      entriesPreview: !includeItems ? items.slice(0, 3).map((item, index) => ({
+        id: item.publication._id,
+        title: item.publication.title,
+        position: index + 1,
+      })) : undefined,
+      coverImage: items.find(item => item.publication?.coverImage)?.publication.coverImage || null,
       isOwner: actorId === series.author?._id?.toString(),
+      isSaved: Boolean(actorId && series.savedBy?.some(id => id.toString() === actorId)),
+      savedCount: series.savedCount || series.savedBy?.length || 0,
       createdAt: series.createdAt,
       author: {
         id: series.author?._id || null,
@@ -40,12 +47,12 @@ const present = async (seriesDocuments, actorId, includeItems = false) => {
       },
     };
     if (includeItems) data.entries = items.map((item, index) => ({
-      ...entryById.get(item.post._id.toString()),
-      id: item.post._id,
-      title: item.post.title,
-      image: item.post.coverImage || null,
+      ...entryById.get(item.publication._id.toString()),
+      id: item.publication._id,
+      title: item.publication.title,
+      image: item.publication.coverImage || null,
       position: index,
-      createdAt: item.post.createdAt,
+      createdAt: item.publication.createdAt,
     }));
     return data;
   });
@@ -56,38 +63,42 @@ const validateInput = async (body, authorId, existingType = null) => {
   const description = String(body.description || '').trim();
   const visibility = body.visibility || 'public';
   const type = body.type || existingType || 'short';
-  const postIds = Array.isArray(body.postIds) ? body.postIds.map(String) : null;
+  const publicationIds = Array.isArray(body.publicationIds) ? body.publicationIds.map(String) : null;
   if (title.length < 2 || title.length > 100 || description.length > 500
-    || !['article', 'short'].includes(type) || (existingType && type !== existingType)
+    || !['story', 'short'].includes(type) || (existingType && type !== existingType)
     || !['public', 'unlisted', 'private'].includes(visibility)
-    || !postIds || postIds.length < 2 || postIds.length > 50
-    || new Set(postIds).size !== postIds.length || postIds.some(id => !isValidId(id))) {
+    || !publicationIds || publicationIds.length < 2 || publicationIds.length > 50
+    || new Set(publicationIds).size !== publicationIds.length || publicationIds.some(id => !isValidId(id))) {
     return { error: 'Invalid short series content' };
   }
   const now = new Date();
-  const posts = await Post.find({
-    _id: { $in: postIds }, author: authorId,
-    ...(type === 'short' ? { format: 'short' } : { format: { $in: ['article', null] } }),
+  const posts = await Publication.find({
+    _id: { $in: publicationIds }, author: authorId,
+    ...(type === 'short' ? { format: 'short' } : { format: { $in: ['story', null] } }),
     publicationStatus: { $ne: 'unpublished' },
     $or: [{ publicAt: { $lte: now } }, { publicAt: null }, { publicAt: { $exists: false } }],
   }).select('_id');
-  if (posts.length !== postIds.length) return { error: `Series entries must be your published ${type === 'short' ? 'shorts' : 'stories'}` };
-  return { value: { title, description, visibility, type, items: postIds.map((post, position) => ({ post, position })) } };
+  if (posts.length !== publicationIds.length) return { error: `Series entries must be your published ${type === 'short' ? 'shorts' : 'stories'}` };
+  return { value: { title, description, visibility, type, items: publicationIds.map((post, position) => ({ publication: post, position })) } };
 };
 
 const listSeries = async (req, res) => {
   try {
     const mine = req.query.mine === 'true';
     const type = req.query.type || 'short';
-    const postId = req.query.postId;
-    if (!['article', 'short'].includes(type)) return res.status(400).json({ message: 'Invalid series type' });
-    if (postId && !isValidId(postId)) return res.status(400).json({ message: 'Invalid post id' });
-    if (mine && !req.auth) return res.status(401).json({ message: 'Sign in to view your series' });
+    const publicationId = req.query.publicationId;
+    const authorId = req.query.authorId;
+    const saved = req.query.saved === 'true';
+    if (!['story', 'short'].includes(type)) return res.status(400).json({ message: 'Invalid series type' });
+    if (publicationId && !isValidId(publicationId)) return res.status(400).json({ message: 'Invalid post id' });
+    if (authorId && !isValidId(authorId)) return res.status(400).json({ message: 'Invalid author id' });
+    if ((mine || saved) && !req.auth) return res.status(401).json({ message: 'Sign in to view your series' });
+    if (mine && saved) return res.status(400).json({ message: 'Choose owned or saved series, not both' });
     const cursor = req.query.cursor ? decodeCursor(req.query.cursor) : null;
     if (req.query.cursor && !cursor) return res.status(400).json({ message: 'Invalid series cursor' });
     const filter = {
-      ...(mine ? { author: req.auth.userId } : { visibility: 'public' }),
-      ...(type === 'short' ? { $or: [{ type: 'short' }, { type: { $exists: false } }] } : { type: 'article' }),
+      ...(mine ? { author: req.auth.userId } : saved ? { savedBy: req.auth.userId, visibility: { $in: ['public', 'unlisted'] } } : { visibility: 'public', ...(authorId ? { author: authorId } : {}) }),
+      ...(type === 'short' ? { $or: [{ type: 'short' }, { type: { $exists: false } }] } : { type: 'story' }),
     };
     if (cursor) {
       const createdAt = new Date(cursor.createdAt);
@@ -96,13 +107,13 @@ const listSeries = async (req, res) => {
     }
     const documents = await ShortSeries.find(filter)
       .populate({ path: 'author', select: 'picture username' })
-      .populate({ path: 'items.post', select: 'title coverImage publicationStatus publicAt createdAt' })
+      .populate({ path: 'items.publication', select: 'title coverImage publicationStatus publicAt createdAt' })
       .sort({ createdAt: -1, _id: -1 }).limit(13);
     const hasMore = documents.length > 12;
     const page = hasMore ? documents.slice(0, 12) : documents;
     const data = (await present(page, req.auth?.userId)).map(item => ({
       ...item,
-      ...(mine && postId ? { containsPost: documents.find(document => document._id.toString() === item.id.toString())?.items.some(entry => entry.post?._id?.toString() === postId) || false } : {}),
+      ...(mine && publicationId ? { containsPost: documents.find(document => document._id.toString() === item.id.toString())?.items.some(entry => entry.publication?._id?.toString() === publicationId) || false } : {}),
     }));
     const last = page.at(-1);
     return res.status(200).json({ data, meta: { nextCursor: hasMore && last ? encodeCursor({ createdAt: last.createdAt.toISOString(), id: last._id.toString() }) : null } });
@@ -115,7 +126,7 @@ const getSeries = async (req, res) => {
   if (!isValidId(req.params.id)) return res.status(400).json({ message: 'Invalid series id' });
   const series = await ShortSeries.findById(req.params.id)
     .populate({ path: 'author', select: 'picture username' })
-    .populate({ path: 'items.post', select: 'title format coverImage body tags likesCount commentsCount publicationStatus publicAt createdAt' });
+    .populate({ path: 'items.publication', select: 'title format coverImage body tags appreciationsCount commentsCount publicationStatus publicAt createdAt' });
   if (!series) return res.status(404).json({ message: 'Series not found' });
   const isOwner = req.auth?.userId === series.author._id.toString();
   if (series.visibility === 'private' && !isOwner) return res.status(404).json({ message: 'Series not found' });
@@ -125,14 +136,14 @@ const getSeries = async (req, res) => {
 
 const loadEligiblePosts = async (req, res, forcedType = null) => {
   const type = forcedType || req.query.type || 'short';
-  if (!['article', 'short'].includes(type)) return res.status(400).json({ message: 'Invalid series type' });
+  if (!['story', 'short'].includes(type)) return res.status(400).json({ message: 'Invalid series type' });
   const seriesId = req.query.seriesId;
   if (seriesId && !isValidId(seriesId)) return res.status(400).json({ message: 'Invalid series id' });
   if (seriesId && !await ShortSeries.exists({ _id: seriesId, author: req.auth.userId, ...(type === 'short' ? { $or: [{ type: 'short' }, { type: { $exists: false } }] } : { type } ) })) return res.status(404).json({ message: 'Owned series not found' });
   const now = new Date();
-  const posts = await Post.find({
+  const posts = await Publication.find({
     author: req.auth.userId,
-    ...(type === 'short' ? { format: 'short' } : { format: { $in: ['article', null] } }),
+    ...(type === 'short' ? { format: 'short' } : { format: { $in: ['story', null] } }),
     publicationStatus: { $ne: 'unpublished' },
     $or: [{ publicAt: { $lte: now } }, { publicAt: null }, { publicAt: { $exists: false } }],
   }).sort({ createdAt: -1 }).select('title coverImage createdAt');
@@ -169,26 +180,26 @@ const deleteSeries = async (req, res) => {
 
 const addSeriesItem = async (req, res) => {
   if (!isValidId(req.params.id)) return res.status(400).json({ message: 'Invalid series id' });
-  if (!isValidId(req.body?.postId)) return res.status(400).json({ message: 'Invalid post id' });
+  if (!isValidId(req.body?.publicationId)) return res.status(400).json({ message: 'Invalid post id' });
   const series = await ShortSeries.findOne({ _id: req.params.id, author: req.auth.userId }).select('type items');
   if (!series) return res.status(404).json({ message: 'Owned series not found' });
-  const postId = String(req.body.postId);
-  if (series.items.some(item => item.post.toString() === postId)) return res.status(200).json({ data: { added: false, alreadyPresent: true } });
+  const publicationId = String(req.body.publicationId);
+  if (series.items.some(item => item.publication.toString() === publicationId)) return res.status(200).json({ data: { added: false, alreadyPresent: true } });
   if (series.items.length >= 50) return res.status(409).json({ message: 'A series can contain at most 50 parts' });
   const type = series.type || 'short';
   const now = new Date();
-  const post = await Post.findOne({
-    _id: postId,
+  const post = await Publication.findOne({
+    _id: publicationId,
     author: req.auth.userId,
-    ...(type === 'short' ? { format: 'short' } : { format: { $in: ['article', null] } }),
+    ...(type === 'short' ? { format: 'short' } : { format: { $in: ['story', null] } }),
     publicationStatus: { $ne: 'unpublished' },
     $or: [{ publicAt: { $lte: now } }, { publicAt: null }, { publicAt: { $exists: false } }],
   }).select('_id');
   if (!post) return res.status(400).json({ message: `Series entries must be your published ${type === 'short' ? 'shorts' : 'stories'}` });
   try {
     const result = await ShortSeries.updateOne(
-      { _id: series._id, author: req.auth.userId, 'items.post': { $ne: post._id }, [`items.${series.items.length}`]: { $exists: false } },
-      { $push: { items: { post: post._id, position: series.items.length } } },
+      { _id: series._id, author: req.auth.userId, 'items.publication': { $ne: post._id }, [`items.${series.items.length}`]: { $exists: false } },
+      { $push: { items: { publication: post._id, position: series.items.length } } },
     );
     if (!result.modifiedCount) return res.status(409).json({ message: 'The series changed. Please try again.' });
     return res.status(200).json({ data: { added: true, alreadyPresent: false } });
@@ -198,4 +209,28 @@ const addSeriesItem = async (req, res) => {
   }
 };
 
-module.exports = { listSeries, getSeries, getEligibleShorts, getEligiblePosts, createSeries, updateSeries, deleteSeries, addSeriesItem };
+const saveSeries = async (req, res) => {
+  if (!isValidId(req.params.id)) return res.status(400).json({ message: 'Invalid series id' });
+  const updated = await ShortSeries.findOneAndUpdate(
+    { _id: req.params.id, visibility: { $ne: 'private' }, savedBy: { $ne: req.auth.userId } },
+    { $addToSet: { savedBy: req.auth.userId }, $inc: { savedCount: 1 } }, { new: true },
+  ).select('savedCount');
+  if (updated) return res.status(200).json({ data: { isSaved: true, savedCount: updated.savedCount } });
+  const series = await ShortSeries.findById(req.params.id).select('visibility savedCount savedBy');
+  if (!series) return res.status(404).json({ message: 'Series not found' });
+  return res.status(200).json({ data: { isSaved: true, savedCount: series.savedCount || series.savedBy.length } });
+};
+
+const unsaveSeries = async (req, res) => {
+  if (!isValidId(req.params.id)) return res.status(400).json({ message: 'Invalid series id' });
+  const updated = await ShortSeries.findOneAndUpdate(
+    { _id: req.params.id, savedBy: req.auth.userId, savedCount: { $gt: 0 } },
+    { $pull: { savedBy: req.auth.userId }, $inc: { savedCount: -1 } }, { new: true },
+  ).select('savedCount');
+  if (updated) return res.status(200).json({ data: { isSaved: false, savedCount: updated.savedCount } });
+  const series = await ShortSeries.findById(req.params.id).select('savedCount savedBy');
+  if (!series) return res.status(404).json({ message: 'Series not found' });
+  return res.status(200).json({ data: { isSaved: false, savedCount: series.savedCount || series.savedBy.length } });
+};
+
+module.exports = { listSeries, getSeries, getEligibleShorts, getEligiblePosts, createSeries, updateSeries, deleteSeries, addSeriesItem, saveSeries, unsaveSeries };

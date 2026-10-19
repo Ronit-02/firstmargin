@@ -24,7 +24,7 @@ test.beforeEach(async ({ page }) => {
 test('mobile search expands into a full-screen modal with topics, live results and focus restoration', async ({ page }) => {
   const trigger = page.getByRole('navigation', { name: 'Global navigation' }).getByRole('combobox')
   await trigger.click()
-  const dialog = page.getByRole('dialog', { name: 'Search Ink Rider' })
+  const dialog = page.getByRole('dialog', { name: 'Search firstmargin' })
   const input = dialog.getByRole('combobox')
   await expect(dialog).toBeVisible()
   await expect(input).toBeFocused()
@@ -77,14 +77,14 @@ test('mobile search expands into a full-screen modal with topics, live results a
 test('mobile search opens focused when the navbar field receives focus directly', async ({ page }) => {
   const trigger = page.getByRole('navigation', { name: 'Global navigation' }).getByRole('combobox')
   await trigger.focus()
-  const dialog = page.getByRole('dialog', { name: 'Search Ink Rider' })
+  const dialog = page.getByRole('dialog', { name: 'Search firstmargin' })
   await expect(dialog).toBeVisible()
   await expect(dialog.getByRole('combobox')).toBeFocused()
 })
 
 test('trending searches and suggested topics open results directly', async ({ page }) => {
   await page.getByRole('navigation', { name: 'Global navigation' }).getByRole('combobox').click()
-  const dialog = page.getByRole('dialog', { name: 'Search Ink Rider' })
+  const dialog = page.getByRole('dialog', { name: 'Search firstmargin' })
   const row = dialog.getByRole('list', { name: 'Trending searches' }).getByRole('button', { name: 'A story about science' })
   await expect.poll(() => row.evaluate(element => getComputedStyle(element.parentElement.parentElement).listStyleType)).toBe('none')
   await row.click()
@@ -103,7 +103,7 @@ test('empty and failed suggestions remain recoverable; all results navigation wo
     return query === 'empty' ? route.fulfill({ json: { data: { posts: [], writers: [] } } }) : route.fulfill({ status: 500, json: { message: 'Unavailable' } })
   })
   await page.getByRole('navigation', { name: 'Global navigation' }).getByRole('combobox').click()
-  const dialog = page.getByRole('dialog', { name: 'Search Ink Rider' })
+  const dialog = page.getByRole('dialog', { name: 'Search firstmargin' })
   const input = dialog.getByRole('combobox')
   await input.fill('empty')
   await expect(dialog.getByText('No matching searches or authors. Try another phrase.')).toBeVisible()
@@ -118,7 +118,7 @@ test('empty and failed suggestions remain recoverable; all results navigation wo
 test('reduced motion and desktop resize keep modal search usable', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce', colorScheme: 'dark' })
   await page.getByRole('navigation', { name: 'Global navigation' }).getByRole('combobox').click()
-  const dialog = page.getByRole('dialog', { name: 'Search Ink Rider' })
+  const dialog = page.getByRole('dialog', { name: 'Search firstmargin' })
   await expect(dialog).toBeVisible()
   await expect.poll(() => dialog.locator('.mobile-search-content').evaluate(element => getComputedStyle(element).opacity)).toBe('1')
   await dialog.getByRole('button', { name: 'Close search' }).click()
@@ -131,7 +131,7 @@ test('reduced motion and desktop resize keep modal search usable', async ({ page
 
 test('clear and submit stay adjacent and the search field fits a keyboard-sized viewport', async ({ page }) => {
   await page.getByRole('navigation', { name: 'Global navigation' }).getByRole('combobox').click()
-  const dialog = page.getByRole('dialog', { name: 'Search Ink Rider' })
+  const dialog = page.getByRole('dialog', { name: 'Search firstmargin' })
   const input = dialog.getByRole('combobox')
   await input.fill('science')
   const clear = dialog.getByRole('button', { name: 'Clear search' })

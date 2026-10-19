@@ -23,7 +23,7 @@ const surfaces = [
   ['search-questions', '/search?q=memory&type=questions', 'Search results'],
   ['post', `/post/${id}`, post.title], ['author', '/author/maya-sen', writer.displayName],
   ['collections', '/collections', collection.title], ['collection', `/collections/${id}`, collection.title],
-  ['saved', '/saved', 'Library'], ['writing', '/studio', 'Writing studio'], ['shorts', '/shorts', 'Short reads'],
+  ['saved', '/saved', 'Library'], ['writing', '/studio', 'Studio'], ['shorts', '/shorts', 'Shorts'],
   ['series-index', '/series', 'Series'], ['series', `/shorts/series/${id}`, series.title], ['series-new-detail', `/series/${id}`, series.title], ['history', '/history', 'Reading history'],
   ['opportunities', '/opportunities', 'Answer what readers are asking for'],
   ['members', '/members', 'Closer to the creative process'],
@@ -247,10 +247,10 @@ for (const width of [320, 1280]) {
     const output = path.resolve('node_modules/.cache/page-alignment', `${width}-panels`)
     await fs.mkdir(output, { recursive: true })
     for (const [url, role, labels] of [
-      ['/staff', 'tab', ['Competitions', 'Vote review']],
-      ['/studio', 'tab', ['Posts', 'Drafts', 'Analytics']],
+      ['/staff', 'tab', ['Competitions']],
+      ['/studio', 'tab', ['Analytics', 'Published', 'Drafts', 'Ideas', 'Updates', 'Workshops', 'Requests']],
       ['/saved', 'tab', ['Collections', 'History']],
-      ['/members', 'button', ['Early access', 'Workshops', 'Creator studio']],
+      ['/members', 'tab', ['Early access', 'Creator extras', 'Workshops']],
     ]) {
       await page.goto(url)
       await expect(page.locator('[data-page-frame]')).toBeVisible()

@@ -4,8 +4,8 @@ const id = '507f1f77bcf86cd799439040'
 const seriesCover = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="320" height="200"%3E%3Crect width="320" height="200" fill="%236b705c"/%3E%3C/svg%3E'
 const stories = ['507f1f77bcf86cd799439041', '507f1f77bcf86cd799439042', '507f1f77bcf86cd799439043'].map((postId, index) => ({ id: postId, title: `Story ${index + 1}`, format: 'article', image: index === 0 ? seriesCover : null, isOwner: true, canAddToSeries: true, author: { username: 'Maya Sen', handle: 'maya-sen' } }))
 const shorts = ['507f1f77bcf86cd799439045', '507f1f77bcf86cd799439046'].map((postId, index) => ({ id: postId, title: `Short ${index + 1}`, format: 'short', isOwner: true, canAddToSeries: true, author: { username: 'Maya Sen', handle: 'maya-sen' } }))
-const shortSeries = { id: '507f1f77bcf86cd799439044', title: 'Short steps', description: 'Two quick reads', type: 'short', entriesCount: 2, author: { username: 'Maya Sen' }, isOwner: true, visibility: 'public', entries: shorts }
-const storySeries = { id, title: 'A longer path', description: 'Read in order', type: 'article', entriesCount: 2, coverImage: seriesCover, createdAt: '2026-10-01T12:00:00.000Z', author: { username: 'Maya Sen' }, isOwner: true, visibility: 'public', entries: stories.slice(0, 2) }
+const shortSeries = { id: '507f1f77bcf86cd799439044', title: 'Short steps', description: 'Two quick reads', type: 'short', entriesCount: 2, author: { username: 'Maya Sen' }, isOwner: true, visibility: 'public', entries: shorts, entriesPreview: shorts.map((entry, index) => ({ id: entry.id, title: entry.title, position: index + 1 })) }
+const storySeries = { id, title: 'A longer path', description: 'Read in order', type: 'article', entriesCount: 2, coverImage: seriesCover, createdAt: '2026-10-01T12:00:00.000Z', author: { username: 'Maya Sen' }, isOwner: true, visibility: 'public', entries: stories.slice(0, 2), entriesPreview: stories.slice(0, 2).map((entry, index) => ({ id: entry.id, title: entry.title, position: index + 1 })) }
 const looseArticle = { _id: '507f1f77bcf86cd799439047', id: '507f1f77bcf86cd799439047', title: 'A story without a series', format: 'article', isOwner: true, canAddToSeries: true, body: JSON.stringify([{ id: 'body-1', type: 'text', content: 'A published story.' }]), likesCount: 0, commentsCount: 0, author: { _id: '507f1f77bcf86cd799439049', username: 'Maya Sen', handle: 'maya-sen' } }
 const looseShort = { ...looseArticle, _id: '507f1f77bcf86cd799439048', id: '507f1f77bcf86cd799439048', title: 'A short without a series', format: 'short' }
 
@@ -78,13 +78,14 @@ test('owner series card menu opens its edit modal', async ({ page }) => {
   await expect(page.getByRole('dialog', { name: 'Edit series' })).toBeVisible()
 })
 
-test('short series reader names the next short and scrolls through the ordered list', async ({ page }) => {
+test('short series reader links to its series and scrolls through the ordered list', async ({ page }) => {
   await mockSeries(page)
   await page.setViewportSize({ width: 320, height: 760 })
   await page.goto(`/series/${shortSeries.id}`)
   await page.getByRole('link', { name: 'Short 1' }).click()
   const dialog = page.getByRole('dialog')
-  await expect(dialog.getByRole('navigation', { name: 'Series progression' })).toContainText('Next · Part 2 of 2')
+  await expect(dialog.getByRole('navigation', { name: 'Series progression' })).toContainText('This short is part of a series · Part 1 of 2')
+  await expect(dialog.getByRole('navigation', { name: 'Series progression' }).getByRole('link', { name: 'View series: Short steps' })).toHaveAttribute('href', `/series/${shortSeries.id}`)
   await dialog.locator('[data-series-next-title]').evaluate(node => { node.textContent = 'A long next short title that must remain on one line within the compact navigation strip '.repeat(3) })
   const shortLayout = await dialog.getByRole('navigation', { name: 'Series progression' }).evaluate(nav => {
     const title = nav.querySelector('[data-series-next-title]')
@@ -94,31 +95,45 @@ test('short series reader names the next short and scrolls through the ordered l
   expect(shortLayout.titleHeight).toBeLessThan(shortLayout.lineHeight * 1.5)
   expect(shortLayout.clipped).toBe(true)
   expect(shortLayout.actionTop).toBeGreaterThan(shortLayout.titleBottom)
-  const seriesStrip = dialog.getByRole('navigation', { name: 'Series progression' })
-  const footer = dialog.locator('footer')
-  expect((await seriesStrip.boundingBox()).y + (await seriesStrip.boundingBox()).height).toBeLessThanOrEqual((await footer.boundingBox()).y + 1)
-  await dialog.getByRole('button', { name: 'Next short in the series: Short 2' }).click()
+  const seriesSection = dialog.getByRole('navigation', { name: 'Series progression' })
+  const sectionPlacement = await seriesSection.evaluate(nav => ({
+    insideReadingPane: Boolean(nav.closest('[data-short-scroll]')),
+    afterBody: nav.previousElementSibling?.matches('[data-reading-body="compact"]'),
+    outsideFooter: !nav.closest('footer'),
+  }))
+  expect(sectionPlacement).toEqual({ insideReadingPane: true, afterBody: true, outsideFooter: true })
+  await dialog.locator('[data-short-scroll]').evaluate(pane => { pane.scrollTop = pane.scrollHeight })
+  await expect(seriesSection).toBeInViewport()
+  await page.setViewportSize({ width: 768, height: 760 })
+  await dialog.getByRole('button', { name: 'Next short' }).click()
   await expect(dialog.getByRole('heading', { name: 'Short 2' })).toBeVisible()
-  await expect(dialog.getByRole('navigation', { name: 'Series progression' }).getByRole('link', { name: 'View the series' })).toHaveAttribute('href', `/series/${shortSeries.id}`)
+  await expect(dialog.getByRole('navigation', { name: 'Series progression' }).getByRole('link', { name: 'View series: Short steps' })).toHaveAttribute('href', `/series/${shortSeries.id}`)
   await dialog.getByRole('button', { name: 'Previous short' }).click()
   await expect(dialog.getByRole('heading', { name: 'Short 1' })).toBeVisible()
 })
 
-test('a final short opened outside its series has no completion strip', async ({ page }) => {
+test('a final short opened outside its series links to the series', async ({ page }) => {
   await mockSeries(page)
   await page.goto(`/post/${shorts[1].id}`)
   await expect(page.getByRole('dialog', { name: shorts[1].title })).toBeVisible()
-  await expect(page.getByRole('navigation', { name: 'Series progression' })).toHaveCount(0)
+  await expect(page.getByRole('navigation', { name: 'Series progression' }).getByRole('link', { name: 'View series: Short steps' })).toHaveAttribute('href', `/series/${shortSeries.id}`)
 })
 
-test('series cards fill responsive columns while retaining a fixed aspect ratio', async ({ page }) => {
+test('an earlier short opened outside its series links to the series', async ({ page }) => {
+  await mockSeries(page)
+  await page.goto(`/post/${shorts[0].id}`)
+  await expect(page.getByRole('dialog', { name: shorts[0].title })).toBeVisible()
+  await expect(page.getByRole('navigation', { name: 'Series progression' }).getByRole('link', { name: 'View series: Short steps' })).toHaveAttribute('href', `/series/${shortSeries.id}`)
+})
+
+test('series cards keep responsive grid columns and show ordered chapter previews', async ({ page }) => {
   await mockSeries(page, false, 4)
 
   for (const viewport of [{ width: 390, height: 844 }, { width: 633, height: 700 }, { width: 1280, height: 900 }]) {
     await page.setViewportSize(viewport)
     await page.goto('/series')
     const grid = page.locator('.card-grid--series')
-    const cards = grid.locator(':scope > a')
+    const cards = grid.locator(':scope > article')
     await expect(cards).toHaveCount(4)
 
     const gridBox = await grid.boundingBox()
@@ -127,14 +142,21 @@ test('series cards fill responsive columns while retaining a fixed aspect ratio'
       return { x: box.x, width: box.width, height: box.height }
     }))
 
-    const expectedRatio = viewport.width < 600 ? 2 : 2.5
-    expect(Math.abs(boxes[0].width / boxes[0].height - expectedRatio)).toBeLessThan(0.03)
-    await expect(cards.first().getByText('Story series · Oct 2026')).toBeVisible()
+    await expect(cards.first().getByText('Story series')).toBeVisible()
     await expect(cards.first().getByText('2 parts')).toBeVisible()
     await expect(cards.first().getByText('by Maya Sen')).toBeVisible()
-    await expect(cards.first().getByText('View →')).toBeVisible()
+    await expect(cards.first().locator('ol')).toContainText('01Story 1')
+    await expect(cards.first().locator('ol')).toContainText('02Story 2')
     await expect(cards.first().locator('img')).toHaveCount(1)
-    await expect(cards.nth(1).getByText('IR')).toBeVisible()
+    if (viewport.width >= 800) {
+      const widths = await cards.first().evaluate(card => ({
+        cover: card.querySelector('.series-card__cover').getBoundingClientRect().width,
+        identity: card.querySelector('.series-card__identity').getBoundingClientRect().width,
+      }))
+      expect(Math.abs(widths.cover - widths.identity)).toBeLessThan(2)
+    }
+    await expect(cards.nth(1).getByRole('img', { name: 'Story series' })).toBeVisible()
+    await expect(cards.nth(1).getByText('IR', { exact: true })).toHaveCount(0)
     if (viewport.width < 800) {
       expect(new Set(boxes.map(box => Math.round(box.x))).size).toBe(1)
       expect(Math.abs(boxes[0].width - gridBox.width)).toBeLessThan(2)
@@ -185,6 +207,34 @@ test('create series asks for Posts or Shorts before loading eligible writing', a
   expect(requests.eligibleReads()).toBe(2)
 })
 
+test('Library offers a compact series creation action', async ({ page }) => {
+  await mockSeries(page, true)
+  await page.goto('/saved?libraryTab=series')
+  const library = page.getByRole('region', { name: 'My series' })
+  await expect(library.getByRole('link', { name: 'Browse series' })).toHaveCount(0)
+  const add = library.getByRole('button', { name: 'Add series' })
+  await expect(add).toHaveText('+Add')
+  await add.click()
+  await expect(page).toHaveURL('/saved?libraryTab=series')
+  await expect(page.getByRole('dialog', { name: 'Create a series' })).toBeVisible()
+  await page.getByRole('button', { name: 'Close', exact: true }).click()
+  await library.getByRole('tab', { name: 'Shorts' }).click()
+  await expect(library.getByRole('link', { name: 'Browse series' })).toHaveCount(0)
+  await expect(add).toBeVisible()
+  await expect(page).toHaveURL('/saved?libraryTab=series&seriesType=short')
+})
+
+test('empty Add to series dialog separates browse and create actions', async ({ page }) => {
+  await mockSeries(page, true, 0)
+  await page.goto(`/post/${looseArticle.id}`)
+  await page.getByRole('button', { name: 'Add this article to a series' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Add to series' })
+  await expect(dialog.getByRole('link', { name: 'Browse series' })).toHaveAttribute('href', '/series?type=article')
+  await dialog.getByRole('button', { name: 'Create series' }).click()
+  await expect(page).toHaveURL(`/post/${looseArticle.id}`)
+  await expect(page.getByRole('dialog', { name: 'Create a series' })).toBeVisible()
+})
+
 test('series owner can add an existing story and save its reading order', async ({ page }) => {
   const writes = await mockSeries(page, true)
   await page.goto(`/series/${id}`)
@@ -201,6 +251,26 @@ test('series owner can add an existing story and save its reading order', async 
   expect(writes).toHaveLength(1)
   expect(writes[0].type).toBe('article')
   expect(writes[0].postIds).toEqual([stories[0].id, stories[2].id, stories[1].id])
+})
+
+test('owner can update series title and description without changing its order', async ({ page }) => {
+  const writes = await mockSeries(page, true)
+  await page.goto(`/series/${id}`)
+  await page.getByRole('button', { name: 'Edit series' }).click()
+  const edit = page.getByRole('dialog', { name: 'Edit series' })
+  const title = edit.getByRole('textbox', { name: /Title/ })
+  const description = edit.getByRole('textbox', { name: /Description/ })
+  await expect(title).toHaveValue(storySeries.title)
+  await expect(description).toHaveValue(storySeries.description)
+  await expect(edit.getByRole('button', { name: 'Save series' })).toBeDisabled()
+  await title.fill(' ')
+  await expect(edit.getByRole('button', { name: 'Save series' })).toBeDisabled()
+  await title.fill('A revised path')
+  await description.fill('New introduction to this series')
+  await edit.getByRole('button', { name: 'Save series' }).click()
+  await expect(edit).toHaveCount(0)
+  expect(writes).toHaveLength(1)
+  expect(writes[0]).toMatchObject({ title: 'A revised path', description: 'New introduction to this series', postIds: stories.slice(0, 2).map(story => story.id) })
 })
 
 test('delete from Edit series opens a separate confirmation dialog', async ({ page }) => {
@@ -247,7 +317,7 @@ test('series items stay compact and readable on narrow and wide screens', async 
   }
 })
 
-test('article detail action appends to a matching series while short reader omits the series action', async ({ page }) => {
+test('article detail action appends to a matching series while shorter omits the series action', async ({ page }) => {
   const writes = await mockSeries(page, true)
   await page.goto(`/post/${looseArticle.id}`)
   await page.getByRole('button', { name: 'Add this article to a series' }).click()
@@ -257,7 +327,7 @@ test('article detail action appends to a matching series while short reader omit
   await dialog.getByRole('button', { name: 'Add to series', exact: true }).click()
 
   await page.goto(`/post/${looseShort.id}`)
-  await expect(page.getByRole('button', { name: 'Add this short read to a series' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Add this short to a series' })).toHaveCount(0)
 
   expect(writes.filter(write => write.postId)).toEqual([{ postId: looseArticle.id }])
 })

@@ -90,7 +90,7 @@ for (const [kind, path, label] of entries) test(`guest ${kind} report requires s
   await page.goto(path)
   if (kind.includes('card')) await page.getByRole('button', { name: `More options for ${post.title}` }).click()
   await page.getByRole(kind.includes('card') ? 'menuitem' : 'button', { name: label, exact: true }).click()
-  await expect(page.getByRole('dialog', { name: 'Sign in to Ink Rider' })).toBeVisible()
+  await expect(page.getByRole('dialog', { name: 'Sign in to firstmargin' })).toBeVisible()
   await expect(page).not.toHaveURL(/\/login/)
   await expect(page.getByRole('dialog', { name: /^Report this/ })).toHaveCount(0)
   expect(reports).toEqual([])

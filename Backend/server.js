@@ -12,6 +12,6 @@ const start = async () => {
 };
 
 start().catch(() => {
-  console.error('Ink-Rider API failed to start');
+  console.error('firstmargin API failed to start');
   process.exitCode = 1;
 });

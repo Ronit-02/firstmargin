@@ -1,4 +1,4 @@
-# Ink-Rider library and third-party API rules
+# firstmargin library and third-party API rules
 
 Last updated: 2026-09-08
 

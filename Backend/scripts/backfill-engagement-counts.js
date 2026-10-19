@@ -1,8 +1,8 @@
 const mongoose = require('mongoose');
 const { connectToMongoDB } = require('../utils/mongoConnect');
 const Comment = require('../schemas/comment.schema');
-const Like = require('../schemas/like.schema');
-const Post = require('../schemas/post.schema');
+const Appreciation = require('../schemas/appreciation.schema');
+const Publication = require('../schemas/publication.schema');
 
 const toCountMap = rows => new Map(
   rows.map(row => [row._id.toString(), row.count])
@@ -12,27 +12,27 @@ const run = async () => {
   await connectToMongoDB();
 
   const [likeRows, commentRows, posts] = await Promise.all([
-    Like.aggregate([
-      { $group: { _id: '$postId', count: { $sum: 1 } } },
+    Appreciation.aggregate([
+      { $group: { _id: '$publicationId', count: { $sum: 1 } } },
     ]),
     Comment.aggregate([
       { $match: { deletedAt: null } },
-      { $group: { _id: '$postId', count: { $sum: 1 } } },
+      { $group: { _id: '$publicationId', count: { $sum: 1 } } },
     ]),
-    Post.find().select('_id').lean(),
+    Publication.find().select('_id').lean(),
   ]);
 
   const likesByPost = toCountMap(likeRows);
   const commentsByPost = toCountMap(commentRows);
   const operations = posts.map(post => {
-    const postId = post._id.toString();
+    const publicationId = post._id.toString();
     return {
       updateOne: {
         filter: { _id: post._id },
         update: {
           $set: {
-            likesCount: likesByPost.get(postId) || 0,
-            commentsCount: commentsByPost.get(postId) || 0,
+            appreciationsCount: likesByPost.get(publicationId) || 0,
+            commentsCount: commentsByPost.get(publicationId) || 0,
           },
         },
       },
@@ -40,7 +40,7 @@ const run = async () => {
   });
 
   if (operations.length > 0) {
-    await Post.bulkWrite(operations, { ordered: false });
+    await Publication.bulkWrite(operations, { ordered: false });
   }
 
   console.log(`Recalculated engagement counters for ${operations.length} posts`);

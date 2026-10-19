@@ -46,6 +46,9 @@ const authSlice = createSlice({
         setAccessToken(state, action){
             state.token = action.payload.token;
         },
+        setAvatarUrl(state, action) {
+            state.avatarUrl = action.payload;
+        },
         restoreCreds(state, action) {
             state.token = action.payload.token;
             state.user = action.payload.user;
@@ -64,6 +67,7 @@ export const {
     loginFailure, 
     logout, 
     setAccessToken, 
+    setAvatarUrl,
     restoreCreds,
     authReady
 } = authSlice.actions;

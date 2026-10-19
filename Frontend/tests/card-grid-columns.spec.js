@@ -27,3 +27,21 @@ for (const width of [390, 768, 1200]) {
     }
   })
 }
+
+for (const width of [359, 360, 375, 398, 400, 407, 408]) {
+  test(`short grids keep the expected columns at ${width}px with both gap sizes`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 800 })
+    await page.setContent(`<style>body{margin:0}${cardGridRules}</style><main style="width:calc(100% - 44px);margin:auto"></main>`)
+    for (const variant of ['card-grid--short', 'home-short-grid']) {
+      for (const gap of [16, 24]) {
+        const columns = await page.evaluate(({ name, gapSize }) => {
+          const container = document.querySelector('main')
+          container.className = name
+          container.style.gap = `${gapSize}px`
+          return getComputedStyle(container).gridTemplateColumns.split(' ').length
+        }, { name: variant, gapSize: gap })
+        expect(columns, `${variant} with ${gap}px gap`).toBe(width < 360 ? 1 : 2)
+      }
+    }
+  })
+}

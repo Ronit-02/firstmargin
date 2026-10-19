@@ -1,22 +1,22 @@
-# Ink-Rider project overview
+# firstmargin project overview
 
-Last updated: 2026-09-08
+Last updated: 2026-10-19
 
 ## Product definition
 
-Ink-Rider is a responsive writing community for curious readers and aspiring writers. Readers discover thoughtful writing, ask questions, connect with creators, discuss ideas, vote in competitions, and help judge work. Writers publish articles and short reads, show their talent, respond to people, participate in competitions, and gain recognition.
+firstmargin is a responsive writing community for curious readers and aspiring writers. Readers discover thoughtful writing, ask questions, connect with creators, discuss ideas, vote in competitions, and help judge work. Writers publish articles and short reads, show their talent, respond to people, participate in competitions, and gain recognition.
 
-Ink-Rider is not intended to be a generic blogging CMS or a clone of any single publishing platform. Its core loop is:
+firstmargin is not intended to be a generic blogging CMS or a clone of any single publishing platform. Its core loop is:
 
 1. People discover thoughtful writing through curated and personalized surfaces.
 2. They save, follow, comment, ask questions, and participate in the community.
 3. Anyone can publish, respond to readers, enter competitions, and judge work.
 4. Reader behavior improves discovery while preserving quality, diversity, and writer visibility.
-5. Membership and creator support come later, without placing primary articles behind a paywall.
+5. Membership comes later, without placing primary articles behind a paywall.
 
-The current product priority is a calm, editorial reading experience with moderate community depth. Ink-Rider should feel like more than a place to read, but it must not become a generic social feed or an unfocused collection of every possible creator feature.
+The current product priority is a calm, editorial reading experience with moderate community depth. firstmargin should feel like more than a place to read, but it must not become a generic social feed or an unfocused collection of every possible creator feature.
 
-Writers can add their released stories and shorts to an existing matching-format series from shared list cards, Writing studio management rows/cards, the article reader, or the short reader. The action preserves writer ownership, ordered membership, the one-series-per-post rule, and the existing series size bound.
+Writers can add their released stories and shorts to an existing matching-format series from shared list cards, Studio management rows/cards, the article reader, or the short reader. The action preserves writer ownership, ordered membership, the one-series-per-post rule, and the existing series size bound.
 
 ## Problems the product solves
 
@@ -26,7 +26,7 @@ Readers can ask for explanations or articles. Duplicate requests should increase
 
 ### New writers struggle to earn distribution
 
-Ink-Rider creates additional paths to visibility through weekly competitions, themed prompts, reader-choice awards, collaboration, and deliberately diverse recommendations. Existing follower count must not be the only route to reach.
+firstmargin creates additional paths to visibility through weekly competitions, themed prompts, reader-choice awards, collaboration, and deliberately diverse recommendations. Existing follower count must not be the only route to reach.
 
 ### Discovery feeds become repetitive popularity contests
 
@@ -96,22 +96,23 @@ Status meanings:
 | Explore competitions | `/explore/competitions` | Partial | Browse active and completed contests; staff and operational edge cases remain |
 | Competition detail | `/explore/competitions/:id` | Partial | Rules, deadlines, entries, voting, judging, results, disqualification, and appeals |
 | Search | `/search` | Connected | Unified server search across posts, writers, shorts, and reader questions with URL-persisted tabs/filters; question categories open the Questions tab. Global autocomplete suggests up to five content-based search phrases and five authors without type-selection buttons. |
+| Shorts | `/shorts` | Connected | Filterable short-form discovery using the shared compact reader |
 | Article | `/post/:id` | Partial | Public reading, engagement, context, recommendations, summary, audio, and reports |
-| Public writer profile | `/author/:handle` | Connected | Durable writer identity, Published work with Posts/Shorts/Collections pills, writing sorting, and paginated public collections, follow state, creator support, and labelled direct-request controls; `/author` provides a writer-search recovery path |
+| Public writer profile | `/author/:handle` | Connected | Durable writer identity, Published work with Posts/Shorts/Collections pills, writing sorting, and paginated public collections, follow state and labelled direct-request controls; `/author` provides a writer-search recovery path |
 | Collections | `/collections` | Connected | Browse, save, create, and manage curated reading sets; add any public post/short from its card or reader to an owned collection or create one in place |
 | Collection detail | `/collections/:id` | Connected | Read, save, share, and manage a collection |
 | Library | `/saved` | Connected | Saved, Collections, and History top tabs; Collections switches between My and Saved sets with URL-backed pill selection, visibility, and sort filters |
 | Writer/editor | `/studio?draft=`, `?edit=`, `?new=`, or `?question=` | Partial | Shared studio Post/Short chooser creates a typed draft; existing editor retains stacked fields, phone active-block toolbar/bottom sheet, guest local composition via direct `?new=`, autosave, validation, scheduling, and publication |
-| Personal profile | `/profile` | Connected | Centered guest sign-in prompt; mobile Account sheet links to the profile and supplies account navigation; signed-in public identity, biography, icon-only editing action, follower/following counts, direct-request preference, and Your published writing with Posts/Shorts pills, sorting Filters, and Edit in Writing studio |
-| Writing studio | `/studio` | Connected | Private Analytics, Published (Stories/Shorts), Drafts (Stories/Shorts), and Ideas tabs; Analytics opens by default with basic released-post counts while detailed performance remains member-only; Ideas shows ranked reader questions and the full reader-demand link; Write a post opens the Post/Short chooser; legacy `/write` and `/writing` redirect here |
-| Edit profile | `/profile/edit` | Connected | Guarded standalone editing page reusing display-name/biography fields and the existing profile API; Save/Cancel return to Profile |
+| Personal profile | `/profile` | Connected | Centered guest sign-in prompt; mobile Account sheet links to the profile and supplies account navigation; signed-in public identity, biography, icon-only editing action, follower/following counts, direct-request preference, and Your published writing with Posts/Shorts pills, sorting Filters, and Edit in Studio |
+| Studio | `/studio` | Connected | Private Analytics, Published (Stories/Shorts), Drafts (Stories/Shorts), Ideas, Updates, Workshops, and Requests tabs; Analytics opens by default with basic released-post counts while detailed performance remains member-only; Ideas shows ranked reader questions and the full reader-demand link; Updates lists past creator updates, Workshops lists hosted sessions, and Requests lists direct requests; Write a post opens the Post/Short chooser; legacy `/write` and `/writing` redirect here |
+| Edit profile | `/profile/edit` | Connected | Guarded standalone editing page with display-name/biography fields and existing reading-interest controls; Save/Cancel return to Profile |
 | Onboarding | `/onboarding` | Connected | Persist interests, initial follows, goals, and consent preferences |
 | Authentication | `/login`, `/signup` | Connected | Account creation, verification, recovery, and session management |
-| Settings | `/settings` | Connected | Public theme/language settings and member-only reading-interest controls, with provider-dependent options isolated |
+| Settings | `/settings` | Connected | Public theme and language settings |
 | Help | `/help` | Connected | Public product guide and links to existing reading, writing, community, membership, and settings routes |
 | Notifications | `/notifications` | Connected | Inbox anchored below the desktop notification button, with the existing mobile modal over the originating route (Home for direct entries), unread activity, read actions, and cursor pagination; desktop navbar and signed-in mobile Account access |
-| Membership | `/membership` | Connected | Public Ink Rider Pro features and provisional ₹199/month price, guest sign-in return, checkout, and existing-member billing management; unconfigured billing stays inline and payment integration remains pending; creator support remains a separate writer-profile action |
-| Member Hub | `/members` | Connected | Centered guest sign-in prompt; signed-in early access, creator extras, workshops, and creator studio |
+| Membership | `/membership` | Connected | Public firstmargin Pro features and provisional ₹199/month price, guest sign-in return, checkout, and existing-member billing management; unconfigured billing stays inline and payment integration remains pending |
+| Member Hub | `/members` | Connected | Centered guest sign-in prompt; signed-in Early access, Creator extras, and Workshops tabs, with Early access selected by default and limited to future-release posts |
 | Moderation | Internal/admin | Planned | Reports, review queues, appeals, enforcement, and audit history |
 
 ## Navigation model
@@ -132,7 +133,7 @@ Status meanings:
 - Notifications
 - Profile menu
 
-Desktop may use a compact side rail plus a global top bar. Mobile uses a consistent bottom bar for Home, Explore, Shorts, Collections, and an Account sheet button for guests and members across application pages. Writing studio is available in the desktop sidebar and signed-in mobile Account sheet. Global search remains in the top bar; Account opens an animated bottom sheet with guest authentication or signed-in Profile, Library, and Writing studio links, Settings, Help, and temporary social homepage links. At 768 px and above, Help opens `/help` directly above Settings in the bottom sidebar group; Settings includes appearance controls.
+Desktop may use a compact side rail plus a global top bar. Mobile uses a consistent bottom bar for Home, Explore, Shorts, Collections, and an Account sheet button for guests and members across application pages. Studio is available in the desktop sidebar and signed-in mobile Account sheet. Guests and confirmed nonmembers see Join; active/trialing subscribers manage billing from Your space in the desktop profile menu, the mobile Account sheet, or their personal Profile header. Global search remains in the top bar; Account opens an animated bottom sheet with guest authentication or signed-in Profile, Library, Studio, and Member Hub links, Settings, Help, and temporary social homepage links. At 768 px and above, Help opens `/help` directly above Settings in the bottom sidebar group; Settings includes appearance controls.
 
 Every detail page must provide a stable parent path or back destination. Navigation must never depend solely on browser history.
 
@@ -175,8 +176,8 @@ Every detail page must provide a stable parent path or back destination. Navigat
 
 ### Membership flow
 
-1. Reader sees a clearly labeled benefit or creator-support prompt.
-2. Reader purchases platform membership or supports an eligible writer.
+1. Reader sees a clearly labeled membership benefit.
+2. Reader purchases platform membership.
 3. Entitlements are resolved on the server.
 4. Primary articles remain public; extras respect entitlement checks.
 5. Cancellation changes future renewal without silently removing already paid access.
@@ -185,7 +186,7 @@ Every detail page must provide a stable parent path or back destination. Navigat
 
 The system owns four categories of data:
 
-- **Identity:** users, profiles, roles, sessions, follows, preferences, blocks.
+- **Identity:** users, profiles, roles, sessions, follows, preferences, blocks. Admin roles receive member capabilities through the entitlement service; Profile and signed-in Account menus display the stored role.
 - **Content:** posts, post revisions, blocks, tags, shorts, collections, questions, answers.
 - **Community:** comments, reactions, saves, reports, competition entries, subscriptions.
 - **Discovery:** impressions, reads, completion, hides, topic affinities, rankings, experiments.
@@ -218,7 +219,7 @@ See [architecture.md](architecture.md) for system boundaries, schemas, data flow
 - Collections and collaborative collections
 - Short-form posts and separate story or short learning series
 - Notifications
-- Platform membership and creator support
+- Platform membership
 - Early access, workshops, behind-the-scenes content, and direct requests
 - Generated summaries and article audio
 - Advanced writer analytics and experimentation
@@ -263,4 +264,3 @@ See [architecture.md](architecture.md) for system boundaries, schemas, data flow
 - Performance: Core Web Vitals and API latency budgets defined per release phase.
 
 Raw likes, page views, and account registrations are diagnostic metrics, not standalone definitions of success.
-

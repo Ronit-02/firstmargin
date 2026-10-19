@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const PostSummary = require('../schemas/post-summary.schema');
+const PublicationSummary = require('../schemas/publication-summary.schema');
 
 const stopWords = new Set('a an and are as at be by for from has have in is it its of on or that the their this to was were will with'.split(' '));
 const extractText = body => {
@@ -25,12 +25,12 @@ const summarizeExtractively = text => {
 
 const getOrCreateSummary = async post => {
   const sourceHash = crypto.createHash('sha256').update(post.body).digest('hex');
-  const existing = await PostSummary.findOne({ postId: post._id, sourceHash });
+  const existing = await PublicationSummary.findOne({ publicationId: post._id, sourceHash });
   if (existing) return existing;
   const points = summarizeExtractively(extractText(post.body));
-  return PostSummary.findOneAndUpdate(
-    { postId: post._id },
-    { $set: { sourceHash, points, provider: 'extractive-v1', disclosure: 'Automatically generated extractive overview; verify details against the full article.', generatedAt: new Date() } },
+  return PublicationSummary.findOneAndUpdate(
+    { publicationId: post._id },
+    { $set: { sourceHash, points, provider: 'extractive-v1', disclosure: 'Automatically generated extractive overview; verify details against the full story.', generatedAt: new Date() } },
     { returnDocument: 'after', upsert: true }
   );
 };

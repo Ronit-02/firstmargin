@@ -6,6 +6,7 @@ import { logout } from "../store/authSlice"
 import { selectUser } from "../store/authSelector"
 import logOut from "../api/logout"
 import logoutAll from "../api/logoutAll"
+import useToast from '@/shared/hooks/useToast'
 
 export default function useAuth() {
   const user = useSelector(selectUser)
@@ -14,6 +15,7 @@ export default function useAuth() {
   const location = useLocation()
   const signIn = useLoginPrompt()
   const dispatch = useDispatch()
+  const { notify } = useToast()
 
   const logoutMutation = useMutation({
     mutationFn: logOut,
@@ -23,8 +25,8 @@ export default function useAuth() {
       navigate('/login')
     },
     
-    onError: (error) => {
-      console.error('Logout failed:', error)
+    onError: () => {
+      notify('Sign out failed. Please try again.', { tone: 'error' })
     }
   })
 
@@ -36,8 +38,8 @@ export default function useAuth() {
       navigate('/login')
     },
     
-    onError: (error) => {
-      console.error('Logout All failed:', error)
+    onError: () => {
+      notify('Could not sign out other devices. Please try again.', { tone: 'error' })
     }
   })
 

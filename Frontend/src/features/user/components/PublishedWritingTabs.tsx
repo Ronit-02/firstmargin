@@ -1,11 +1,11 @@
 import { useRef, type KeyboardEvent } from 'react'
 import Pill from '@/shared/components/ui/Pill'
 
-type Format = 'article' | 'short' | 'collections'
-type Props = { value: Format; onChange: (value: Format) => void; controlsId: string; includeCollections?: boolean; firstLabel?: string; ariaLabel?: string }
+type Format = 'article' | 'short' | 'collections' | 'series'
+type Props = { value: Format; onChange: (value: Format) => void; controlsId: string; includeCollections?: boolean; includeSeries?: boolean; firstLabel?: string; ariaLabel?: string }
 
-export default function PublishedWritingTabs({ value, onChange, controlsId, includeCollections = false, firstLabel = 'Posts', ariaLabel = 'Published writing categories' }: Props) {
-  const categories: { value: Format; label: string }[] = [{ value: 'article', label: firstLabel }, { value: 'short', label: 'Shorts' }, ...(includeCollections ? [{ value: 'collections' as const, label: 'Collections' }] : [])]
+export default function PublishedWritingTabs({ value, onChange, controlsId, includeCollections = false, includeSeries = false, firstLabel = 'Stories', ariaLabel = 'Published writing categories' }: Props) {
+  const categories: { value: Format; label: string }[] = [{ value: 'article', label: firstLabel }, { value: 'short', label: 'Shorts' }, ...(includeCollections ? [{ value: 'collections' as const, label: 'Collections' }] : []), ...(includeSeries ? [{ value: 'series' as const, label: 'Series' }] : [])]
   const ref = useRef<HTMLDivElement>(null)
   const handleKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return

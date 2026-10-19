@@ -34,7 +34,7 @@ for (const width of [320, 1280]) {
       await clickArea(target())
       await expect(page).toHaveURL('/explore/trending')
     }
-    for (const target of [() => card.getByText('Article of the day', { exact: true }), () => card.getByText(post.excerpt, { exact: true })]) {
+    for (const target of [() => card.getByText('Story of the day', { exact: true }), () => card.getByText(post.excerpt, { exact: true })]) {
       await page.goto('/explore/trending')
       await clickArea(target())
       await expect(page).toHaveURL(`/post/${post.id}`)
@@ -42,13 +42,13 @@ for (const width of [320, 1280]) {
   })
 }
 
-for (const width of [320, 390, 768, 1280]) {
+for (const width of [320, 390, 768, 900, 960, 1024, 1280]) {
   test(`featured metadata and actions work without story navigation at ${width}px`, async ({ page }) => {
     await mockApi(page)
     await page.setViewportSize({ width, height: 844 })
     await page.goto('/explore/trending')
     const card = page.getByRole('article').first()
-    const labelBounds = await card.getByText('Article of the day', { exact: true }).boundingBox()
+    const labelBounds = await card.getByText('Story of the day', { exact: true }).boundingBox()
     const coverBounds = await card.getByRole('link', { name: `Read ${post.title}`, exact: true }).boundingBox()
     expect(labelBounds.y + labelBounds.height).toBeLessThanOrEqual(coverBounds.y)
     await expect(card.getByText('8 September 2026', { exact: true })).toBeVisible()
@@ -61,7 +61,7 @@ for (const width of [320, 390, 768, 1280]) {
     const authorBounds = await author.boundingBox()
     expect(menuBounds.x).toBeGreaterThanOrEqual(authorBounds.x + authorBounds.width)
     expect(Math.abs(menuBounds.y - authorBounds.y)).toBeLessThanOrEqual(1)
-    if (width < 768) expect(menuBounds.y).toBeGreaterThanOrEqual(coverBounds.y + coverBounds.height)
+    if (width < 960) expect(menuBounds.y).toBeGreaterThanOrEqual(coverBounds.y + coverBounds.height)
     const titleBounds = await card.getByRole('heading', { name: post.title, exact: true }).boundingBox()
     const dateBounds = await card.getByText('8 September 2026', { exact: true }).boundingBox()
     expect(titleBounds.y - dateBounds.y - dateBounds.height).toBeGreaterThanOrEqual(19)
@@ -71,11 +71,13 @@ for (const width of [320, 390, 768, 1280]) {
     const content = card.locator(':scope > div').last()
     await expect(content).toHaveCSS('row-gap', '20px')
     const bottomSpace = await content.evaluate(element => element.getBoundingClientRect().bottom - element.lastElementChild.getBoundingClientRect().bottom)
-    expect(bottomSpace).toBeCloseTo(width < 768 ? 20 : 28, 0)
-    if (width >= 768) {
+    expect(bottomSpace).toBeCloseTo(width < 960 ? 20 : 28, 0)
+    if (width >= 960) {
       expect(Math.abs(authorBounds.y - coverBounds.y)).toBeLessThanOrEqual(1)
       const contentBounds = await content.boundingBox()
       expect(Math.abs(coverBounds.height - contentBounds.height)).toBeLessThanOrEqual(1)
+    } else {
+      expect(authorBounds.y).toBeGreaterThanOrEqual(coverBounds.y + coverBounds.height)
     }
     await expect(card.getByRole('link', { name: `Read ${post.title}` })).toHaveAttribute('href', `/post/${post.id}`)
     expect(await card.locator('a button, a a').count()).toBe(0)
@@ -112,7 +114,7 @@ test('featured guest can read comments and is prompted to sign in to appreciate'
   await expect(page.getByText('Sign in to join the conversation.')).toBeVisible()
   await page.getByRole('button', { name: 'Close comments' }).click()
   await page.getByRole('button', { name: `Appreciate ${post.title}`, exact: true }).click()
-  await expect(page.getByRole('dialog', { name: 'Sign in to Ink Rider' })).toBeVisible()
+  await expect(page.getByRole('dialog', { name: 'Sign in to firstmargin' })).toBeVisible()
   await expect(page).not.toHaveURL(/\/login/)
 })
 

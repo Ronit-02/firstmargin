@@ -1,12 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import AuthorMeta from '@/shared/components/ui/AuthorMeta'
+import Avatar from '@/shared/components/ui/Avatar'
 import ImageBox from '@/shared/components/ui/ImageBox'
 import PostEngagementControls from './PostEngagementControls'
 import PostCardMenu from './PostCardMenu'
 import ShortReadModal from './ShortReadModal'
 
 export default function ShortCard({ post, onHide, onOpen, menuOverride, fluid = false }) {
+  const authorName = post.author?.username || 'Unknown writer'
+  const firstName = authorName.trim().split(/\s+/)[0]
+  const authorHandle = post.author?.handle || (authorName !== 'Unknown writer' ? authorName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') : null)
+  const firstTag = post.tags?.find(tag => typeof tag === 'string' && tag.trim())?.trim()
   const [readerOpen, setReaderOpen] = useState(false)
   const [isHidden, setIsHidden] = useState(false)
   const cardRef = useRef(null)
@@ -45,30 +49,28 @@ export default function ShortCard({ post, onHide, onOpen, menuOverride, fluid = 
 
   if (isHidden) return null
 
-  return <article ref={cardRef} data-story-format="short" className={`group relative flex w-full self-start flex-col rounded-[16px] border border-[var(--color-border)] ${fluid ? 'aspect-[2/3] min-h-[285px] p-3 max-[1023px]:px-4 min-[376px]:max-[391px]:min-h-[270px] min-[376px]:max-[391px]:py-2 min-[376px]:max-[391px]:px-3' : 'h-[380px] max-w-[250px] p-5'}`}>
+  return <article ref={cardRef} data-story-format="short" className={`group relative flex w-full self-start flex-col overflow-hidden rounded-[16px] border border-[var(--color-border)] ${fluid ? 'aspect-[2/3] min-h-[285px] min-[360px]:max-[407px]:min-h-[270px]' : 'h-[380px] max-w-[250px]'}`}>
+    {post.image && <Link to={`/post/${post.id}`} onClick={handleOpen} aria-label={`Read ${post.title}`} className="relative z-10 shrink-0"><ImageBox src={post.image} alt="" height="auto" aspectRatio="16 / 9" radius="0px" /></Link>}
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-      <div ref={contentRef} className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <div className={`flex flex-wrap items-start justify-between gap-x-4 [&>div:first-child]:relative [&>div:first-child]:z-10 [&>div:first-child]:translate-y-[11px] [&>div:first-child]:gap-2 [&>div:first-child]:max-md:flex-col [&>div:first-child]:max-md:items-start [&>div:first-child>span]:max-md:hidden [&>div:first-child>div]:flex-wrap [&>div:first-child>a]:min-w-0 [&>div:first-child>a]:max-w-full [&>div:first-child>a>span]:min-w-0 [&>div:first-child>a>span]:break-words ${fluid ? 'min-[376px]:max-[391px]:gap-x-1' : ''}`}>
-          <AuthorMeta author={post.author} size="sm" stacked />
-          {menuOverride
-            ? <div className="relative z-20 shrink-0">{menuOverride}</div>
-            : <PostCardMenu post={post} variant="short" onHide={hidden => { if (onHide) onHide(hidden); else setIsHidden(true) }} />}
-          {!fluid && Boolean(post.createdAt || post.readTime) && <div className="mt-2 flex w-full flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-[var(--color-text-muted)]">
-            {post.createdAt && post.readTime
-              ? <span className="whitespace-nowrap">{new Date(post.createdAt).toLocaleString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}<span aria-hidden="true" className="mx-1.5">·</span>{post.readTime}</span>
-              : <span className="whitespace-nowrap">{post.createdAt ? new Date(post.createdAt).toLocaleString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : post.readTime}</span>}
-          </div>}
+      <div className={`flex shrink-0 flex-col bg-[var(--color-bg)] ${post.image ? '' : fluid ? 'min-h-[35%] min-[360px]:max-[407px]:min-h-[42%]' : 'min-h-[42%]'} ${fluid ? 'p-2.5 min-[360px]:max-[407px]:p-2' : 'p-4'}`}>
+        <div className="flex min-h-11 items-start justify-between gap-1">
+          {firstTag ? <span className="min-w-0 self-center truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--color-text-muted)]" title={firstTag}>{firstTag}</span> : <span aria-hidden="true" className="mt-5 h-[2px] w-6 shrink-0 rounded-full bg-[var(--color-text-muted)]" />}
+          {menuOverride ? <div className="relative z-20 shrink-0">{menuOverride}</div> : <PostCardMenu post={post} variant="short" onHide={hidden => { if (onHide) onHide(hidden); else setIsHidden(true) }} />}
         </div>
-        <h2 className={`${fluid ? 'mt-2 line-clamp-2 text-[16px]' : 'mt-5 line-clamp-3 text-[22px]'} break-words leading-[1.15] font-bold tracking-[-0.045em] text-[var(--color-text)] transition-colors group-hover:text-[var(--color-accent)]`} style={{ fontFamily: 'var(--font-display)' }}>
-          <Link to={`/post/${post.id}`} onClick={handleOpen} className="rounded-[4px] after:absolute after:inset-0 after:content-[''] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-offset-2">{post.title}</Link>
+        <h2 className={`${fluid ? 'text-[18px]' : 'text-[22px]'} mt-1 line-clamp-2 break-words font-bold leading-[1.3] tracking-[-0.045em] text-[var(--color-text)] transition-colors group-hover:text-[var(--color-accent)]`} style={{ fontFamily: 'var(--font-display)' }}>
+          <Link to={`/post/${post.id}`} onClick={handleOpen} className="after:absolute after:inset-0 after:rounded-[16px] after:content-[''] focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-[var(--color-focus)]">{post.title}</Link>
         </h2>
-        {post.excerpt && <p ref={excerptRef} className={`min-h-0 flex-1 break-words text-[13px] leading-[1.6] text-[var(--color-text-secondary)] ${fluid ? 'mt-2' : 'mt-3'}`} style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: Math.max(1, excerptClamp?.lines || 1), maxHeight: excerptClamp ? `${excerptClamp.height}px` : 0, overflow: 'hidden', visibility: excerptClamp?.lines ? undefined : 'hidden' }}>{post.excerpt}</p>}
       </div>
-      <div className={`${fluid ? 'mt-2 pt-2' : 'mt-5 pt-5'} flex shrink-0 flex-col items-start gap-y-2 border-t border-[var(--color-border)]`}>
-        <PostEngagementControls post={post} divider />
+      <div className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[var(--color-bg-alt)] ${fluid ? 'px-2.5 pt-3 pb-2 min-[360px]:max-[407px]:px-2' : 'px-4 pt-4 pb-3'}`}>
+        <div ref={contentRef} className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          {post.excerpt && <p ref={excerptRef} className="min-h-0 flex-1 break-words text-[13px] leading-[1.6] text-[var(--color-text-secondary)]" style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: Math.max(1, excerptClamp?.lines || 1), maxHeight: excerptClamp ? `${excerptClamp.height}px` : 0, overflow: 'hidden', visibility: excerptClamp?.lines ? undefined : 'hidden' }}>{post.excerpt}</p>}
+        </div>
+        <div className="flex min-h-11 shrink-0 items-center gap-1 border-t border-[var(--color-border)] pt-1">
+          {authorHandle ? <Link to={`/author/${encodeURIComponent(authorHandle)}`} onClick={event => event.stopPropagation()} aria-label={`View ${authorName}'s profile`} className="relative z-10 flex min-w-0 flex-1 items-center gap-1 rounded-[4px] transition-colors hover:!text-[var(--color-text)] hover:[&>span]:!text-[var(--color-text)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]"><Avatar src={post.author?.picture} name={authorName} size={20} /><span className="min-w-0 truncate text-[11px] text-[var(--color-text-secondary)]" title={authorName}>{firstName}</span></Link> : <span className="flex min-w-0 flex-1 items-center gap-1"><Avatar name={authorName} size={20} /><span className="min-w-0 truncate text-[11px] text-[var(--color-text-secondary)]" title={authorName}>{firstName}</span></span>}
+          <PostEngagementControls post={post} compact />
+        </div>
       </div>
     </div>
-    {post.image && <Link to={`/post/${post.id}`} onClick={handleOpen} aria-label={`Read ${post.title}`} className={`relative z-10 order-first ${fluid ? 'mb-2' : 'mb-4'}`}><ImageBox src={post.image} alt="" height="auto" aspectRatio="16 / 9" radius="6px" /></Link>}
     {readerOpen && <ShortReadModal postId={post.id} onClose={() => setReaderOpen(false)} />}
   </article>
 }

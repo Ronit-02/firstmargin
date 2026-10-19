@@ -3,6 +3,9 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { fetchPostSummary, startMembershipCheckout } from '@/features/membership/api/membership'
 import Button from '@/shared/components/ui/Button'
 import IconButton from '@/shared/components/ui/IconButton'
+import ModalLayer from '@/shared/components/ui/ModalLayer'
+import ModalHeader from '@/shared/components/ui/ModalHeader'
+import useDialogFocus from '@/shared/hooks/useDialogFocus'
 
 const SummaryIcon = () => (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -18,14 +21,14 @@ const AudioIcon = () => (
   </svg>
 )
 
-export function AIStickyButtons({ onSummary, onAudio, showSummary, readAloud }) {
+export function AIStickyButtons({ onSummary, onAudio, showSummary, readAloud, summaryRef, audioRef }) {
   return (
-    <div role="group" aria-label="Article tools" className="flex flex-row flex-wrap gap-[10px] xl:sticky xl:top-20 xl:flex-col">
+    <div role="group" aria-label="Story tools" className="flex flex-row flex-wrap gap-[10px] xl:sticky xl:top-20 xl:flex-col">
       {[
-        { fn: onSummary, active: showSummary, icon: <SummaryIcon />, title: 'Article overview' },
-        { fn: onAudio, active: readAloud, icon: <AudioIcon />, title: 'Read aloud' },
+        { fn: onSummary, active: showSummary, icon: <SummaryIcon />, title: 'Story overview', ref: summaryRef },
+        { fn: onAudio, active: readAloud, icon: <AudioIcon />, title: 'Read aloud', ref: audioRef },
       ].map(button => (
-        <Button key={button.title} onClick={button.fn} title={button.title} aria-label={button.title} aria-pressed={button.active}
+        <Button key={button.title} ref={button.ref} onClick={button.fn} title={button.title} aria-label={button.title} aria-pressed={button.active}
           variant={button.active ? 'primary' : 'secondary'} leadingIcon={button.icon}
           className="!px-3 xl:!p-0 xl:!w-11 hover:opacity-80">
           <span className="xl:hidden">{button.title}</span>
@@ -35,20 +38,28 @@ export function AIStickyButtons({ onSummary, onAudio, showSummary, readAloud }) 
   )
 }
 
-export function AccessPanel({ capability }) {
+export function AccessPanel({ capability, onClose = () => {}, returnFocusRef }) {
   const isSummary = capability === 'article_summary'
+  const closeRef = useRef(null)
+  const dialogRef = useDialogFocus(onClose, closeRef, true, false)
   const checkout = useMutation({ mutationFn: startMembershipCheckout, onSuccess: data => window.location.assign(data.checkoutUrl) })
   return (
-    <section className="mt-6 p-6 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-[20px]">
-      <p className="font-semibold text-[14px] text-[var(--color-text)]">Member feature</p>
-      <p className="mt-2 text-[13px] leading-[1.65] text-[var(--color-text-secondary)]">
-        {isSummary ? 'Article overviews' : 'Read aloud'} is included with an Ink-Rider membership. The full article always remains free to read.
-      </p>
-      <Button size="sm" disabled={checkout.isPending} onClick={() => checkout.mutate()} className="mt-4" aria-busy={checkout.isPending}>
-        {'Become a member'}
-      </Button>
-      {checkout.isError && <p role="alert" className="mt-3 text-[11px] text-[var(--color-danger)]">{checkout.error?.response?.data?.message || 'Billing is temporarily unavailable.'}</p>}
-    </section>
+    <ModalLayer onDismiss={onClose} returnFocusRef={returnFocusRef} aria-labelledby="article-member-feature-title" className="grid place-items-center p-4">
+      <section ref={dialogRef} tabIndex={-1} className="w-full max-w-[420px] overflow-y-auto rounded-[20px] border border-[var(--color-border)] bg-[var(--color-surface)] shadow-[var(--shadow-menu)]">
+        <ModalHeader title="Member feature" titleId="article-member-feature-title" onClose={onClose} closeLabel="Close member feature" closeRef={closeRef} />
+        <div className="p-5 sm:p-6">
+          <p className="text-[13px] leading-[1.65] text-[var(--color-text-secondary)]">
+            {isSummary ? 'Story overviews' : 'Read aloud'} is included with a firstmargin membership. The full story always remains free to read.
+          </p>
+          <div className="mt-4 flex justify-end">
+            <Button size="sm" disabled={checkout.isPending} onClick={() => checkout.mutate()} aria-busy={checkout.isPending}>
+              Become a member
+            </Button>
+          </div>
+          {checkout.isError && <p role="alert" className="mt-3 text-[11px] text-[var(--color-danger)]">{checkout.error?.response?.data?.message || 'Billing is temporarily unavailable.'}</p>}
+        </div>
+      </section>
+    </ModalLayer>
   )
 }
 
@@ -63,7 +74,7 @@ export function SummaryPanel({ postId }) {
 
   return (
     <section aria-live="polite" className="mt-6 p-6 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-[20px]">
-      <p className="font-semibold text-[14px] mb-[14px] text-[var(--color-text)]">Article overview</p>
+      <p className="font-semibold text-[14px] mb-[14px] text-[var(--color-text)]">Story overview</p>
       {summary.isLoading && <p className="text-[13px] text-[var(--color-text-muted)]">Preparing an overview…</p>}
       {summary.isError && <p role="alert" className="text-[13px] text-[var(--color-danger)]">We couldn’t prepare this overview. Please try again.</p>}
       {summary.data && (
@@ -134,7 +145,7 @@ export function ReadAloudPanel({ text }) {
   return (
     <section className="mt-6 px-5 py-4 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-[20px]">
       <div className="flex items-center gap-4">
-        <IconButton variant="primary" onClick={play} disabled={!supported || !text.trim()} label={playing ? 'Pause reading' : 'Read article aloud'}
+        <IconButton variant="primary" onClick={play} disabled={!supported || !text.trim()} label={playing ? 'Pause reading' : 'Read story aloud'}
           icon={playing ? <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" /><rect x="14" y="4" width="4" height="16" /></svg> : <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3" /></svg>} />
         <div className="flex-1">
           <p className="text-[12px] text-[var(--color-text-muted)] mb-[6px]">Browser read aloud</p>

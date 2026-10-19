@@ -12,7 +12,7 @@ import PageFrame from '@/shared/components/layout/PageFrame'
 
 const FEEDS = [
   { id: 'for-you', label: 'For You', description: 'An explainable mix shaped by your interests and follows' },
-  { id: 'latest', label: 'Latest', description: 'Fresh stories from across Ink Rider' },
+  { id: 'latest', label: 'Latest', description: 'Fresh stories from across firstmargin' },
   { id: 'popular', label: 'Popular', description: 'Stories readers are responding to' },
   { id: 'day', label: 'Past 24 hours', description: 'What is gaining attention today' },
 ]
@@ -175,12 +175,6 @@ export default function HomePage() {
       </section>}
       <div ref={feedSentinelRef} aria-hidden="true" className="h-1" />
       {feed.isFetchingNextPage && <div className="fade-in mt-8 mb-4"><PostFeedSkeleton count={2} /></div>}
-      {feed.hasNextPage && <div className="flex justify-center pt-10">
-        <button type="button" onClick={() => feed.fetchNextPage()} disabled={feed.isFetchingNextPage}
-          className="button-target px-5 py-2.5 rounded-full border border-[var(--color-border)] text-[13px] font-semibold text-[var(--color-text)] disabled:opacity-50" aria-busy={feed.isFetchingNextPage}>
-          {'Load more stories'}
-        </button>
-      </div>}
       {!feed.hasNextPage && posts.length > 0 && posts.length < 16 && (
         <HomeSections
           type={posts.length < 4 ? 'writerPicks' : posts.length < 8 ? 'categories' : posts.length < 12 ? 'collections' : 'topAuthors'}

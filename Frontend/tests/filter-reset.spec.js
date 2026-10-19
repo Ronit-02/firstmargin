@@ -27,14 +27,13 @@ for (const width of [320, 1280]) {
     await expect(page.getByRole('heading', { name: 'A post', exact: true })).toBeVisible()
     expect(reads).toHaveLength(0)
     const section = page.getByRole('region', { name: 'Published work' })
-    await section.getByRole('tab', { name: 'Posts', exact: true }).press('End')
+    await section.getByRole('tab', { name: 'Stories', exact: true }).press('End')
     const category = section.getByRole('tab', { name: 'Collections', exact: true })
-    await expect(category).toBeFocused()
+    await expect(category).toHaveAttribute('aria-selected', 'true')
     await expect(section.getByRole('link', { name: 'Latest collection', exact: true })).toHaveAttribute('href', '/collections/first')
     await expect(section.getByRole('heading', { name: 'A post', exact: true })).toHaveCount(0)
-    await section.getByRole('button', { name: 'Load more', exact: true }).click()
+    await page.locator('[data-app-scroll]').evaluate(element => { element.scrollTop = element.scrollHeight })
     await expect(section.getByRole('link', { name: 'Another public collection', exact: true })).toBeVisible()
-    await expect(section.getByRole('button', { name: 'Load more', exact: true })).toHaveCount(0)
     expect(reads[0]).toMatchObject({ authorId: writerId, sort: 'latest' })
     expect(reads[0].mine).toBeUndefined()
     expect(reads[0].saved).toBeUndefined()
@@ -214,7 +213,7 @@ for (const surface of surfaces) {
   }
 }
 
-test('short reads reset topic and sort together', async ({ page }) => {
+test('shorts reset topic and sort together', async ({ page }) => {
   await page.route(url => url.pathname.startsWith('/api/'), route => {
     const path = new URL(route.request().url()).pathname
     if (path === '/api/auth/refresh-token') return route.fulfill({ status: 401, json: { message: 'Signed out' } })

@@ -27,6 +27,7 @@ for (const size of [{ width: 320, height: 480 }, { width: 360, height: 640 }, { 
     const dialog = page.getByRole('dialog', { name: 'Account', exact: true })
     await expect(dialog).toBeVisible()
     await expect(dialog.getByRole('link', { name: 'Sign Up' })).toBeVisible()
+    await expect(dialog.getByRole('link', { name: 'Member Hub', exact: true })).toHaveCount(0)
     await expect(dialog.getByRole('link', { name: 'Instagram' })).toHaveAttribute('href', 'https://www.instagram.com/')
     await expect(dialog.getByRole('link', { name: 'LinkedIn' })).toHaveAttribute('href', 'https://www.linkedin.com/')
     await dialog.getByRole('button', { name: 'Help', exact: true }).click()
@@ -57,7 +58,7 @@ for (const size of [{ width: 320, height: 480 }, { width: 360, height: 640 }, { 
   })
 }
 
-test('login shows Writing studio in Account while Home retains Collections', async ({ page }) => {
+test('login shows Studio in Account while Home retains Collections', async ({ page }) => {
   await mockApi(page)
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/shorts')
@@ -65,16 +66,17 @@ test('login shows Writing studio in Account while Home retains Collections', asy
   await nav.getByRole('button', { name: 'Account' }).click()
   const dialog = page.getByRole('dialog', { name: 'Account', exact: true })
   await dialog.getByRole('button', { name: 'Sign In' }).click()
-  await expect(page.getByRole('dialog', { name: 'Sign in to Ink Rider' })).toBeVisible()
+  await expect(page.getByRole('dialog', { name: 'Sign in to firstmargin' })).toBeVisible()
   await expect(page).toHaveURL(/\/shorts$/)
   await page.getByRole('textbox', { name: 'Email', exact: true }).fill(session.email)
   await page.getByRole('textbox', { name: 'Password', exact: true }).fill('test-password-123')
   await page.getByRole('button', { name: 'Login', exact: true }).click()
-  await expect(nav.getByRole('link', { name: 'Collections' })).toBeVisible()
+  await expect(nav.getByRole('link', { name: 'Browse' })).toBeVisible()
   await expect(nav.getByRole('link', { name: 'Write' })).toHaveCount(0)
   await nav.getByRole('button', { name: 'Account' }).click()
   await expect(dialog.getByRole('link', { name: /Profile/ })).toBeVisible()
-  await expect(dialog.getByRole('link', { name: 'Writing studio', exact: true })).toHaveAttribute('href', '/studio')
+  await expect(dialog.getByRole('link', { name: 'Studio', exact: true })).toHaveAttribute('href', '/studio')
+  await expect(dialog.getByRole('link', { name: 'Member Hub', exact: true })).toHaveAttribute('href', '/members')
   await expect(dialog.getByRole('link', { name: 'Write', exact: true })).toHaveCount(0)
   await expect(dialog.getByRole('button', { name: 'Sign In' })).toHaveCount(0)
   await expect(dialog.getByRole('link', { name: 'Sign Up' })).toHaveCount(0)
@@ -85,12 +87,12 @@ test('login shows Writing studio in Account while Home retains Collections', asy
 })
 
 for (const width of [320, 390, 767]) {
-  test(`Home Collections and profile Writing studio navigate at ${width}px`, async ({ page }) => {
+  test(`Home Collections and profile Studio navigate at ${width}px`, async ({ page }) => {
     await mockApi(page, true)
     await page.setViewportSize({ width, height: 480 })
     await page.goto('/')
     const nav = page.getByRole('navigation', { name: 'Mobile primary navigation' })
-    await expect(nav.getByRole('link')).toHaveText(['Home', 'Explore', 'Shorts', 'Collections'])
+    await expect(nav.getByRole('link')).toHaveText(['Home', 'Explore', 'Shorts', 'Browse'])
     for (const control of await nav.locator('a, button').all()) {
       const bounds = await control.boundingBox()
       expect(bounds.x).toBeGreaterThanOrEqual(0)
@@ -98,9 +100,12 @@ for (const width of [320, 390, 767]) {
     }
     await nav.getByRole('button', { name: 'Account', exact: true }).click()
     const dialog = page.getByRole('dialog', { name: 'Account', exact: true })
-    const studio = dialog.getByRole('link', { name: 'Writing studio', exact: true })
+    const studio = dialog.getByRole('link', { name: 'Studio', exact: true })
     await expect(studio).toHaveAttribute('href', '/studio')
     await expect(studio).toBeVisible()
+    const memberHub = dialog.getByRole('link', { name: 'Member Hub', exact: true })
+    await expect(memberHub).toHaveAttribute('href', '/members')
+    await expect(memberHub).toBeVisible()
     expect((await studio.boundingBox()).height).toBeGreaterThanOrEqual(44)
     if (width === 390) {
       await dialog.locator('[data-profile-sheet]').screenshot({ path: 'test-results/profile-write-menu.png' })
@@ -109,15 +114,15 @@ for (const width of [320, 390, 767]) {
     await expect(page).toHaveURL(/\/studio$/)
     await expect(dialog).toHaveCount(0)
     await page.goto('/')
-    await nav.getByRole('link', { name: 'Collections', exact: true }).click()
+    await nav.getByRole('link', { name: 'Browse', exact: true }).click()
     await expect(page).toHaveURL(/\/collections$/)
     await expect(page.getByRole('heading', { name: 'Collections', exact: true })).toBeVisible()
     await expect(nav.getByRole('link', { name: 'Write', exact: true })).toHaveCount(0)
-    await expect(nav.getByRole('link', { name: 'Collections', exact: true })).toHaveAttribute('aria-current', 'page')
+    await expect(nav.getByRole('link', { name: 'Browse', exact: true })).toHaveAttribute('aria-current', 'page')
     await page.setViewportSize({ width: 1280, height: 800 })
     await expect(nav).toBeHidden()
     const desktop = page.getByRole('navigation', { name: 'Desktop primary navigation' })
-    await expect(desktop.getByRole('link', { name: 'Writing studio', exact: true })).toBeVisible()
+    await expect(desktop.getByRole('link', { name: 'Studio', exact: true })).toBeVisible()
     await expect(desktop.getByRole('link', { name: 'Collections', exact: true })).toBeVisible()
   })
 }
@@ -135,8 +140,10 @@ test('sheet exits on desktop resize and stays usable with reduced motion', async
   await expect(dialog).toHaveCount(0)
   await expect(trigger).toBeHidden()
   const sidebar = page.getByRole('navigation', { name: 'Desktop primary navigation' })
-  await expect(sidebar.getByRole('link', { name: 'Settings' })).toBeVisible()
-  await expect(sidebar.getByRole('link', { name: 'Writing studio' })).toBeVisible()
+  await expect(sidebar.getByRole('link', { name: 'Settings' })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Open account menu' }).click()
+  await expect(page.getByRole('menuitem', { name: 'Settings' })).toBeVisible()
+  await expect(sidebar.getByRole('link', { name: 'Studio' })).toBeVisible()
   await page.setViewportSize({ width: 390, height: 640 })
   await trigger.click()
   await dialog.getByRole('button', { name: 'Close account menu' }).click()
@@ -195,7 +202,8 @@ for (const signedIn of [false, true]) {
       if (search.width < 660) expect(Math.abs(action.x - (search.x + search.width) - 16)).toBeLessThan(2)
       else expect(search.width).toBe(660)
     }
-    await page.getByRole('navigation', { name: 'Desktop primary navigation' }).getByRole('link', { name: 'Settings' }).click()
+    await page.getByRole('button', { name: 'Open account menu' }).click()
+    await page.getByRole('menuitem', { name: 'Settings' }).click()
     await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible()
     await page.getByLabel('Theme', { exact: true }).click()
     await page.getByRole('option', { name: 'Dark', exact: true }).click()

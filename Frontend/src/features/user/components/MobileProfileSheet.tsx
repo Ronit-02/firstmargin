@@ -4,14 +4,24 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { MouseEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { motion, useReducedMotion } from 'framer-motion'
+import { motion } from 'framer-motion'
+import useReducedMotion from '@/shared/hooks/useReducedMotion'
 import useAuth from '@/features/auth/hooks/useAuth'
 import Avatar from '@/shared/components/ui/Avatar'
-import { BookmarkIcon, PenIcon, SettingsIcon, UserIcon } from '@/shared/icons'
+import { BookmarkIcon, MembershipIcon, PenIcon, SettingsIcon, UserIcon } from '@/shared/icons'
 import useDialogFocus from '@/shared/hooks/useDialogFocus'
+import { useSelector } from 'react-redux'
+import roleLabel from '../utils/roleLabel'
+import useEntitlements from '@/features/membership/hooks/useEntitlements'
+import useManageMembership from '@/features/membership/hooks/useManageMembership'
 
 export default function MobileProfileSheet({ onClose }: { onClose: () => void }) {
   const auth = useAuth()
+  const role = useSelector((state: { auth: { role: string | null } }) => state.auth.role)
+  const entitlements = useEntitlements(auth.loggedIn)
+  const isMember = ['active', 'trialing'].includes(entitlements.data?.membership?.status)
+  const canManageMembership = isMember && role !== 'admin'
+  const manageMembership = useManageMembership()
   const navigate = useNavigate()
   const location = useLocation()
   const returnTo = `${location.pathname}${location.search}${location.hash}`
@@ -63,14 +73,16 @@ export default function MobileProfileSheet({ onClose }: { onClose: () => void })
       <div className="min-h-0 overflow-y-auto overscroll-contain px-5 pt-3 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
         {auth.loggedIn ? <Link to="/profile" onClick={event => followLink(event, '/profile')} className={`${rowClass} mb-3`}>
           <Avatar src={auth.avatarUrl} name={auth.user} size={44} />
-          <span className="min-w-0 flex-1"><span className="block text-[12px] text-[var(--color-text-secondary)]">{auth.user}</span><span className="block">Profile</span></span><span aria-hidden="true">→</span>
+          <span className="min-w-0 flex-1"><span className="block text-[12px] text-[var(--color-text-secondary)]">{auth.user}</span><span className="block">Profile</span>{roleLabel(role) && <span className="mt-1 inline-flex items-center rounded-full border border-[var(--color-border)] bg-[var(--color-bg-alt)] px-2 py-0.5 text-[10px] font-medium text-[var(--color-text-secondary)]">{roleLabel(role)}</span>}</span><span aria-hidden="true">→</span>
         </Link> : <div className="mb-5 grid grid-cols-2 gap-3">
           <Link to="/signup" state={{ returnTo }} onClick={event => followLink(event, '/signup')} style={{ color: 'var(--color-text-inverted)' }} className="inline-flex min-h-11 items-center justify-center rounded-full bg-[var(--color-accent)] px-4 text-[13px] font-semibold">Sign Up</Link>
           <button type="button" onClick={() => { signInRequested.current = true; requestClose() }} aria-haspopup="dialog" className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--color-border)] px-4 text-[13px] font-semibold">Sign In</button>
         </div>}
         <nav aria-label="Account menu">
-          {auth.loggedIn && [{ path: '/saved', label: 'Library' }, { path: '/studio', label: 'Writing studio' }].map(item => <Link key={item.path} to={item.path} onClick={event => followLink(event, item.path)} className={rowClass}>{item.path === '/saved' ? <BookmarkIcon /> : <PenIcon />}<span className="flex-1">{item.label}</span><span aria-hidden="true">→</span></Link>)}
-          <Link to="/membership" onClick={event => followLink(event, '/membership')} className={rowClass}><span aria-hidden="true" className="inline-flex h-4 w-4 items-center justify-center">✦</span><span className="flex-1">Join</span><span aria-hidden="true">→</span></Link>
+          {auth.loggedIn && [{ path: '/saved', label: 'Library' }, { path: '/studio', label: 'Studio' }, { path: '/members', label: 'Member Hub' }].map(item => <Link key={item.path} to={item.path} onClick={event => followLink(event, item.path)} className={rowClass}>{item.path === '/saved' ? <BookmarkIcon /> : item.path === '/studio' ? <PenIcon /> : <MembershipIcon />}<span className="flex-1">{item.label}</span><span aria-hidden="true">→</span></Link>)}
+          {auth.loggedIn && ['moderator', 'admin'].includes(role) && <Link to="/staff" onClick={event => followLink(event, '/staff')} className={rowClass}><SettingsIcon /><span className="flex-1">Staff console</span><span aria-hidden="true">→</span></Link>}
+          {canManageMembership ? <button type="button" disabled={manageMembership.isPending} aria-busy={manageMembership.isPending} onClick={() => manageMembership.mutate()} className={rowClass}><span aria-hidden="true" className="inline-flex h-4 w-4 items-center justify-center">✦</span><span className="flex-1">Manage membership</span><span aria-hidden="true">→</span></button> : (!isMember && (!auth.loggedIn || (!entitlements.isPending && !entitlements.isError))) && <Link to="/membership" onClick={event => followLink(event, '/membership')} className={rowClass}><span aria-hidden="true" className="inline-flex h-4 w-4 items-center justify-center">✦</span><span className="flex-1">Join</span><span aria-hidden="true">→</span></Link>}
+          {manageMembership.isError && <p role="alert" className="py-2 text-[12px] text-[var(--color-danger)]">Membership management is unavailable. Please try again.</p>}
           <Link to="/settings" onClick={event => followLink(event, '/settings')} className={rowClass}><SettingsIcon /><span className="flex-1">Settings</span><span aria-hidden="true">→</span></Link>
           <button type="button" aria-expanded={helpOpen} aria-controls="profile-sheet-help" onClick={() => setHelpOpen(value => !value)} className={`button-target ${rowClass}`}><span aria-hidden="true" className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-current text-[11px]">?</span><span className="flex-1">Help</span><span aria-hidden="true">{helpOpen ? '−' : '+'}</span></button>
         </nav>

@@ -7,7 +7,7 @@ const missingResources = [
     path: `/shorts/series/${missingId}`,
     apiPath: `/api/short-series/${missingId}`,
     title: 'This short series is no longer available',
-    recoveryLabel: 'Explore short reads',
+    recoveryLabel: 'Explore shorts',
     recoveryPath: '/shorts',
   },
   {

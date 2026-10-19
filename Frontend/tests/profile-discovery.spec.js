@@ -301,7 +301,7 @@ test.describe('public writer profile discovery', () => {
 
     await page.setViewportSize({ width: 390, height: 844 })
     await page.goto('/profile?profileTab=posts', { waitUntil: 'domcontentloaded' })
-    await expect(page.getByRole('alert')).toContainText('Published posts could not be loaded.')
+    await expect(page.getByRole('alert')).toContainText('Published stories could not be loaded.')
     const retry = page.getByRole('button', { name: 'Try again' })
     expect((await retry.boundingBox())?.height).toBeGreaterThanOrEqual(40)
   })

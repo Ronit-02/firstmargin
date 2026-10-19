@@ -1,5 +1,61 @@
 # Write page improvement audit — 2026-10-12
 
+## Writing history — 2026-10-19
+
+The desktop footer shows a muted, lowercase italic “(ctrl+z to undo, ctrl+y to redo)” hint with slight letter spacing immediately left of the word count at 640 px and wider. It supersedes the earlier two-row, left-aligned one-line, and separator versions. The phone-only buttons and word count retain their positions, with 24 px of footer space below both sides. Only the editor footer, focused browser assertions, and owning documentation changed; history logic, keyboard commands, autosave, routes, APIs, and schemas remain unchanged.
+
+The current editor already held title and blocks in local React state, with per-block insertion, deletion, split, merge, type, formatting, and clipboard handlers. Drafts autosave through the existing versioned API; published-post edits keep their existing local working copy. The additive `useWritingHistory` hook now owns a bounded, in-memory title/block history, and the editor routes writing mutations through it. A split is one transaction; consecutive typing in one field is grouped; Ctrl/Cmd shortcuts operate across fields and structural edits. Undo/Redo buttons sit beside the word count below 640 px, with a shortcut hint in their place at wider widths after the requested presentation follow-up. Hydrating a draft or post establishes a fresh baseline; undoing saved writing follows the existing autosave path. Tags, cover, scheduling, other editor controls, routes, APIs, schemas, typography, colors, and existing working-tree changes are preserved. No optional refactor or approval decision remains.
+
+Changed `Frontend/src/features/editor/pages/index.jsx`, new `Frontend/src/features/editor/hooks/useWritingHistory.js`, new `Frontend/tests/editor-history.spec.js`, Frontend README, UI rules, this audit, and the progress tracker. Focused Chrome verification and limitations are dated in the tracker.
+
+## Phone block-type strip — 2026-10-18
+
+The phone editor shows a Block types strip while a story textarea has focus. Follow-up on 2026-10-19: all eligible slash-menu choices now appear directly in one horizontally scrollable row, without an expansion button or popup. Tapping a choice converts the focused block without typing `/`; the current content and textarea focus are retained. The strip follows the visual viewport above an open keyboard, or sits above the bottom navigation when the keyboard is closed. The existing + insertion sheet, desktop slash menu, block storage, autosave, routes, and backend APIs remain unchanged. Verification on 2026-10-19: frontend lint and build passed; one focused mocked-API Chrome check at 375 px passed for direct choices, horizontal overflow, conversion, focus, and lower-viewport placement. A physical phone keyboard was not exercised.
+
+## Tablet insert menu — 2026-10-19
+
+The + insert control now uses the existing anchored SlashMenu at 768 px and wider; the existing bottom sheet remains below 768 px. The 24 px editor side gutters still apply below 1024 px. The same BLOCK_TYPES choices and insert action are reused, with no change to block storage, drafts, publication, routes, or backend APIs. Focused breakpoint verification is recorded in the progress tracker.
+
+## Phone insert sheet backdrop dismissal — 2026-10-19
+
+The phone insert sheet now closes when a pointer presses its exposed backdrop. In Chrome, the backdrop sent pointerdown but not the mouse event used by the shared modal dismissal path, leaving the sheet open. The editor sheet handles backdrop pointerdown locally; option presses, Close, Escape, insertion, and the anchored tablet menu remain unchanged. Focused phone, touch-emulated phone, and tablet dismissal checks passed; the existing short-viewport sheet check also passed. The progress tracker records build and lint verification.
+
+Follow-up on 2026-10-19: a physical-phone report showed that relying on the native dialog backdrop still did not close the sheet. The phone sheet now places a transparent button behind its panel, inside the dialog, so outside taps land on a real element with a direct click handler. The earlier pointer handler remains as fallback. Chrome touch-emulated taps above the panel at 375 px and beside its 480 px capped panel at 600 px hit this control and close the sheet with focus returned to +. Native phone behavior still needs confirmation on the reporting device.
+
+## Selected-text formatting — 2026-10-17
+
+Story-block text selection now opens a Bold/Italic toolbar above the selected range. Ctrl/Cmd+B and Ctrl/Cmd+I use the same actions. Formatting is stored as lightweight markers in the existing block content string and rendered as escaped React strong/emphasis nodes in published text, heading, and quote blocks. Code/image/divider blocks do not offer inline formatting. Existing draft/post JSON storage, APIs, schema, block insertion, and navigation are unchanged. The editor textarea shows the markers during composition; nested and overlapping inline styles are not supported by this first pass.
+
+Follow-up: the toolbar now dismisses when the selection collapses or a pointer action moves outside the field and toolbar. Applying a format leaves the caret after the inserted markers, so the menu does not reopen over a stale selection.
+
+## Code block editor and reader parity — 2026-10-17
+
+Editable and published code blocks now share explicit monospace, 13 px text, 1.7 line height, 16 px inner padding, an 8 px radius, and the existing themed subtle surface/text colors. The editor's general 12 px textarea inset no longer overrides code padding. Block data, wrapping/scroll behavior, surrounding layout, routes, APIs, and stored data remain unchanged.
+
+## Stale saved-edit cleanup — 2026-10-17
+
+Reopening a published post edit waits for a fresh post read before hydration. An unchanged editor no longer writes a local working copy, and a stored copy whose fields already match the published post is discarded even if its saved revision is older. This prevents a false conflict message after a completed Update while retaining genuinely unsaved edits and the backend revision conflict check. The existing local working-copy key and Update request are unchanged.
+
+## Quote border theme color — 2026-10-17
+
+The editable quote block now uses the existing secondary text token for its left border, replacing a fixed near-black color that disappeared in Dark mode. Quote typography, spacing, content, slash conversion, published rendering, routes, APIs, and stored data remain unchanged. The editor overlay spec checks the computed Dark-mode border color.
+
+## Slash menu Tab selection — 2026-10-17
+
+Tab now selects the highlighted slash-menu block type just like Enter, keeping focus in the converted block. When a filter has no matches, Tab closes the menu and keeps normal keyboard navigation. The change is confined to the existing SlashMenu keyboard handler and focused editor coverage; block content cleanup, pointer selection, Escape, layout, APIs, and stored data are unchanged.
+
+## Recoverable published-post edits — 2026-10-17
+
+Editing a published post or short now saves title, blocks, tags, release time, and the fetched revision to browser storage scoped to the signed-in writer and post. Refresh restores that working copy; only Update sends the revision-checked PUT to the published post. Successful Update clears the local copy. If the post revision changed elsewhere, the saved writing remains visible and the old expected revision preserves the backend conflict check. Drafts for new writing continue using the existing server autosave API. This supersedes the prior note below that published-post editing had no autosave. No backend route, API, schema, or stored post change is involved.
+
+## Published short update revision — 2026-10-17
+
+The editor now treats `?edit=` as an existing-post edit even if a stale `?draft=` parameter is present. Published-post editing no longer runs draft autosave, and Update remains disabled until the fetched post revision is loaded. This prevents an empty `expectedRevision` update request while preserving the backend's revision conflict check. Post and draft routes, API shapes, schemas, and stored data remain unchanged. A focused mocked-API browser check covers a short edit with both URL parameters and confirms the revision-bearing PUT without draft requests.
+
+## Slash conversion and code block editing — 2026-10-17
+
+The desktop slash menu now removes the typed command at the caret when converting a block, including commands placed between existing words. The surrounding writing is preserved. Code block editing uses the existing theme surface and text tokens, so its field remains legible in Dark mode. The change is confined to the editor block UI and a focused browser spec; draft/post routes, APIs, block schema, autosave, typography, and other block styles remain unchanged.
+
 ## Lazy draft creation from Writing studio — 2026-10-14
 
 The Post/Short chooser no longer creates an empty server draft. It opens the existing `?new=` editor route, whose autosave guard creates the draft after the first non-whitespace title or block character. Existing draft reopening and publication behavior remain unchanged.
@@ -58,7 +114,7 @@ Audit: the editor already owns compact +/× block controls, the writing section 
 
 ## Writing instructions copy — 2026-10-14
 
-The editor's existing instructions modal now opens from a text-labelled Instructions button. Its guide is a five-point list covering title/story, slash choices, phone/tablet block controls, autosave, and publishing. The modal shell, focus behavior, writing flow, and backend contracts remain unchanged. Verification is recorded in the progress tracker.
+The editor's existing instructions modal opens from a text-labelled Instructions button. Its guide is a six-point list covering title/story, slash choices, phone/tablet block controls, undo/redo keyboard commands, autosave, and publishing. The modal shell, focus behavior, writing flow, and backend contracts remain unchanged. Verification is recorded in the progress tracker.
 
 ## Publish modal and writing alignment — 2026-10-13
 

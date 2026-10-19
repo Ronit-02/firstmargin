@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-const capabilities = ['article_summary', 'read_aloud', 'writer_analytics', 'ai_writing_assistant', 'early_access', 'workshops', 'behind_scenes', 'direct_creator_requests'];
+const capabilities = ['story_summary', 'read_aloud', 'writer_analytics', 'ai_writing_assistant', 'early_access', 'workshops', 'behind_scenes', 'direct_creator_requests'];
 
 const entitlementSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },

@@ -24,6 +24,8 @@ const REPORT_REASONS = [
   ['other', 'Other'],
 ]
 
+const FlagIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"><path d="M5 21V3h14l-3 5 3 5H5" /></svg>
+
 function AnswerReportForm({ questionId, answerId }) {
   const [reason, setReason] = useState('spam')
   const [details, setDetails] = useState('')
@@ -106,8 +108,8 @@ export default function QuestionDetail() {
         <div className="mt-4 flex flex-wrap gap-x-2">{item.tags.map(tag => <Link key={tag} to={`/search?${new URLSearchParams({ q: tag.trim(), type: 'questions' })}`} aria-label={`Questions about ${tag}`} className="inline-flex min-h-11 max-w-full items-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] [&>span]:max-w-full [&>span]:break-words [&>span]:whitespace-normal"><Tag label={`#${tag}`} /></Link>)}</div>
         <div className="mt-6 flex flex-wrap items-center gap-2">
           <button data-button-style="action" data-button-boundary="true" type="button" onClick={() => loggedIn ? upvote.mutate({ questionId: id, isUpvoted: !item.isUpvoted }) : signIn()} disabled={upvote.isPending} aria-label={`${item.isUpvoted ? 'Remove upvote from' : 'Upvote'} question`} aria-pressed={item.isUpvoted} className="button-target inline-flex min-h-11 items-center gap-2 rounded-full border border-[var(--color-border)] px-4 text-[12px] font-semibold text-[var(--color-text)]" aria-busy={upvote.isPending}><span data-button-icon aria-hidden="true">▲</span> {item.upvotesCount}</button>
-          <Button variant="secondary" onClick={() => loggedIn ? follow.mutate({ questionId: id, isFollowing: !item.isFollowing }) : signIn()} disabled={follow.isPending} aria-busy={follow.isPending}>{item.isFollowing ? 'Following question' : 'Follow question'}</Button>
-          <Button variant="ghost" aria-haspopup="dialog" onClick={() => loggedIn ? setReportOpen(true) : signIn()}>{reportTitle('question')}</Button>
+          <Button variant="secondary" onClick={() => loggedIn ? follow.mutate({ questionId: id, isFollowing: !item.isFollowing }) : signIn()} disabled={follow.isPending} aria-busy={follow.isPending}>{item.isFollowing ? 'Unfollow question' : 'Follow question'}</Button>
+          <Button variant="ghost" leadingIcon={<FlagIcon />} aria-label={reportTitle('question')} aria-haspopup="dialog" onClick={() => loggedIn ? setReportOpen(true) : signIn()}>Report</Button>
         </div>
         {reportOpen && <ReportModal title={reportTitle('question')} onClose={() => setReportOpen(false)}><ReportForm questionId={id} /></ReportModal>}
       </article>
@@ -116,7 +118,7 @@ export default function QuestionDetail() {
         {item.answers.length ? <div className="mt-4">{item.answers.map(answerItem => <Answer key={answerItem.id} answer={answerItem} questionId={id} />)}</div> : <p className="mt-4 text-[13px] text-[var(--color-text-muted)]">No short answers yet. Add useful context for the writers who find this request.</p>}
         <Button className="mt-6" onClick={() => loggedIn ? setResponseOpen(true) : signIn()}>Add an answer</Button>
       </section>
-      {item.responsePosts.some(post => post.format !== 'short') && <section className="mt-12 max-w-[760px]" aria-labelledby="response-posts-title"><h2 id="response-posts-title" tabIndex={-1} className="scroll-mt-6 outline-none text-[20px] font-bold text-[var(--color-text)]">Published post responses</h2><div className="mt-4 space-y-3">{item.responsePosts.filter(post => post.format !== 'short').map(post => <QuestionResponseCard key={post.id || post._id} post={post} />)}</div></section>}
+      {item.responsePosts.some(post => post.format !== 'short') && <section className="mt-12 max-w-[760px]" aria-labelledby="response-posts-title"><h2 id="response-posts-title" tabIndex={-1} className="scroll-mt-6 outline-none text-[20px] font-bold text-[var(--color-text)]">Published story responses</h2><div className="mt-4 space-y-3">{item.responsePosts.filter(post => post.format !== 'short').map(post => <QuestionResponseCard key={post.id || post._id} post={post} />)}</div></section>}
       {item.responsePosts.some(post => post.format === 'short') && <section className="mt-12 max-w-[760px]" aria-labelledby="response-shorts-title"><h2 id="response-shorts-title" className="scroll-mt-6 outline-none text-[20px] font-bold text-[var(--color-text)]">Published short responses</h2><div className="card-grid card-grid--short mt-4 gap-4">{item.responsePosts.filter(post => post.format === 'short').map(post => <ShortCard key={post.id || post._id} post={{ ...post, id: post.id || post._id, image: post.image || post.coverImage, author: post.author }} fluid />)}</div></section>}
       {responseOpen && <QuestionResponseModal questionId={id} onClose={() => setResponseOpen(false)} />}
     </div>

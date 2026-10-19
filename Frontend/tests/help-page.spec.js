@@ -13,30 +13,30 @@ async function mockApi(page, signedIn = false) {
 
 for (const signedIn of [false, true]) {
   for (const width of [768, 1280]) {
-    test(`Help sits above Settings for ${signedIn ? 'members' : 'guests'} at ${width}px`, async ({ page }) => {
+    test(`Help and Settings are in the account menu for ${signedIn ? 'members' : 'guests'} at ${width}px`, async ({ page }) => {
       await mockApi(page, signedIn)
       await page.setViewportSize({ width, height: 600 })
       await page.goto('/shorts')
       const nav = page.getByRole('navigation', { name: 'Desktop primary navigation' })
-      const help = nav.getByRole('link', { name: 'Help', exact: true })
-      const settings = nav.getByRole('link', { name: 'Settings', exact: true })
+      await expect(nav.getByRole('link', { name: 'Help', exact: true })).toHaveCount(0)
+      await expect(nav.getByRole('link', { name: 'Settings', exact: true })).toHaveCount(0)
+      await page.getByRole('button', { name: 'Open account menu' }).click()
+      const menu = page.getByRole('menu', { name: 'Account' })
+      const help = menu.getByRole('menuitem', { name: 'Help', exact: true })
+      const settings = menu.getByRole('menuitem', { name: 'Settings', exact: true })
       await expect(help).toBeVisible()
       await expect(settings).toBeVisible()
       expect(await help.evaluate(element => element.nextElementSibling?.textContent)).toBe('Settings')
-      const helpBox = await help.boundingBox()
-      const settingsBox = await settings.boundingBox()
-      expect(helpBox.y + helpBox.height).toBeLessThanOrEqual(settingsBox.y + 1)
-      expect(settingsBox.y + settingsBox.height).toBeGreaterThan(550)
       await help.focus()
       await page.keyboard.press('Enter')
       await expect(page).toHaveURL(/\/help$/)
-      await expect(help).toHaveAttribute('aria-current', 'page')
-      await expect(settings).not.toHaveAttribute('aria-current', 'page')
+      await expect(menu).toHaveCount(0)
       await expect(page.getByRole('main').getByRole('heading', { name: 'Help', exact: true })).toBeVisible()
       if (!signedIn && width === 1280) await page.screenshot({ path: 'test-results/help-desktop.png' })
       await page.getByRole('main').getByRole('link', { name: 'Open Settings' }).click()
       await expect(page).toHaveURL(/\/settings$/)
-      await expect(settings).toHaveAttribute('aria-current', 'page')
+      await page.getByRole('button', { name: 'Open account menu' }).click()
+      await expect(page.getByRole('menuitem', { name: 'Settings', exact: true })).toBeVisible()
     })
   }
 }

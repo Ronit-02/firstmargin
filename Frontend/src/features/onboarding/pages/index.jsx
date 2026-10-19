@@ -12,7 +12,7 @@ import { useOnboardingOptions, useSaveOnboarding } from '../hooks/useOnboarding'
 const STEPS = [
   { id: 1, title: 'Pick your interests', subtitle: 'Choose at least three topics to shape your first feed.' },
   { id: 2, title: 'Find your first writers', subtitle: 'Select writers you want to hear from. You can change this later.' },
-  { id: 3, title: 'Discover features', subtitle: 'A quick look at how readers and writers shape Ink Rider together.' },
+  { id: 3, title: 'Discover features', subtitle: 'A quick look at how readers and writers shape firstmargin together.' },
 ]
 
 function ProgressBar({ current, total }) {
@@ -49,7 +49,7 @@ export default function OnboardingPage() {
     }, { onSuccess: () => navigate('/') })
   }
 
-  if (options.isPending) return <main className="min-h-screen grid place-items-center bg-[var(--color-bg)] text-[13px] text-[var(--color-text-secondary)]">Preparing your Ink Rider…</main>
+  if (options.isPending) return <main className="min-h-screen grid place-items-center bg-[var(--color-bg)] text-[13px] text-[var(--color-text-secondary)]">Preparing your firstmargin…</main>
   if (options.isError) return <main className="min-h-screen grid place-items-center bg-[var(--color-bg)] px-6"><div className="text-center"><h1 className="text-[20px] font-semibold text-[var(--color-text)]">Onboarding could not be loaded</h1><p className="mt-2 text-[13px] text-[var(--color-text-secondary)]">Your account is safe. Try loading the choices again.</p><Button className="mt-5" onClick={() => options.refetch()} aria-busy={options.isFetching} disabled={options.isFetching}>Try again</Button></div></main>
 
   const current = STEPS[step - 1]
@@ -58,7 +58,7 @@ export default function OnboardingPage() {
   return (
     <main className="min-h-screen bg-[var(--color-bg)] flex flex-col items-center justify-center px-6 py-12">
       <div className="w-full max-w-[560px]">
-        <p className="font-bold text-[22px] text-center mb-12 tracking-[-0.5px] text-[var(--color-text)]" style={{ fontFamily: 'var(--font-display)' }}>Ink Rider</p>
+        <p className="font-bold text-[22px] text-center mb-12 tracking-[-0.5px] text-[var(--color-text)]" style={{ fontFamily: 'var(--font-display)' }}>firstmargin</p>
         <ProgressBar current={step} total={STEPS.length} />
         <p className="text-[12px] text-[var(--color-text-muted)] mb-1">Step {step} of {STEPS.length}</p>
         <h1 className="font-bold text-[24px] tracking-[-0.4px] mb-2 text-[var(--color-text)]" style={{ fontFamily: 'var(--font-display)' }}>{current.title}</h1>

@@ -1,4 +1,4 @@
-# Ink-Rider build plan
+# firstmargin build plan
 
 Last updated: 2026-09-08
 
@@ -24,7 +24,7 @@ Execution order:
 
 ## Confirmed product direction
 
-- Ink-Rider is a responsive writing community for curious readers and aspiring writers.
+- firstmargin is a responsive writing community for curious readers and aspiring writers.
 - The core loop is discover, read, save or follow, discuss, publish, participate, and return.
 - Every signed-in account can participate without a progressive-role system.
 - Questions are an independent community surface, not comments on stories.

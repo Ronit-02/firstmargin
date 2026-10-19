@@ -14,11 +14,11 @@ export default function WritingPostRow({ post, manage = false }) {
       <div className="min-w-0 flex-1">
         <Link to={`/post/${id}`} className="block text-[16px] font-semibold leading-[1.4] text-[var(--color-text)] [overflow-wrap:anywhere] hover:text-[var(--color-accent)] sm:text-[18px]">{post.title}</Link>
         <p className="mt-2 flex flex-wrap gap-x-2 gap-y-1 text-[12px] leading-5 text-[var(--color-text-muted)]">
-          <span>Article · {new Date(post.createdAt).toLocaleDateString()}</span>
+          <span>Story · {new Date(post.createdAt).toLocaleDateString()}</span>
           {postStatus(post) === 'unpublished' && <span>· Unpublished</span>}
           {postStatus(post) === 'scheduled' && <span>· Scheduled for {new Date(post.publicAt).toLocaleString()}</span>}
         </p>
-        <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[12px] text-[var(--color-text-secondary)]"><span>{post.likesCount || 0} {post.likesCount === 1 ? 'like' : 'likes'}</span><span>{post.commentsCount || 0} {post.commentsCount === 1 ? 'comment' : 'comments'}</span></p>
+        <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[12px] text-[var(--color-text-secondary)]"><span>{post.likesCount || 0} {post.likesCount === 1 ? 'appreciation' : 'appreciations'}</span><span>{post.commentsCount || 0} {post.commentsCount === 1 ? 'comment' : 'comments'}</span></p>
       </div>
     </>}
     {manage && post.format !== 'short' && <div className="shrink-0"><WritingPostMenu post={post} /></div>}

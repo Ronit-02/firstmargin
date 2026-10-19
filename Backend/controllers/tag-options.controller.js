@@ -1,4 +1,4 @@
-const Post = require('../schemas/post.schema');
+const Publication = require('../schemas/publication.schema');
 const Topic = require('../schemas/topic.schema');
 
 // Public metadata only: private drafts and unreleased publications never supply choices.
@@ -11,7 +11,7 @@ const getTagOptions = async (req, res) => {
     const [topics, tags] = await Promise.all([
       Topic.find({ status: 'active', $or: [{ slug: pattern }, { displayName: pattern }] })
         .sort({ order: 1, slug: 1 }).limit(50).select('slug displayName').lean(),
-      Post.aggregate([
+      Publication.aggregate([
         { $match: { publicationStatus: { $ne: 'unpublished' }, $or: [{ publicAt: { $lte: new Date() } }, { publicAt: null }] } },
         { $project: { tags: 1 } },
         { $unwind: '$tags' },

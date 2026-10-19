@@ -50,7 +50,7 @@ Paths are relative to `Frontend/src`. Every row uses shared Select.
 | Post/short report Reason | `shared/components/ui/ReportForm.tsx` | 1 |
 | Answer/question report Reason | `features/discovery/pages/Explore/QuestionDetail.jsx` | 2 |
 | Member Hub creator-update Audience | `features/membership/pages/MemberHub.jsx` | 1 |
-| Staff competition Type/Voting mode and vote-review Window | `features/staff/pages/StaffConsole.jsx` | 3 |
+| Staff competition Type/Voting mode | `features/staff/pages/StaffConsole.jsx` | 2 |
 | Staff judging Competition | `features/staff/components/CompetitionOperations.jsx` | 1 |
 
 The former standalone Saved collection Sort is superseded by its shared Filters control; the owning Library behavior is documented in UI rules.

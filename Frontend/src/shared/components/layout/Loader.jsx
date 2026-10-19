@@ -99,7 +99,7 @@ function LightLoader() {
       >
         <motion.img
           src={lightLogo}
-          alt="Ink Rider"
+          alt="firstmargin"
           className="w-16 h-16 object-contain"
           animate={{
             scale: [1, 1.04, 1],
@@ -231,7 +231,7 @@ function DarkLoader() {
       >
         <motion.img
           src={darkLogo}
-          alt="Ink Rider"
+          alt="firstmargin"
           className="w-18 h-18 object-contain"
           animate={{
             scale: [1, 1.04, 1],

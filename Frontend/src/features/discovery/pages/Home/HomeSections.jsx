@@ -102,16 +102,16 @@ function DraggableCarousel({ children, label, className = '' }) {
   }
 
   return <div>
+    {overflow && <p className="-mt-2 mb-3 text-right text-[11px] text-[var(--color-text-muted)]">Swipe or drag ↔</p>}
     <div ref={trackRef} role="region" aria-label={label} onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag} onDragStart={event => { if (overflow) event.preventDefault() }} onClickCapture={event => { if (suppressClickRef.current) { event.preventDefault(); event.stopPropagation(); suppressClickRef.current = false } }} className={`${className} overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [-webkit-overflow-scrolling:touch] ${overflow ? 'cursor-grab active:cursor-grabbing' : ''}`}>
       {children}
     </div>
-    {overflow && <p className="mt-2 text-right text-[11px] text-[var(--color-text-muted)]">Swipe or drag ↔</p>}
   </div>
 }
 
 function StoryCarousel({ posts, label }) {
-  return <DraggableCarousel label={label} className="flex gap-4 pb-3">
-    {posts.map(post => <div key={post.id} className="w-[min(85%,320px)] shrink-0 snap-start"><DiscoveryPostCard post={post} variant="grid" /></div>)}
+  return <DraggableCarousel label={label} className="flex items-stretch gap-4 pb-3">
+    {posts.map(post => <div key={post.id} className="flex w-[min(85%,320px)] shrink-0 snap-start [&>article]:w-full"><DiscoveryPostCard post={post} variant="grid" carousel /></div>)}
   </DraggableCarousel>
 }
 
@@ -152,13 +152,13 @@ function ShortReadsSection({ offset = 0 }) {
 
   if (!query.isPending && !query.isError && shorts.length === 0) return null
 
-  return <section aria-label="Short reads" className="my-6 border-b border-[var(--color-border)] py-8">
-    <SectionBar title="Short reads" description="Focused ideas under 500 words." action={<Link to="/shorts" className="inline-flex min-h-10 items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-[18px] py-2 text-[13px] font-medium text-[var(--color-text)] transition-all duration-150 hover:bg-[var(--color-bg-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-offset-2 sm:min-h-0">See all →</Link>} />
-    {query.isPending && <div role="status" aria-label="Loading short reads" className="home-short-grid gap-4">
-      {[0, 1, 2, 3].map(item => <div key={item} aria-hidden="true" className="aspect-[2/3] min-h-[285px] w-full animate-pulse rounded-[16px] border border-[var(--color-border)] bg-[var(--color-bg-alt)] min-[376px]:max-[391px]:min-h-[270px]" />)}
+  return <section aria-label="Shorts" className="my-6 border-b border-[var(--color-border)] py-8">
+    <SectionBar title="Shorts" description="Focused ideas under 500 words." action={<Link to="/shorts" className="inline-flex min-h-10 items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-[18px] py-2 text-[13px] font-medium text-[var(--color-text)] transition-all duration-150 hover:bg-[var(--color-bg-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-offset-2 sm:min-h-0">See all →</Link>} />
+    {query.isPending && <div role="status" aria-label="Loading shorts" className="home-short-grid gap-4">
+      {[0, 1, 2, 3].map(item => <div key={item} aria-hidden="true" className="aspect-[2/3] min-h-[285px] w-full animate-pulse rounded-[16px] border border-[var(--color-border)] bg-[var(--color-bg-alt)] min-[360px]:max-[407px]:min-h-[270px]" />)}
     </div>}
-    {query.isError && <div role="alert" className="border-y border-[var(--color-border)] py-6"><p className="text-[13px] text-[var(--color-danger)]">Short reads could not be loaded.</p><Button className="mt-3" variant="secondary" onClick={() => query.refetch()} aria-busy={query.isFetching} disabled={query.isFetching}>Try again</Button></div>}
-    {shorts.length > 0 && <div className="home-short-grid gap-4" aria-label="Latest short reads">
+    {query.isError && <div role="alert" className="border-y border-[var(--color-border)] py-6"><p className="text-[13px] text-[var(--color-danger)]">Shorts could not be loaded.</p><Button className="mt-3" variant="secondary" onClick={() => query.refetch()} aria-busy={query.isFetching} disabled={query.isFetching}>Try again</Button></div>}
+    {shorts.length > 0 && <div className="home-short-grid gap-4" aria-label="Latest shorts">
       {shorts.map(post => <ShortCard key={post.id} post={post} fluid />)}
     </div>}
   </section>

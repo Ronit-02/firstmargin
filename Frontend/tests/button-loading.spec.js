@@ -66,7 +66,7 @@ async function expectMuted(button) {
 }
 
 const actions = [
-  { name: 'post appreciation', page: `/post/${postId}`, path: `/api/post/${postId}/like`, button: /Appreciate this article|Remove appreciation/ },
+  { name: 'post appreciation', page: `/post/${postId}`, path: `/api/post/${postId}/like`, button: /Appreciate this story|Remove appreciation/ },
   { name: 'collection bookmark icon', page: '/collections/collection-1', path: '/api/collection/collection-1/save', button: 'Save this collection' },
   { name: 'question feed vote', page: '/explore/questions', path: '/api/question/question-1/upvote', button: /Upvote question|Remove upvote from question/ },
   { name: 'question detail vote', page: '/explore/questions/question-1', path: '/api/question/question-1/upvote', button: /Upvote question|Remove upvote from question/ },
@@ -151,12 +151,12 @@ test('clipboard copy keeps its label while pending and can retry a failure', asy
     } } })
   })
   await page.goto(`/post/${postId}`)
-  await page.getByRole('button', { name: 'Share this article' }).click()
+  await page.getByRole('button', { name: 'Share this story' }).click()
   const copy = page.getByRole('button', { name: 'Copy Link', exact: true })
   await copy.click()
   await expectMuted(copy)
   await expect(copy).toHaveText('Copy Link')
-  await page.getByRole('dialog', { name: 'Share article' }).screenshot({ path: testInfo.outputPath('menu-icon-pending.png') })
+  await page.getByRole('dialog', { name: 'Share story' }).screenshot({ path: testInfo.outputPath('menu-icon-pending.png') })
   await expect(page.getByRole('button', { name: 'Share on X' })).toBeDisabled()
   await copy.evaluate(element => element.click())
   expect(await page.evaluate(() => window.copyCalls)).toBe(1)
@@ -264,33 +264,18 @@ test('collection menu stays visible during save and permits retry after failure'
   await expect(save).toBeEnabled()
 })
 
-test('staff review distinguishes validation-disabled from busy and recovers', async ({ page }) => {
-  const held = await holdAction(page, '/api/staff/competition-fraud/reviews')
-  await page.route('**/api/auth/refresh-token', route => route.fulfill({ json: { accessToken: 'staff-pending', user: 'Admin', email: 'admin@example.test', role: 'admin' } }))
-  await page.route('**/api/user/me', route => route.fulfill({ json: { data: { role: 'admin', username: 'Admin' } } }))
-  await page.route('**/api/staff/competition-fraud?*', route => route.fulfill({ json: { data: [{ competitionId: 'contest-1', signalType: 'NETWORK', distinctVoterCount: 4, voteCount: 4, reason: 'CROSS_ACCOUNT_SIGNAL' }], meta: { analyzedVoteCount: 4 } } }))
-  await page.goto('/staff')
-  await page.getByRole('tab', { name: 'Vote review' }).click()
-  const review = page.getByRole('button', { name: 'Confirm signal' })
-  await expect(review).toBeDisabled()
-  await expect(review).toHaveAttribute('aria-busy', 'false')
-  await page.getByLabel('Review note for network signal').fill('Review the aggregate signal.')
-  await review.click()
-  await expectMuted(review)
-  await review.evaluate(element => element.click())
-  await expect.poll(held.calls).toBe(1)
-  held.release()
-  await expect(review).toBeEnabled()
-})
-
-test('sign-out keeps the desktop account menu visible during the request', async ({ page }) => {
+test('sign-out keeps the choice dialog open during the request', async ({ page }) => {
   const held = await holdAction(page, '/api/auth/logout')
   await page.setViewportSize({ width: 1280, height: 844 })
   await page.goto(`/post/${postId}`)
   await page.getByRole('button', { name: 'Open account menu' }).click()
-  const signOut = page.getByRole('menuitem', { name: 'Sign Out', exact: true })
+  await page.getByRole('menuitem', { name: 'Sign-out options' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Sign out' })
+  const signOut = dialog.getByRole('button', { name: 'Sign out', exact: true })
   await signOut.click()
-  await expectMuted(signOut)
+  await expect(signOut).toBeDisabled()
+  await expect(signOut).toHaveAttribute('aria-busy', 'true')
+  await expect(dialog.getByRole('button', { name: 'Sign out from all devices' })).toBeDisabled()
   await signOut.evaluate(element => element.click())
   await expect.poll(held.calls).toBe(1)
   held.release()

@@ -85,6 +85,6 @@ test('guest writer-card comments stay public and appreciation requests sign-in',
   await expect(dialog.getByText('Sign in to join the conversation.')).toBeVisible()
   await dialog.getByRole('button', { name: 'Close comments' }).click()
   await page.getByRole('button', { name: `Appreciate ${post.title}`, exact: true }).click()
-  await expect(page.getByRole('dialog', { name: 'Sign in to Ink Rider' })).toBeVisible()
+  await expect(page.getByRole('dialog', { name: 'Sign in to firstmargin' })).toBeVisible()
   await expect(page).not.toHaveURL(/\/login/)
 })

@@ -1,6 +1,6 @@
 require('dotenv').config();
 const mongoose = require('mongoose');
-const Post = require('../schemas/post.schema');
+const Publication = require('../schemas/publication.schema');
 const Topic = require('../schemas/topic.schema');
 const { connectToMongoDB } = require('../utils/mongoConnect');
 const { ensureCanonicalTopics } = require('../services/topic.service');
@@ -16,7 +16,7 @@ const run = async () => {
   }
 
   let updated = 0;
-  const cursor = Post.find().select('_id tags topics').cursor();
+  const cursor = Publication.find().select('_id tags topics').cursor();
   for await (const post of cursor) {
     const topicIds = [...new Set((post.tags || [])
       .map(tag => topicByTag.get(String(tag).toLowerCase()))
@@ -24,7 +24,7 @@ const run = async () => {
       .map(String))];
     const existing = (post.topics || []).map(String).sort();
     if (JSON.stringify(existing) !== JSON.stringify([...topicIds].sort())) {
-      await Post.updateOne({ _id: post._id }, { $set: { topics: topicIds } });
+      await Publication.updateOne({ _id: post._id }, { $set: { topics: topicIds } });
       updated += 1;
     }
   }
@@ -33,7 +33,7 @@ const run = async () => {
 
 run()
   .catch(_error => {
-    console.error('Post topic backfill failed');
+    console.error('Publication topic backfill failed');
     process.exitCode = 1;
   })
   .finally(() => mongoose.disconnect());

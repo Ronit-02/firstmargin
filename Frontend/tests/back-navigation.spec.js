@@ -82,14 +82,11 @@ for (const width of [320, 1280]) {
     await back.focus()
     await back.press('Enter')
     await expect(page).toHaveURL(searchPath)
-    await page.getByRole('link', { name: 'Ink Rider home', exact: true }).click()
+    await page.getByRole('link', { name: 'firstmargin home', exact: true }).click()
     await expect(page).toHaveURL('/')
     await expect(back).toHaveCount(0)
     if (width < 768) await page.getByRole('link', { name: 'Explore', exact: true }).click()
-    else {
-      await page.getByRole('button', { name: 'Explore', exact: true }).click()
-      await page.getByRole('link', { name: 'Trending', exact: true }).click()
-    }
+    else await page.getByRole('navigation', { name: 'Desktop primary navigation' }).getByRole('link', { name: 'Trending', exact: true }).click()
     await expect(page).toHaveURL('/explore/trending')
     await expect(page.locator('#main-content')).toBeVisible()
     await expect(back).toHaveCount(0)
@@ -114,7 +111,7 @@ test('auth and verification omit Back and retain the home logo link', async ({ p
     const back = page.getByRole('button', { name: 'Back', exact: true })
     await expect(page.getByRole('heading', { name: path === '/login' ? 'Welcome Back' : 'Create Account' })).toBeVisible()
     await expect(back).toHaveCount(0)
-    await page.getByRole('link', { name: 'Return to Ink-Rider home' }).click()
+    await page.getByRole('link', { name: 'Return to firstmargin home' }).click()
     await expect(page).toHaveURL('/')
   }
   await page.goto('/login')
@@ -123,7 +120,7 @@ test('auth and verification omit Back and retain the home logo link', async ({ p
   await page.getByRole('button', { name: 'Login', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Enter Verification Code' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Back', exact: true })).toHaveCount(0)
-  await page.getByRole('link', { name: 'Return to Ink-Rider home' }).click()
+  await page.getByRole('link', { name: 'Return to firstmargin home' }).click()
   await expect(page).toHaveURL('/')
 })
 

@@ -1,5 +1,17 @@
 # Picked stories in collections — 2026-10-12
 
+## Story and short counts on collection cards — 2026-10-18
+
+Collection list and detail responses now include `storiesCount` and `shortsCount`, derived from visible, populated posts. The existing `postsCount` remains the combined total for compatibility. List queries select post `format` to compute the split; missing legacy format is treated as a story. The shared CollectionCard names each format present in its footer, such as “2 stories · 1 short,” while retaining the existing combined-count fallback for older response data. Routes, stored models, grid layout, and collection actions are unchanged. Frontend build and targeted frontend/backend lint passed on 2026-10-18. Integration and browser checks require the local MongoDB-backed API, which was unavailable in this session.
+
+## Responsive shared collection card — 2026-10-18
+
+The user selected a photo-left editorial card layout. The existing shared CollectionCard now uses that composition when its own inner width reaches 360 px and stacks a 2:1 cover above the content on narrower tracks. It retains the app's Libre Baskerville title, DM Sans metadata and description, theme tokens, card-wide title link, 44 px action menu, ImageBox fallback, and existing collection actions. The footer now uses the existing Avatar component for the curator picture or initials. The surrounding collection grid, routes, APIs, and stored data are unchanged. Frontend build and focused ESLint passed on 2026-10-18; the focused browser suite could not start because the local API could not connect to MongoDB.
+
+## Collection card menu placement — 2026-10-17
+
+The shared CollectionCard moves its existing three-dot action trigger into a title row. The cover sits below that row on narrow cards and beside the description from 640 px; it is never covered by the trigger. Existing card link, menu commands, focus return, image fallback, footer, and API data flow remain unchanged. The layout spec now checks cover and trigger geometry at seven widths. Focused mocked-API Chrome verification passed 11 of 12 cases initially; the remaining 320 px case had an outdated fixed-height assertion, corrected to check the intended 2:1 cover ratio. Both 320 px checks then passed. Targeted lint and production build passed; 325 px and 1280 px screenshots were reviewed. Live persistence and other browser engines were not exercised.
+
 ## Existing collection membership in Save dialog — 2026-10-14
 
 The shared Save story dialog now requests the optional current `postId` when loading the signed-in user's owned collections. Collection choices return `containsPost`, and the existing visibility badge is extended with “Already added” when the story or short already belongs to that collection. Articles and shorts use the same behavior. The existing duplicate-safe backend append, creation flow, modal structure, Select presentation, routes, schemas, and stored data remain unchanged.

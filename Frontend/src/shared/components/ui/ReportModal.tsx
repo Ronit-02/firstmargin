@@ -5,7 +5,7 @@ import useDialogFocus from '@/shared/hooks/useDialogFocus'
 
 export type ReportSubject = 'post' | 'short' | 'collection' | 'author' | 'question' | 'answer' | 'comment'
 
-export const reportTitle = (subject: ReportSubject) => `Report this ${subject}`
+export const reportTitle = (subject: ReportSubject) => `Report this ${subject === 'post' ? 'story' : subject}`
 
 type Props = { title: string; onClose: () => void; children: ReactNode; returnFocusRef?: RefObject<HTMLElement> }
 

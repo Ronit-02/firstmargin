@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const Post = require('../schemas/post.schema');
+const Publication = require('../schemas/publication.schema');
 const Profile = require('../schemas/profile.schema');
 const Question = require('../schemas/question.schema');
 const Report = require('../schemas/report.schema');
@@ -7,9 +7,9 @@ const { reportReasons } = Report;
 const { notify } = require('../services/notification.service');
 const { encodeCursor, decodeCursor } = require('../utils/cursor');
 const { normalizeQuestionText } = require('../utils/question');
-const { publicPostClause, getPostAccessContext, accessiblePostClause } = require('../services/post-access.service');
+const { publicPostClause, getPostAccessContext, accessiblePostClause } = require('../services/publication-access.service');
 
-const { presentDiscoveryPosts } = require('../services/post-presenter.service');
+const { presentDiscoveryPosts } = require('../services/publication-presenter.service');
 
 const presentResponses = async (posts, actorId) => (posts.length ? await presentDiscoveryPosts(posts, actorId) : []).map(post => ({ ...post, _id: post.id, coverImage: post.image }));
 
@@ -41,7 +41,7 @@ const presentQuestionDetail = (question, actorId) => ({
   createdAt: question.createdAt,
   author: question.author?._id ? { id: question.author._id, username: question.author.username || 'Unknown reader', picture: question.author.picture || null } : null,
   answers: (question.answers || []).map(answer => presentAnswer(answer, actorId)),
-  responsePosts: question.relatedArticles || [],
+  responsePosts: question.relatedPublications || [],
 });
 
 const presentOpportunity = (question, writerTags, now) => {
@@ -81,7 +81,7 @@ const presentQuestions = async (questions, actorId) => {
   const authorIds = questions.map(question => question.author?._id).filter(Boolean);
   const profiles = await Profile.find({ userId: { $in: authorIds } }).select('userId handle');
   const handles = new Map(profiles.map(profile => [profile.userId.toString(), profile.handle]));
-  const responses = await presentResponses(questions.flatMap(question => question.relatedArticles || []), actorId);
+  const responses = await presentResponses(questions.flatMap(question => question.relatedPublications || []), actorId);
   const responsesById = new Map(responses.map(post => [post.id.toString(), post]));
   return questions.map(question => ({
     id: question._id,
@@ -90,7 +90,7 @@ const presentQuestions = async (questions, actorId) => {
     tags: question.tags,
     upvotesCount: question.upvotesCount,
     answersCount: question.answers.length,
-    responsePosts: (question.relatedArticles || []).map(post => responsesById.get(post._id.toString())).filter(Boolean),
+    responsePosts: (question.relatedPublications || []).map(post => responsesById.get(post._id.toString())).filter(Boolean),
     status: question.status,
     createdAt: question.createdAt,
     isUpvoted: actorId ? question.upvotes.some(id => id.toString() === actorId) : false,
@@ -135,7 +135,7 @@ const getQuestions = async (req, res) => {
     const accessContext = await getPostAccessContext(req.auth?.userId);
     const documents = await Question.find(filter)
       .populate({ path: 'author', select: 'picture username' })
-      .populate({ path: 'relatedArticles', match: accessiblePostClause(accessContext), select: 'title format coverImage author createdAt body tags likesCount commentsCount', populate: { path: 'author', select: 'username picture' } })
+      .populate({ path: 'relatedPublications', match: accessiblePostClause(accessContext), select: 'title format coverImage author createdAt body tags appreciationsCount commentsCount', populate: { path: 'author', select: 'username picture' } })
       .sort(order)
       .limit(limit + 1);
     const hasMore = documents.length > limit;
@@ -159,10 +159,10 @@ const getQuestionDetail = async (req, res) => {
     const question = await Question.findOne({ _id: req.params.id, status: { $ne: 'closed' } })
       .populate({ path: 'author', select: 'picture username' })
       .populate({ path: 'answers.author', select: 'picture username' })
-      .populate({ path: 'relatedArticles', match: accessiblePostClause(accessContext), select: 'title format coverImage author createdAt body tags likesCount commentsCount', populate: { path: 'author', select: 'username picture' } });
+      .populate({ path: 'relatedPublications', match: accessiblePostClause(accessContext), select: 'title format coverImage author createdAt body tags appreciationsCount commentsCount', populate: { path: 'author', select: 'username picture' } });
     if (!question) return res.status(404).json({ message: 'Question not found' });
     const data = presentQuestionDetail(question, req.auth?.userId);
-    data.responsePosts = await presentResponses(question.relatedArticles || [], req.auth?.userId);
+    data.responsePosts = await presentResponses(question.relatedPublications || [], req.auth?.userId);
     return res.status(200).json({ data });
   } catch (error) {
     console.error(`[${req.requestId}] Question detail failed`);
@@ -175,7 +175,7 @@ const getQuestionOpportunities = async (req, res) => {
     const requestedLimit = Number.parseInt(req.query.limit, 10);
     const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 30) : 20;
     const [posts, questions] = await Promise.all([
-      Post.find({ author: req.auth.userId, ...publicPostClause() }).select('tags').lean(),
+      Publication.find({ author: req.auth.userId, ...publicPostClause() }).select('tags').lean(),
       Question.find({ status: 'open', author: { $ne: req.auth.userId }, declinedBy: { $ne: req.auth.userId }, $or: [{ claimedBy: null }, { claimedBy: req.auth.userId }, { claimedBy: { $exists: false } }] })
         .populate({ path: 'author', select: 'username picture' })
         .select('text context tags status createdAt upvotesCount followers answers author claimedBy declinedBy targetWriterIds')
@@ -350,7 +350,7 @@ const createAnswer = async (req, res) => {
     if (!isValidId(req.params.id)) return res.status(400).json({ message: 'Invalid question id' });
     const text = typeof req.body?.text === 'string' ? req.body.text.trim() : '';
     if (text.length < 10 || text.length > 1000) return res.status(400).json({ message: 'Answer must be between 10 and 1,000 characters' });
-    const question = await Question.findOne({ _id: req.params.id, status: { $ne: 'closed' } }).select('author followers answers relatedArticles text');
+    const question = await Question.findOne({ _id: req.params.id, status: { $ne: 'closed' } }).select('author followers answers relatedPublications text');
     if (!question) return res.status(404).json({ message: 'Question not found' });
     if (question.answers.length >= 100) return res.status(409).json({ message: 'This question has reached its answer limit' });
     question.answers.push({ text, author: req.auth.userId });
@@ -460,18 +460,18 @@ const reportAnswer = async (req, res) => {
 
 const linkResponsePost = async (req, res) => {
   try {
-    if (!isValidId(req.params.id) || !isValidId(req.params.postId)) return res.status(400).json({ message: 'Invalid question or post id' });
-    const post = await Post.findOne({ _id: req.params.postId, author: req.auth.userId, ...publicPostClause() }).select('_id');
+    if (!isValidId(req.params.id) || !isValidId(req.params.publicationId)) return res.status(400).json({ message: 'Invalid question or post id' });
+    const post = await Publication.findOne({ _id: req.params.publicationId, author: req.auth.userId, ...publicPostClause() }).select('_id');
     if (!post) return res.status(404).json({ message: 'Owned post not found' });
     const question = await Question.findByIdAndUpdate(
       req.params.id,
-      { $addToSet: { relatedArticles: post._id }, $set: { status: 'answered' } },
+      { $addToSet: { relatedPublications: post._id }, $set: { status: 'answered' } },
       { returnDocument: 'after' }
     ).select('_id status');
     if (!question) return res.status(404).json({ message: 'Question not found' });
-    return res.status(200).json({ data: { questionId: question._id, status: question.status, postId: post._id } });
+    return res.status(200).json({ data: { questionId: question._id, status: question.status, publicationId: post._id } });
   } catch (error) {
-    return res.status(500).json({ message: 'Unable to link article response' });
+    return res.status(500).json({ message: 'Unable to link story response' });
   }
 };
 

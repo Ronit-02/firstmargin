@@ -18,11 +18,35 @@ function buttonReason(button) {
   return 'This action is unavailable until its requirements are met.'
 }
 
+const generatedTitles = new WeakMap()
+const interactiveSelector = 'button, a[href], input[type="button"], input[type="submit"], input[type="reset"], summary, [role="button"], [role="menuitem"], [role="tab"], [role="link"], [role="separator"][tabindex]'
+
+function addNativeHoverTitle(control) {
+  if (!control) return
+  const previous = generatedTitles.get(control)
+  if (control.disabled || control.getAttribute('aria-disabled') === 'true') {
+    if (previous && control.title === previous) control.removeAttribute('title')
+    generatedTitles.delete(control)
+    return
+  }
+  if (control.hasAttribute('title') && control.title !== previous) return
+  const labelledBy = control.getAttribute('aria-labelledby')
+  const referencedLabel = labelledBy?.split(/\s+/).map(id => document.getElementById(id)?.textContent || '').join(' ')
+  const label = control.getAttribute('aria-label') || referencedLabel || control.value || control.innerText || control.textContent
+  const title = label?.replace(/\s+/g, ' ').trim()
+  if (title) {
+    control.setAttribute('title', title)
+    generatedTitles.set(control, title)
+  }
+}
+
 export default function DisabledButtonTooltip() {
   const [tip, setTip] = useState(null)
 
   useEffect(() => {
+    const showNativeTitle = event => addNativeHoverTitle(event.target.closest?.(interactiveSelector))
     const update = event => {
+      addNativeHoverTitle(event.target.closest?.(interactiveSelector))
       const button = document.elementsFromPoint(event.clientX, event.clientY)
         .map(element => element.closest?.('button'))
         .find(element => element?.disabled || element?.getAttribute('aria-disabled') === 'true')
@@ -30,10 +54,12 @@ export default function DisabledButtonTooltip() {
       setTip({ text: buttonReason(button), x: event.clientX, y: event.clientY, container: button.closest('dialog[open]') || document.body })
     }
     const hide = () => setTip(null)
+    document.addEventListener('pointerover', showNativeTitle, true)
     document.addEventListener('pointermove', update, true)
     document.addEventListener('scroll', hide, true)
     window.addEventListener('blur', hide)
     return () => {
+      document.removeEventListener('pointerover', showNativeTitle, true)
       document.removeEventListener('pointermove', update, true)
       document.removeEventListener('scroll', hide, true)
       window.removeEventListener('blur', hide)

@@ -11,7 +11,7 @@ export default function LoginModal({ onClose, returnTo }: Props) {
   const panelRef = useDialogFocus(onClose)
   return <ModalLayer aria-labelledby={titleId} onDismiss={onClose} className="flex items-center justify-center p-4">
     <section ref={panelRef} tabIndex={-1} className="w-full max-w-95 overflow-y-auto rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-[var(--shadow-float)]">
-      <ModalHeader title="Sign in to Ink Rider" titleId={titleId} onClose={onClose} closeLabel="Close sign-in dialog" />
+      <ModalHeader title="Sign in to firstmargin" titleId={titleId} onClose={onClose} closeLabel="Close sign-in dialog" />
       <Login embedded returnTo={returnTo} onSignedIn={onClose} />
     </section>
   </ModalLayer>
