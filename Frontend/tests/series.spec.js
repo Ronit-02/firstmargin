@@ -32,6 +32,10 @@ async function mockSeries(page, owner = false, listCount = 1) {
     }
     if (path === `/api/post/${looseArticle.id}`) return route.fulfill({ json: { postData: looseArticle } })
     if (path === `/api/post/${looseShort.id}`) return route.fulfill({ json: { postData: looseShort } })
+    if (stories.some(story => path === `/api/post/${story.id}`)) {
+      const index = stories.findIndex(story => path === `/api/post/${story.id}`)
+      return route.fulfill({ json: { postData: { ...looseArticle, ...stories[index], _id: stories[index].id, seriesContext: { id, title: storySeries.title, position: index, total: storySeries.entries.length } } } })
+    }
     if (shorts.some(short => path === `/api/post/${short.id}`)) {
       const index = shorts.findIndex(short => path === `/api/post/${short.id}`)
       return route.fulfill({ json: { postData: { ...looseShort, _id: shorts[index].id, id: shorts[index].id, title: shorts[index].title, seriesContext: { id: shortSeries.id, title: shortSeries.title, position: index, total: shorts.length, previous: index > 0 ? { id: shorts[index - 1].id, title: shorts[index - 1].title } : null, next: shorts[index + 1] ? { id: shorts[index + 1].id, title: shorts[index + 1].title } : null } } } })
@@ -50,6 +54,65 @@ async function mockSeries(page, owner = false, listCount = 1) {
   })
   return writes
 }
+
+for (const width of [320, 1280]) {
+  test(`story series next-part and completion links retain their reading context at ${width}px`, async ({ page }, testInfo) => {
+    await mockSeries(page)
+    const selectedSeries = { ...storySeries, entries: stories, entriesCount: 3 }
+    await page.route(`**/api/short-series/${id}`, route => route.fulfill({ json: { data: selectedSeries } }))
+    await page.setViewportSize({ width, height: 900 })
+    await page.goto(`/series/${id}`)
+    await expect(page.getByRole('link', { name: 'Read Story 1', exact: true })).toHaveAttribute('href', `/post/${stories[0].id}?series=${id}`)
+    await page.getByRole('link', { name: 'Story 1', exact: true }).click()
+    await expect(page).toHaveURL(`/post/${stories[0].id}?series=${id}`)
+    const footer = page.getByRole('navigation', { name: 'Story series progression' })
+    await expect(footer).toContainText('Up next · Part 2 of 3')
+    await expect(footer.getByRole('link', { name: 'Read next part: Story 2' })).toHaveAttribute('href', `/post/${stories[1].id}?series=${id}`)
+    await footer.screenshot({ path: testInfo.outputPath(`next-part-${width}.png`) })
+    await footer.getByRole('link').click()
+    await expect(page.getByRole('heading', { name: 'Story 2', level: 1 })).toBeVisible()
+    await expect(footer).toContainText('Up next · Part 3 of 3')
+    await page.reload()
+    await expect(footer.getByRole('link', { name: 'Read next part: Story 3' })).toHaveAttribute('href', `/post/${stories[2].id}?series=${id}`)
+    await footer.getByRole('link').click()
+    await expect(page.getByRole('heading', { name: 'Story 3', level: 1 })).toBeVisible()
+    await expect(footer).toContainText('This was the last story in this series')
+    await expect(footer).toContainText(storySeries.title)
+    const explore = footer.getByRole('link', { name: 'Explore more series' })
+    await expect(explore).toHaveAttribute('href', '/series')
+    await footer.screenshot({ path: testInfo.outputPath(`last-part-${width}.png`) })
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await explore.click()
+    await expect(page).toHaveURL('/series')
+    await page.goBack()
+    await expect(footer).toContainText('This was the last story in this series')
+  })
+}
+
+test('story opened outside a series keeps its overview link; unrelated or unavailable series cannot supply a next part', async ({ page }) => {
+  await mockSeries(page)
+  const footer = page.getByRole('navigation', { name: 'Story series progression' })
+  for (const suffix of ['', `?series=${shortSeries.id}`, '?series=invalid']) {
+    await page.goto(`/post/${stories[0].id}${suffix}`)
+    await expect(footer).toContainText('This story is part of a series · Part 1 of 2')
+    await expect(footer.getByRole('link', { name: `View series: ${storySeries.title}` })).toHaveAttribute('href', `/series/${id}`)
+    await expect(footer).not.toContainText('Up next')
+  }
+  await page.route(`**/api/short-series/${id}`, route => route.fulfill({ json: { data: { ...storySeries, entries: stories.slice(1) } } }))
+  await page.goto(`/post/${stories[0].id}?series=${id}`)
+  await expect(footer.getByRole('link', { name: `View series: ${storySeries.title}` })).toHaveAttribute('href', `/series/${id}`)
+  await page.route(`**/api/short-series/${id}`, route => route.fulfill({ status: 404, json: { message: 'Series not found' } }))
+  await page.goto(`/post/${stories[0].id}?series=${id}`)
+  await expect(footer.getByRole('link', { name: `View series: ${storySeries.title}` })).toHaveAttribute('href', `/series/${id}`)
+  await expect(page.locator('[data-reading-body="long-form"]')).toBeVisible()
+})
+
+test('story series progression follows the selected series when a story belongs to several', async ({ page }) => {
+  await mockSeries(page)
+  await page.route(`**/api/short-series/${id}`, route => route.fulfill({ json: { data: { ...storySeries, title: 'A different reading order', entries: [stories[0], stories[2], stories[1]], entriesCount: 3 } } }))
+  await page.goto(`/post/${stories[0].id}?series=${id}`)
+  await expect(page.getByRole('link', { name: 'Read next part: Story 3' })).toHaveAttribute('href', `/post/${stories[2].id}?series=${id}`)
+})
 
 test('series page separates stories and shorts and Shorts links to its series', async ({ page }) => {
   await mockSeries(page)
@@ -76,6 +139,22 @@ test('owner series card menu opens its edit modal', async ({ page }) => {
   await menu.getByRole('menuitem', { name: 'Edit series' }).click()
   await expect(page).toHaveURL(`/series/${id}`)
   await expect(page.getByRole('dialog', { name: 'Edit series' })).toBeVisible()
+})
+
+test('canceling series image selection keeps edit open', async ({ page }) => {
+  await mockSeries(page, true)
+  await page.goto(`${process.env.E2E_BASE_URL || 'http://127.0.0.1:3000'}/series/${id}`)
+  await page.getByRole('button', { name: 'Edit series' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Edit series' })
+  await dialog.locator('input[type="file"]').evaluate(input => {
+    input.click = () => {}
+  })
+  await dialog.getByRole('button', { name: 'Replace image' }).click()
+  await dialog.locator('input[type="file"]').evaluate(input => input.dispatchEvent(new Event('cancel', { bubbles: true })))
+  await expect(dialog).toBeVisible()
+  await page.waitForTimeout(550)
+  await page.keyboard.press('Escape')
+  await expect(dialog).toHaveCount(0)
 })
 
 test('short series reader links to its series and scrolls through the ordered list', async ({ page }) => {
@@ -164,6 +243,50 @@ test('series cards keep responsive grid columns and show ordered chapter preview
       expect(new Set(boxes.map(box => Math.round(box.x))).size).toBe(2)
       expect(boxes[0].width).toBeGreaterThan(420)
     }
+  }
+})
+
+test('series chapter previews fit complete rows inside a fixed height and update on resize', async ({ page }) => {
+  await mockSeries(page)
+  const entriesPreview = Array.from({ length: 50 }, (_, index) => ({ id: `part-${index}`, title: `Chapter ${index + 1} with a long title that stays on one line`, position: index + 1 }))
+  await page.route(url => url.pathname === '/api/series', route => route.fulfill({ json: {
+    data: [2, 4, 50].map(count => ({ ...storySeries, id: `path-${count}`, title: `A path with ${count} parts`, entriesCount: count, entriesPreview: entriesPreview.slice(0, count) })),
+    meta: { nextCursor: null },
+  } }))
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await page.goto('/series')
+  const cards = page.locator('.series-card')
+  await expect(cards).toHaveCount(3)
+  await expect(cards.nth(1).locator('li:visible')).toHaveCount(4)
+  await expect(cards.nth(1).getByText(/more$/)).toBeHidden()
+  let desktopCount
+  for (const width of [1280, 390, 320, 633, 1280]) {
+    await page.setViewportSize({ width, height: 900 })
+    const full = cards.last()
+    await expect.poll(async () => {
+      const visible = await full.locator('li:visible').count()
+      return full.getByText(`+ ${50 - visible} more`, { exact: true }).isVisible()
+    }).toBe(true)
+    const count = await full.locator('li:visible').count()
+    if (width === 1280) { expect(count).toBeGreaterThan(3); desktopCount = count }
+    if (width === 390) expect(count).toBeLessThan(desktopCount)
+    for (const card of await cards.all()) {
+      const geometry = await card.evaluate(element => {
+        const region = element.querySelector('.series-card__preview').getBoundingClientRect()
+        const footer = element.querySelector('.series-card__preview > p')
+        const footerVisible = getComputedStyle(footer).visibility === 'visible'
+        const rows = [...element.querySelectorAll('li')].filter(row => getComputedStyle(row).visibility === 'visible')
+        const last = rows.at(-1)
+        const next = last?.nextElementSibling
+        const limit = footerVisible ? footer.getBoundingClientRect().top : region.bottom
+        return { height: element.getBoundingClientRect().height, lastBottom: last?.getBoundingClientRect().bottom ?? region.top, limit, nextBottom: next?.getBoundingClientRect().bottom ?? null, footerBottom: footerVisible ? footer.getBoundingClientRect().bottom : region.top, regionBottom: region.bottom }
+      })
+      expect(geometry.height).toBe(330)
+      expect(geometry.lastBottom).toBeLessThanOrEqual(geometry.limit + 0.5)
+      expect(geometry.footerBottom).toBeLessThanOrEqual(geometry.regionBottom + 0.5)
+      if (geometry.nextBottom !== null) expect(geometry.nextBottom).toBeGreaterThan(geometry.limit)
+    }
+    if (width === 390 || width === 1280) await page.screenshot({ path: `test-results/series-fitting-${width}.png` })
   }
 })
 

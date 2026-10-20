@@ -17,16 +17,16 @@ const TYPES = [{ id: 'all', label: 'All' }, { id: 'theme', label: 'Theme' }, { i
 const formatDate = value => value ? new Date(value).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : 'To be announced'
 
 function CompetitionCard({ competition }) {
-  return <Link to={`/explore/competitions/${competition.id}`} className="grid grid-cols-[96px_minmax(0,1fr)] gap-x-4 gap-y-4 py-6 border-b border-[var(--color-border)] group sm:flex sm:gap-4 sm:py-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-offset-2">
-    <div className="w-24 shrink-0 sm:w-[120px]"><CompetitionImage src={competition.coverImage} title={competition.title} status={competition.status} height={80} /></div>
-    <div className="contents sm:block sm:min-w-0 sm:flex-1">
+  return <Link to={`/explore/competitions/${competition.id}`} className="flex flex-col gap-4 py-6 border-b border-[var(--color-border)] group sm:flex-row sm:gap-4 sm:py-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-offset-2">
+    <div className="aspect-video w-full shrink-0 sm:w-[180px] lg:w-[220px]"><CompetitionImage src={competition.coverImage} title={competition.title} status={competition.status} height="100%" /></div>
+    <div className="min-w-0 sm:flex-1">
       <div className="flex min-w-0 flex-col items-start justify-center gap-2 sm:mb-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-start">
         <span className="shrink-0 whitespace-nowrap px-2.5 py-1 rounded-full bg-[var(--color-bg-alt)] text-[12px] sm:text-[10px] font-semibold uppercase text-[var(--color-text-secondary)]">{competition.status}</span>
         <span className="shrink-0 whitespace-nowrap px-2.5 py-1 rounded-full bg-[var(--color-bg-alt)] text-[12px] sm:text-[10px] font-semibold text-[var(--color-text-secondary)]">{competitionTypeLabel(competition)}</span>
         <span className="text-[13px] leading-5 text-[var(--color-text-secondary)] sm:text-[11px] sm:leading-normal sm:text-[var(--color-text-muted)]">Voting closes {formatDate(competition.closeDate)} · {competition.entriesCount} entries</span>
       </div>
-      <h2 className="col-span-2 min-w-0 break-words text-[20px] leading-snug font-bold text-[var(--color-text)] sm:text-[17px] sm:leading-normal" style={{ fontFamily: 'var(--font-display)' }}>{competition.title}</h2>
-      <p className="col-span-2 min-w-0 -mt-2 break-words text-[14px] leading-6 text-[var(--color-text-secondary)] sm:mt-1 sm:line-clamp-2 sm:text-[12px] sm:leading-normal">{competition.description}</p>
+      <h2 className="min-w-0 break-words text-[20px] leading-snug font-bold text-[var(--color-text)] sm:text-[17px] sm:leading-normal" style={{ fontFamily: 'var(--font-display)' }}>{competition.title}</h2>
+      <p className="mt-1 min-w-0 break-words text-[14px] leading-6 text-[var(--color-text-secondary)] sm:line-clamp-2 sm:text-[12px] sm:leading-normal">{competition.description}</p>
     </div>
   </Link>
 }

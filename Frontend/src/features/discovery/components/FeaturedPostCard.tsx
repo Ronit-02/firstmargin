@@ -33,7 +33,7 @@ export default function FeaturedPostCard({ post, label = 'Story of the day', rea
             </div>
             <PostCardMenu post={post} />
           </div>
-          <h3 className="mt-5 break-words text-[clamp(24px,3vw,36px)] font-bold leading-[1.18] tracking-[-0.04em] text-[var(--color-text)] group-hover:text-[var(--color-accent)]" style={{ fontFamily: 'var(--font-display)' }}>
+          <h3 className="mt-5 line-clamp-2 break-words text-[clamp(24px,3vw,36px)] font-bold leading-[1.18] tracking-[-0.04em] text-[var(--color-text)] group-hover:text-[var(--color-accent)]" style={{ fontFamily: 'var(--font-display)' }}>
             <Link to={`/post/${post.id}`} className="rounded-[4px] after:absolute after:inset-0 after:content-[''] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-offset-2">{post.title}</Link>
           </h3>
           {post.excerpt && <p className="mt-4 line-clamp-3 break-words text-[13px] leading-6 text-[var(--color-text-secondary)]">{post.excerpt}</p>}

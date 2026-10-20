@@ -10,7 +10,7 @@ firstmargin is not intended to be a generic blogging CMS or a clone of any singl
 
 1. People discover thoughtful writing through curated and personalized surfaces.
 2. They save, follow, comment, ask questions, and participate in the community.
-3. Anyone can publish, respond to readers, enter competitions, and judge work.
+3. Anyone can publish and respond to readers. Eligible non-staff writers can enter competitions; moderators and admins cannot submit entries and retain their staff judging responsibilities.
 4. Reader behavior improves discovery while preserving quality, diversity, and writer visibility.
 5. Membership comes later, without placing primary articles behind a paywall.
 
@@ -98,7 +98,7 @@ Status meanings:
 | Search | `/search` | Connected | Unified server search across posts, writers, shorts, and reader questions with URL-persisted tabs/filters; question categories open the Questions tab. Global autocomplete suggests up to five content-based search phrases and five authors without type-selection buttons. |
 | Shorts | `/shorts` | Connected | Filterable short-form discovery using the shared compact reader |
 | Article | `/post/:id` | Partial | Public reading, engagement, context, recommendations, summary, audio, and reports |
-| Public writer profile | `/author/:handle` | Connected | Durable writer identity, Published work with Posts/Shorts/Collections pills, writing sorting, and paginated public collections, follow state and labelled direct-request controls; `/author` provides a writer-search recovery path |
+| Public writer profile | `/author/:handle` | Connected | Durable writer identity, Published work with Stories/Shorts/Collections/Series pills, writing sorting, and paginated public collections and story/short series, follow state and labelled direct-request controls; `/author` provides a writer-search recovery path |
 | Collections | `/collections` | Connected | Browse, save, create, and manage curated reading sets; add any public post/short from its card or reader to an owned collection or create one in place |
 | Collection detail | `/collections/:id` | Connected | Read, save, share, and manage a collection |
 | Library | `/saved` | Connected | Saved, Collections, and History top tabs; Collections switches between My and Saved sets with URL-backed pill selection, visibility, and sort filters |

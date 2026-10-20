@@ -259,6 +259,96 @@ test('optionalAuth represents anonymous requests explicitly', async () => {
   assert.equal(req.auth, null);
 });
 
+test('personal and public writer profiles expose saved covers with a legacy null fallback', async t => {
+  const { getMe } = require('../controllers/user.controller');
+  const { getWriterByHandle } = require('../controllers/writer.controller');
+  const userId = new mongoose.Types.ObjectId();
+  const profile = { userId: { _id: userId, createdAt: new Date() }, handle: 'cover-writer', displayName: 'Writer', coverImageUrl: 'https://images.example.test/cover.png' };
+  t.mock.method(User, 'findById', () => ({ select: async () => ({ _id: userId, username: 'Writer' }) }));
+  t.mock.method(Profile, 'findOne', () => ({ select: async () => profile, populate: async () => profile }));
+  t.mock.method(Publication, 'countDocuments', async () => 0);
+  t.mock.method(Publication, 'find', () => ({ sort: () => ({ select: async () => [] }) }));
+  const response = () => ({ status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } });
+  const personal = response();
+  await getMe({ auth: { userId } }, personal);
+  assert.equal(personal.body.data.coverImageUrl, profile.coverImageUrl);
+  const publicProfile = response();
+  await getWriterByHandle({ params: { handle: profile.handle } }, publicProfile);
+  assert.equal(publicProfile.body.data.coverImageUrl, profile.coverImageUrl);
+  delete profile.coverImageUrl;
+  const legacy = response();
+  await getMe({ auth: { userId } }, legacy);
+  assert.equal(legacy.body.data.coverImageUrl, null);
+});
+
+test('profile cover updates validate actions and preserve avatar fields', async t => {
+  const { updateProfileCover } = require('../controllers/user.controller');
+  const userId = new mongoose.Types.ObjectId();
+  const user = { _id: userId, picture: 'https://images.example.test/avatar.png' };
+  const profile = { avatarUrl: user.picture, coverImageUrl: null, save: async () => {} };
+  t.mock.method(User, 'findById', async id => { assert.equal(id, userId); return user; });
+  t.mock.method(Profile, 'findOne', async filter => { assert.equal(filter.userId, userId); return profile; });
+  const run = async body => {
+    const response = { statusCode: 200, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } };
+    await updateProfileCover({ auth: { userId }, body }, response);
+    return response;
+  };
+  for (const body of [{}, { coverImageUrl: 'javascript:alert(1)' }, { coverImageUrl: 'https://name:password@example.test/cover' }, { coverImageUrl: 'https://example.test/' + 'a'.repeat(2000) }, { coverImageUrl: 'https://images.example.test/cover.png', removeCover: 'true' }]) {
+    assert.equal((await run(body)).statusCode, 400);
+  }
+  const saved = await run({ coverImageUrl: 'https://images.example.test/cover.png' });
+  assert.equal(saved.statusCode, 200);
+  assert.equal(saved.body.profile.coverImageUrl, 'https://images.example.test/cover.png');
+  assert.equal((await run({ removeCover: 'true' })).body.profile.coverImageUrl, null);
+  assert.equal(user.picture, 'https://images.example.test/avatar.png');
+  assert.equal(profile.avatarUrl, user.picture);
+  assert.equal(new Profile({ userId, handle: 'cover-writer', displayName: 'Writer' }).coverImageUrl, null);
+});
+
+test('profile cover uploads clean failed uploads and only replace owned managed covers', async t => {
+  const { updateProfileCover } = require('../controllers/user.controller');
+  const { profileCoverPublicIdFromUrl } = require('../utils/cloudinary');
+  const cloudinary = require('cloudinary').v2;
+  const config = require('../config/config');
+  const userId = new mongoose.Types.ObjectId();
+  const oldPublicId = `profile-covers/${userId}/old-cover`;
+  const oldUrl = `https://res.cloudinary.com/${config.CLOUDINARY_CLOUD_NAME}/image/upload/v123/${oldPublicId}.png`;
+  assert.equal(profileCoverPublicIdFromUrl(oldUrl, userId), oldPublicId);
+  assert.equal(profileCoverPublicIdFromUrl(oldUrl, new mongoose.Types.ObjectId()), null);
+  assert.equal(profileCoverPublicIdFromUrl(oldUrl.replace('profile-covers', 'profile-avatars'), userId), null);
+  assert.equal(profileCoverPublicIdFromUrl('https://images.example.test/shared.png', userId), null);
+  let failSave = false;
+  const profile = { coverImageUrl: oldUrl, save: async () => { if (failSave) throw new Error('Save failed'); } };
+  t.mock.method(User, 'findById', async () => ({ _id: userId }));
+  t.mock.method(Profile, 'findOne', async () => profile);
+  const publicId = `profile-covers/${userId}/new-cover`;
+  t.mock.method(cloudinary.uploader, 'upload', async (_file, options) => { assert.equal(options.folder, `profile-covers/${userId}`); return { public_id: publicId, secure_url: `https://res.cloudinary.com/${config.CLOUDINARY_CLOUD_NAME}/image/upload/v124/${publicId}.png` }; });
+  const removal = t.mock.method(cloudinary.uploader, 'destroy', async () => ({}));
+  const folder = await fs.mkdtemp(path.join(os.tmpdir(), 'profile-cover-'));
+  t.after(() => fs.rm(folder, { recursive: true, force: true }));
+  const run = async () => {
+    const filePath = path.join(folder, crypto.randomUUID() + '.png');
+    await fs.writeFile(filePath, 'validated test image');
+    const response = { statusCode: 200, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } };
+    await updateProfileCover({ auth: { userId }, body: {}, file: { path: filePath } }, response);
+    await assert.rejects(fs.access(filePath));
+    return response;
+  };
+  assert.equal((await run()).statusCode, 200);
+  assert.equal(removal.mock.calls[0].arguments[0], oldPublicId);
+  failSave = true;
+  assert.equal((await run()).statusCode, 500);
+  assert.equal(removal.mock.calls[1].arguments[0], publicId);
+});
+
+test('profile cover route requires authentication', async t => {
+  const server = app.listen(0);
+  t.after(() => server.close());
+  await new Promise(resolve => server.once('listening', resolve));
+  const response = await fetch(`http://127.0.0.1:${server.address().port}/api/user/profile/cover`, { method: 'PUT' });
+  assert.equal(response.status, 401);
+});
+
 test('user schema supports public profile biography and nullable external identity', () => {
   assert.ok(User.schema.path('bio'));
 
@@ -398,6 +488,29 @@ test('writer story cards include viewer appreciation state in one batch read', a
   assert.equal(reads.length, 1);
 });
 
+test('series list previews include every visible ordered title without publication bodies', async t => {
+  const { listSeries } = require('../controllers/short-series.controller');
+  const items = Array.from({ length: 50 }, (_, position) => ({ position, publication: {
+    _id: new mongoose.Types.ObjectId(), title: `Chapter ${position + 1}`, publicationStatus: 'published', body: 'Private response field',
+  } }));
+  const document = { _id: new mongoose.Types.ObjectId(), title: 'Reading path', type: 'story', visibility: 'public', author: { _id: new mongoose.Types.ObjectId(), username: 'Maya' }, items: [
+    ...items.toReversed(),
+    { position: 50, publication: { _id: new mongoose.Types.ObjectId(), title: 'Unpublished', publicationStatus: 'unpublished' } },
+    { position: 51, publication: { _id: new mongoose.Types.ObjectId(), title: 'Future', publicAt: new Date(Date.now() + 86400000) } },
+    { position: 52, publication: null },
+  ] };
+  const query = { populate() { return this; }, sort() { return this; }, async limit() { return [document]; } };
+  t.mock.method(ShortSeries, 'find', () => query);
+  t.mock.method(Profile, 'find', () => ({ select: async () => [] }));
+  const response = createResponse();
+  await listSeries({ query: { type: 'story' } }, response);
+  assert.equal(response.statusCode, 200);
+  const preview = response.payload.data[0];
+  assert.equal(preview.entriesCount, 50);
+  assert.deepEqual(preview.entriesPreview, items.map((item, index) => ({ id: item.publication._id, title: item.publication.title, position: index + 1 })));
+  assert.equal(preview.entries, undefined);
+});
+
 test('discovery summaries preserve short formats and default legacy posts to articles', async t => {
   const { presentDiscoveryPosts } = require('../services/post-presenter.service');
   t.mock.method(Profile, 'find', () => ({ select: () => ({ lean: async () => [] }) }));
@@ -407,8 +520,8 @@ test('discovery summaries preserve short formats and default legacy posts to art
   assert.deepEqual(summaries.map(post => post.format), ['short', 'story', 'story']);
   assert.deepEqual(summaries.map(post => post.id), posts.map(post => post._id));
   assert.equal(summaries[0].excerpt, longText.slice(0, 800));
-  assert.equal(summaries[1].excerpt, longText.slice(0, 220));
-  assert.equal(summaries[2].excerpt, longText.slice(0, 220));
+  assert.equal(summaries[1].excerpt, longText.trim());
+  assert.equal(summaries[2].excerpt, longText.trim());
 });
 
 test('owner short summaries include public author identity and viewer engagement without leaking bodies', async t => {
@@ -1490,6 +1603,187 @@ test('error monitor treats non-success delivery responses as failed without logg
   assert.equal(JSON.stringify(warnings).includes('private response body'), false);
 });
 
+test('entry removal validates ownership and lifecycle before atomically removing entry votes', async t => {
+  const { removeEntry } = require('../controllers/competition.controller');
+  const actorId = new mongoose.Types.ObjectId().toString();
+  const competitionId = new mongoose.Types.ObjectId().toString();
+  const entryId = new mongoose.Types.ObjectId().toString();
+  const entry = { _id: entryId, author: actorId, votesCount: 8, votes: ['voter'] };
+  let competition = { _id: competitionId, status: 'open', openDate: new Date(Date.now() - 60_000), closeDate: new Date(Date.now() + 60_000), entries: { id: id => id === entryId ? entry : null } };
+  t.mock.method(Competition, 'findById', async () => competition);
+  const write = t.mock.method(Competition, 'findOneAndUpdate', async (filter, update, options) => {
+    assert.equal(filter.status, 'open');
+    assert.equal(filter._id, competitionId);
+    assert.deepEqual(filter.$expr, { $and: [{ $lte: ['$openDate', '$$NOW'] }, { $gt: ['$closeDate', '$$NOW'] }] });
+    assert.deepEqual(filter.entries.$elemMatch, { _id: entryId, author: actorId });
+    assert.deepEqual(update, { $pull: { entries: { _id: entryId, author: actorId } } });
+    assert.equal(options.returnDocument, 'before');
+    return competition;
+  });
+  const audit = t.mock.method(require('../schemas/competition-audit.schema'), 'create', async record => {
+    assert.equal(record.action, 'entry_removed');
+    assert.equal(record.actorId, actorId);
+    assert.deepEqual(record.details, { entryId, votesCount: 8 });
+  });
+  const run = async (userId = actorId, params = { id: competitionId, entryId }) => {
+    const response = { status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } };
+    await removeEntry({ params, auth: { userId } }, response);
+    return response;
+  };
+  assert.equal((await run(actorId, { id: 'invalid', entryId })).statusCode, 400);
+  assert.equal((await run('another-user')).statusCode, 403);
+  assert.equal((await run(actorId, { id: competitionId, entryId: new mongoose.Types.ObjectId().toString() })).statusCode, 404);
+  for (const status of ['draft', 'judging', 'closed']) {
+    competition.status = status;
+    assert.equal((await run()).statusCode, 409);
+  }
+  competition.status = 'open';
+  competition.openDate = new Date(Date.now() + 60_000);
+  assert.equal((await run()).statusCode, 409);
+  competition.openDate = new Date(Date.now() - 60_000);
+  competition.closeDate = new Date(Date.now() - 1);
+  assert.equal((await run()).statusCode, 409);
+  assert.equal(write.mock.callCount(), 0);
+  assert.equal(audit.mock.callCount(), 0);
+  competition.closeDate = new Date(Date.now() + 60_000);
+  const success = await run();
+  assert.equal(success.statusCode, 200);
+  assert.deepEqual(success.body, { data: { removed: true } });
+  assert.equal(audit.mock.callCount(), 1);
+  write.mock.mockImplementation(async () => null);
+  assert.equal((await run()).statusCode, 409);
+  assert.equal(audit.mock.callCount(), 1);
+  competition = null;
+  assert.equal((await run()).statusCode, 404);
+});
+
+test('entry removal route requires authentication', async t => {
+  const server = app.listen(0);
+  t.after(() => server.close());
+  await new Promise(resolve => server.once('listening', resolve));
+  const response = await fetch(`http://127.0.0.1:${server.address().port}/api/competition/507f1f77bcf86cd799439011/entries/507f1f77bcf86cd799439012`, { method: 'DELETE' });
+  assert.equal(response.status, 401);
+});
+
+test('moderation All lists every status while preserving status validation and the pending API default', async t => {
+  const { listReports } = require('../controllers/moderation.controller');
+  const filters = [];
+  const records = [{ status: 'pending' }, { status: 'reviewing' }, { status: 'actioned' }, { status: 'dismissed' }];
+  t.mock.method(Report, 'find', filter => {
+    filters.push(filter);
+    return { sort: order => {
+      assert.deepEqual(order, { createdAt: 1 });
+      return { limit: limit => {
+        assert.equal(limit, 100);
+        return { populate: async () => filter.status ? records.filter(item => item.status === filter.status) : records };
+      } };
+    } };
+  });
+  const run = async query => {
+    const response = { statusCode: 200, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } };
+    await listReports({ query }, response);
+    return response;
+  };
+  assert.equal((await run({ status: 'all' })).body.data.length, 4);
+  assert.deepEqual(filters[0], {});
+  assert.deepEqual((await run({})).body.data, [records[0]]);
+  assert.deepEqual(filters[1], { status: 'pending' });
+  for (const status of ['pending', 'reviewing', 'actioned', 'dismissed']) {
+    assert.deepEqual((await run({ status })).body.data, records.filter(item => item.status === status));
+  }
+  const count = filters.length;
+  assert.equal((await run({ status: 'invalid' })).statusCode, 400);
+  assert.equal(filters.length, count);
+});
+
+test('moderators and admins cannot load competition entry choices or submit entries', async t => {
+  const { getEligiblePosts, enterCompetition } = require('../controllers/competition.controller');
+  t.mock.method(Competition, 'findById', () => { throw new Error('Staff requests must stop before reads'); });
+  t.mock.method(Publication, 'findOne', () => { throw new Error('Staff requests must stop before reads'); });
+  const write = t.mock.method(Competition, 'findOneAndUpdate', () => { throw new Error('No entry may be written'); });
+  for (const role of ['moderator', 'admin']) {
+    for (const handler of [getEligiblePosts, enterCompetition]) {
+      const response = { status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } };
+      await handler({ params: { id: new mongoose.Types.ObjectId().toString() }, auth: { userId: new mongoose.Types.ObjectId().toString(), role }, body: { publicationId: new mongoose.Types.ObjectId().toString() } }, response);
+      assert.equal(response.statusCode, 403);
+      assert.equal(response.body.message, 'Moderators and admins cannot enter competitions.');
+    }
+  }
+  assert.equal(write.mock.callCount(), 0);
+});
+
+test('competition entry routes enforce the current stored staff role instead of token claims', async t => {
+  const userId = new mongoose.Types.ObjectId().toString();
+  let role = 'moderator';
+  t.mock.method(User, 'findById', () => ({ select: () => ({ lean: async () => ({ _id: userId, role, verified: true, accountStatus: 'active' }) }) }));
+  const server = app.listen(0);
+  t.after(() => server.close());
+  await new Promise(resolve => server.once('listening', resolve));
+  const root = `http://127.0.0.1:${server.address().port}/api/competition/507f1f77bcf86cd799439011`;
+  const headers = { authorization: `Bearer ${generateToken({ id: userId, role: 'regular' }, '1m')}`, 'content-type': 'application/json' };
+  for (role of ['moderator', 'admin']) {
+    const eligible = await fetch(`${root}/eligible-posts`, { headers });
+    assert.equal(eligible.status, 403);
+    const entry = await fetch(`${root}/entries`, { method: 'POST', headers, body: JSON.stringify({ publicationId: '507f1f77bcf86cd799439012' }) });
+    assert.equal(entry.status, 403);
+    assert.equal((await entry.json()).message, 'Moderators and admins cannot enter competitions.');
+  }
+});
+
+test('competition picker only queries owned released stories not already entered', async t => {
+  const { getEligiblePosts } = require('../controllers/competition.controller');
+  const authorId = new mongoose.Types.ObjectId().toString();
+  const competitionId = new mongoose.Types.ObjectId().toString();
+  const story = { _id: new mongoose.Types.ObjectId(), title: 'A published story', createdAt: new Date() };
+  t.mock.method(Competition, 'findById', () => ({ select: async () => ({ entries: [{ publication: 'already-entered' }], status: 'open', openDate: new Date(Date.now() - 86400000), closeDate: new Date(Date.now() + 86400000) }) }));
+  t.mock.method(Publication, 'find', filter => {
+    assert.equal(filter.author, authorId);
+    assert.deepEqual(filter.format, { $ne: 'short' });
+    assert.deepEqual(filter._id, { $nin: ['already-entered'] });
+    assert.equal(filter.publicationStatus.$ne, 'unpublished');
+    assert.ok(filter.$or.some(clause => clause.publicAt?.$lte instanceof Date));
+    return { sort: () => ({ select: async () => [story] }) };
+  });
+  const response = { status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } };
+  await getEligiblePosts({ params: { id: competitionId }, auth: { userId: authorId, role: 'regular' } }, response);
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.data[0].title, story.title);
+});
+
+test('competition submission rejects shorts before writing and accepts stories including legacy format', async t => {
+  const { enterCompetition } = require('../controllers/competition.controller');
+  const authorId = new mongoose.Types.ObjectId().toString();
+  const competitionId = new mongoose.Types.ObjectId().toString();
+  const publicationId = new mongoose.Types.ObjectId().toString();
+  let format = 'short';
+  t.mock.method(Publication, 'findOne', filter => {
+    assert.equal(filter.author, authorId);
+    assert.equal(filter._id, publicationId);
+    assert.deepEqual(filter.format, { $ne: 'short' });
+    assert.equal(filter.publicationStatus.$ne, 'unpublished');
+    assert.ok(filter.$or.some(clause => clause.publicAt?.$lte instanceof Date));
+    return { select: async () => format === filter.format.$ne ? null : { _id: publicationId, currentRevision: 3 } };
+  });
+  const write = t.mock.method(Competition, 'findOneAndUpdate', async (_filter, update) => {
+    assert.equal(update.$push.entries.publication, publicationId);
+    assert.equal(update.$push.entries.publicationRevision, 3);
+    return { _id: competitionId };
+  });
+  const run = async () => {
+    const response = { status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } };
+    await enterCompetition({ params: { id: competitionId }, auth: { userId: authorId, role: 'regular' }, body: { publicationId } }, response);
+    return response;
+  };
+  const rejected = await run();
+  assert.equal(rejected.statusCode, 403);
+  assert.equal(rejected.body.message, 'You can only enter your own published stories');
+  assert.equal(write.mock.callCount(), 0);
+  for (format of ['story', undefined]) {
+    assert.equal((await run()).statusCode, 201);
+  }
+  assert.equal(write.mock.callCount(), 2);
+});
+
 test('competition routes validate filters and entry identifiers before database access', async t => {
   const server = app.listen(0);
   t.after(() => server.close());
@@ -1685,6 +1979,88 @@ test('unified search validates query and type before database access', async t =
   assert.equal((await emptyQuery.json()).message, 'Search query must be between 1 and 100 characters');
   assert.equal(invalidType.status, 400);
   assert.equal((await invalidType.json()).message, 'Invalid search type');
+});
+
+test('empty Writers searches return bounded ranked authors while validating browse requests', async t => {
+  const { search } = require('../controllers/search.controller');
+  const writers = [{ id: 'author-id', handle: 'maya', displayName: 'Maya', followersCount: 10 }];
+  const aggregate = t.mock.method(Profile, 'aggregate', async () => writers);
+  const run = async query => {
+    const response = { statusCode: 200, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } };
+    await search({ query }, response);
+    return response;
+  };
+  const result = await run({ type: 'writers', q: '   ', limit: '99' });
+  assert.equal(result.statusCode, 200);
+  assert.deepEqual(result.body.data, { writers, posts: [], shorts: [], questions: [] });
+  assert.equal(result.body.meta.query, '');
+  const pipeline = aggregate.mock.calls[0].arguments[0];
+  assert.deepEqual(pipeline.find(stage => stage.$sort).$sort, { followersCount: -1, displayName: 1, _id: 1 });
+  assert.equal(pipeline.find(stage => stage.$limit).$limit, 10);
+  assert.equal(pipeline.find(stage => stage.$match).$match.writerStatus, 'writer');
+  assert.equal(pipeline.find(stage => stage.$project).$project.account, undefined);
+  for (const query of [{}, { type: 'writers', suggestions: 'true' }, { type: 'writers', q: 'a'.repeat(101) }, { type: 'writers', topic: 'invalid' }]) {
+    assert.equal((await run(query)).statusCode, 400);
+  }
+  assert.equal(aggregate.mock.callCount(), 1);
+  await run({ type: 'writers', limit: '3' });
+  assert.equal(aggregate.mock.calls[1].arguments[0].find(stage => stage.$limit).$limit, 3);
+  aggregate.mock.mockImplementation(async () => { throw new Error('Unavailable'); });
+  t.mock.method(console, 'error', () => {});
+  assert.equal((await run({ type: 'writers' })).statusCode, 500);
+});
+
+test('empty content searches browse bounded popular results with visibility and filter rules', async t => {
+  const { search } = require('../controllers/search.controller');
+  t.mock.method(Profile, 'find', () => ({ select: fields => fields === 'userId handle' ? Promise.resolve([]) : { lean: async () => [] } }));
+  const reads = [];
+  for (const model of [Publication, Question]) {
+    t.mock.method(model, 'find', filter => {
+      const read = { model: model.modelName, filter, populations: [] };
+      reads.push(read);
+      const chain = {
+        select: fields => { read.fields = fields; return chain; },
+        populate: population => { read.populations.push(population); return chain; },
+        sort: order => { read.order = order; return chain; },
+        limit: limit => { read.limit = limit; return Promise.resolve([]); },
+      };
+      return chain;
+    });
+  }
+  const run = async query => {
+    const response = { status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } };
+    await search({ query, requestId: 'browse-test' }, response);
+    return response;
+  };
+  for (const type of ['posts', 'shorts', 'questions']) {
+    const result = await run({ type, q: '   ', limit: '99', topic: 'science', time: 'week' });
+    assert.equal(result.statusCode, 200);
+    assert.equal(result.body.meta.query, '');
+    assert.deepEqual(result.body.data, { posts: [], writers: [], shorts: [], questions: [] });
+    const read = reads.at(-1);
+    assert.equal(read.limit, 24);
+    assert.deepEqual(read.order, { [type === 'questions' ? 'upvotesCount' : 'appreciationsCount']: -1, createdAt: -1, _id: -1 });
+    const clauses = read.filter.$and;
+    assert.ok(clauses.some(clause => clause.tags?.$in?.includes('science')));
+    assert.ok(clauses.some(clause => clause.createdAt?.$gte instanceof Date));
+    assert.equal(JSON.stringify(clauses).includes('$regex'), false);
+    if (type === 'questions') {
+      assert.deepEqual(clauses[0], { status: { $ne: 'closed' } });
+      assert.ok(read.populations.find(item => item.path === 'relatedPublications').match);
+    } else {
+      assert.equal(clauses[0].publicationStatus.$ne, 'unpublished');
+      assert.ok(clauses[0].$or.some(clause => clause.publicAt?.$lte instanceof Date));
+      assert.deepEqual(clauses[1], type === 'shorts' ? { format: 'short' } : { format: { $ne: 'short' } });
+    }
+    await run({ type, sort: 'latest', limit: '2' });
+    assert.deepEqual(reads.at(-1).order, { createdAt: -1, _id: -1 });
+    assert.equal(reads.at(-1).limit, 2);
+    const readCount = reads.length;
+    for (const invalid of [{ suggestions: 'true' }, { q: 'a'.repeat(101) }, { topic: 'invalid' }, { time: 'invalid' }, { sort: 'invalid' }]) {
+      assert.equal((await run({ type, ...invalid })).statusCode, 400);
+    }
+    assert.equal(reads.length, readCount);
+  }
 });
 
 test('question search matches text, context, and tags with bounded public results', async t => {
@@ -2033,6 +2409,90 @@ test('explicit writer follows and onboarding notify only newly inserted relation
   bulk.mock.mockImplementation(async () => ({ upsertedCount: 0, upsertedIds: {} }));
   assert.equal((await saveOnboardingSelection(selection)).addedFollows, 0);
   assert.equal(writes.mock.callCount(), 2);
+});
+
+test('workshop lists include only the current viewer registration state', async t => {
+  const { listWorkshops } = require('../controllers/member-experience.controller');
+  const workshopId = new mongoose.Types.ObjectId();
+  const anotherId = new mongoose.Types.ObjectId();
+  const userId = new mongoose.Types.ObjectId();
+  const otherUserId = new mongoose.Types.ObjectId();
+  const chain = { select(fields) { assert.equal(fields, '-meetingUrl'); return this; }, sort() { return this; }, populate() { return this; }, lean: async () => [{ _id: workshopId, title: 'Reserved workshop' }, { _id: anotherId, title: 'Another workshop' }] };
+  t.mock.method(Workshop, 'find', () => chain);
+  const reads = t.mock.method(WorkshopAttendance, 'find', filter => {
+    assert.deepEqual(filter.workshopId.$in, [workshopId, anotherId]);
+    assert.deepEqual(filter.status.$in, ['registered', 'attended']);
+    return { select(fields) { assert.equal(fields, 'workshopId'); return this; }, lean: async () => filter.userId === userId ? [{ workshopId }] : [] };
+  });
+  const run = async viewerId => {
+    const response = { status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } };
+    await listWorkshops({ auth: viewerId ? { userId: viewerId } : null }, response);
+    return response.body.data;
+  };
+  assert.deepEqual((await run(userId)).map(item => item.isRegistered), [true, false]);
+  assert.deepEqual((await run(otherUserId)).map(item => item.isRegistered), [false, false]);
+  assert.deepEqual((await run(null)).map(item => item.isRegistered), [false, false]);
+  assert.equal(reads.mock.callCount(), 2, 'guest lists must not read private attendance');
+});
+
+test('workshop reservations notify the attendee and retain retry access when full', async t => {
+  const { registerWorkshop } = require('../controllers/member-experience.controller');
+  const userId = new mongoose.Types.ObjectId();
+  const workshopId = new mongoose.Types.ObjectId();
+  const attendance = { _id: new mongoose.Types.ObjectId(), status: 'registered' };
+  const workshop = { _id: workshopId, hostId: userId, title: 'Making a scene', capacity: 1, meetingUrl: 'https://meet.example.test/session' };
+  let member = true;
+  let existing = null;
+  let count = 0;
+  let notificationSaved = false;
+  let failNotification = false;
+  t.mock.method(Membership, 'findOne', () => ({ select: async () => null }));
+  t.mock.method(Entitlement, 'find', () => ({ select: async () => member ? [{ capability: 'workshops' }] : [] }));
+  t.mock.method(User, 'findById', () => ({ select: async () => ({ role: 'regular' }) }));
+  t.mock.method(Workshop, 'findOne', async () => workshop);
+  t.mock.method(WorkshopAttendance, 'findOne', async () => existing);
+  t.mock.method(WorkshopAttendance, 'countDocuments', async () => count);
+  const registration = t.mock.method(WorkshopAttendance, 'findOneAndUpdate', async () => { existing = attendance; count = 1; return attendance; });
+  t.mock.method(Notification, 'exists', async () => notificationSaved);
+  t.mock.method(mongoose, 'startSession', async () => ({ withTransaction: async work => work(), endSession: async () => {} }));
+  t.mock.method(console, 'error', () => {});
+  const notifications = t.mock.method(Notification, 'create', async ([input]) => {
+    assert.equal(new Notification(input).validateSync(), undefined);
+    if (failNotification) throw new Error('Notification unavailable');
+    notificationSaved = true;
+    return [{ ...input, _id: new mongoose.Types.ObjectId() }];
+  });
+  const request = { auth: { userId }, params: { workshopId: String(workshopId) } };
+  const run = async (req = request) => {
+    const response = { statusCode: 200, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } };
+    await registerWorkshop(req, response);
+    return response;
+  };
+  member = false;
+  assert.equal((await run()).statusCode, 403);
+  member = true;
+  assert.equal((await run({ ...request, params: { workshopId: 'invalid' } })).statusCode, 400);
+  count = 1;
+  assert.equal((await run()).statusCode, 409);
+  assert.equal(registration.mock.callCount(), 0);
+  assert.equal(notifications.mock.callCount(), 0);
+  count = 0;
+  failNotification = true;
+  assert.equal((await run()).statusCode, 503);
+  failNotification = false;
+  const success = await run();
+  assert.equal(success.statusCode, 200);
+  assert.deepEqual(success.body.data, { id: attendance._id, status: 'registered', meetingUrl: workshop.meetingUrl });
+  const notice = notifications.mock.calls.at(-1).arguments[0][0];
+  assert.equal(notice.recipientId, userId);
+  assert.equal(notice.actorId, undefined, 'host reservations must receive their confirmation too');
+  assert.equal(notice.type, 'workshop_registered');
+  assert.equal(notice.entityType, 'workshop');
+  assert.equal(notice.entityId, workshopId);
+  assert.equal(notice.href, workshop.meetingUrl);
+  assert.match(notice.body, /Making a scene/);
+  assert.equal((await run()).statusCode, 200);
+  assert.equal(notifications.mock.callCount(), 2, 'ordinary retries reuse the saved notification');
 });
 
 test('notifications and staff decisions are durable append-only domain records', () => {

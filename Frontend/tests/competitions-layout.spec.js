@@ -36,11 +36,14 @@ for (const width of [320, 390, 600, 640, 1280]) {
     })
     expect(layout.statusHeight).toBeLessThanOrEqual(layout.statusLineHeight + 8)
     if (width < 640) {
-      expect(layout.heading.y).toBeGreaterThanOrEqual(layout.image.bottom + 15)
+      expect(layout.image.width).toBeCloseTo(layout.card.width, 0)
+      expect(layout.image.height / layout.image.width).toBeCloseTo(9 / 16, 1)
+      expect(layout.heading.y).toBeGreaterThan(layout.image.bottom)
       expect(layout.heading.width).toBeCloseTo(layout.card.width, 0)
       expect(layout.fontSize).toBe(14)
     } else {
-      expect(layout.image.width).toBe(120)
+      expect(layout.image.width).toBe(width >= 1024 ? 220 : 180)
+      expect(layout.image.height / layout.image.width).toBeCloseTo(9 / 16, 1)
       expect(layout.heading.x).toBeGreaterThan(layout.image.right)
       expect(layout.fontSize).toBe(12)
     }

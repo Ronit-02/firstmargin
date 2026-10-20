@@ -12,7 +12,7 @@ export default function WritingPostRow({ post, manage = false }) {
         {post.coverImage ? <img src={post.coverImage} alt="" className="aspect-[5/4] w-20 rounded-[10px] object-cover bg-[var(--color-bg-alt)] sm:w-28" /> : <div className="aspect-[5/4] w-20 rounded-[10px] bg-[var(--color-bg-alt)] sm:w-28" />}
       </Link>
       <div className="min-w-0 flex-1">
-        <Link to={`/post/${id}`} className="block text-[16px] font-semibold leading-[1.4] text-[var(--color-text)] [overflow-wrap:anywhere] hover:text-[var(--color-accent)] sm:text-[18px]">{post.title}</Link>
+        <Link to={`/post/${id}`} className="line-clamp-2 text-[16px] font-semibold leading-[1.4] text-[var(--color-text)] [overflow-wrap:anywhere] hover:text-[var(--color-accent)] sm:text-[18px]">{post.title}</Link>
         <p className="mt-2 flex flex-wrap gap-x-2 gap-y-1 text-[12px] leading-5 text-[var(--color-text-muted)]">
           <span>Story · {new Date(post.createdAt).toLocaleDateString()}</span>
           {postStatus(post) === 'unpublished' && <span>· Unpublished</span>}

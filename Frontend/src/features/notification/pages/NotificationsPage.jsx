@@ -71,7 +71,9 @@ export default function NotificationsPage() {
     if (markOne.isPending || markAll.isPending || removeOne.isPending) return
     try {
       if (!item.readAt) await markOne.mutateAsync(item._id)
-      navigate(notificationTarget(item))
+      const target = notificationTarget(item)
+      if (/^https?:\/\//i.test(target)) window.location.assign(target)
+      else navigate(target)
     } catch {
       // The mutation owns error feedback; failed reads retain the inbox.
     }

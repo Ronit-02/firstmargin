@@ -11,7 +11,7 @@ export default function useDiscoverySearch(query, type, filters = {}) {
   return useQuery({
     queryKey: ['discovery-search', normalizedQuery, type, topic, time, sort, user || 'anonymous'],
     queryFn: () => searchDiscovery({ query: normalizedQuery, type, topic, time, sort }),
-    enabled: normalizedQuery.length >= 1 && isReady,
+    enabled: isReady,
     retry: false,
     staleTime: 30_000,
   })

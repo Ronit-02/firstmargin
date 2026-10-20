@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const Profile = require('../schemas/profile.schema');
 const Workshop = require('../schemas/workshop.schema');
 const WorkshopAttendance = require('../schemas/workshop-attendance.schema');
+const Notification = require('../schemas/notification.schema');
 const { isSafeHttpUrl } = require('../utils/safe-url');
 const CreatorUpdate = require('../schemas/creator-update.schema');
 const CreatorRequest = require('../schemas/creator-request.schema');
@@ -17,8 +18,14 @@ const requireCapability = async (res, userId, capability) => {
 const listWorkshops = async (req, res) => {
   try {
     const workshops = await Workshop.find({ status: 'published', endsAt: { $gt: new Date() } })
-      .select('-meetingUrl').sort({ startsAt: 1 }).populate('hostId', 'username picture');
-    return res.json({ data: workshops });
+      .select('-meetingUrl').sort({ startsAt: 1 }).populate('hostId', 'username picture').lean();
+    const attendance = req.auth?.userId && workshops.length ? await WorkshopAttendance.find({
+      userId: req.auth.userId,
+      workshopId: { $in: workshops.map(workshop => workshop._id) },
+      status: { $in: ['registered', 'attended'] },
+    }).select('workshopId').lean() : [];
+    const registeredIds = new Set(attendance.map(item => String(item.workshopId)));
+    return res.json({ data: workshops.map(workshop => ({ ...workshop, isRegistered: registeredIds.has(String(workshop._id)) })) });
   } catch { return res.status(500).json({ message: 'Unable to load workshops' }); }
 };
 
@@ -53,13 +60,19 @@ const registerWorkshop = async (req, res) => {
     if (!await requireCapability(res, req.auth.userId, 'workshops')) return;
     const workshop = await Workshop.findOne({ _id: req.params.workshopId, status: 'published', startsAt: { $gt: new Date() } });
     if (!workshop) return res.status(404).json({ message: 'Workshop not found' });
+    const existing = await WorkshopAttendance.findOne({ workshopId: workshop._id, userId: req.auth.userId, status: 'registered' });
     const registered = await WorkshopAttendance.countDocuments({ workshopId: workshop._id, status: 'registered' });
-    if (registered >= workshop.capacity) return res.status(409).json({ message: 'Workshop is full' });
+    if (!existing && registered >= workshop.capacity) return res.status(409).json({ message: 'Workshop is full' });
     const attendance = await WorkshopAttendance.findOneAndUpdate(
       { workshopId: workshop._id, userId: req.auth.userId },
       { $set: { status: 'registered' } },
       { upsert: true, returnDocument: 'after' }
     );
+    const notificationFilter = { recipientId: req.auth.userId, type: 'workshop_registered', entityType: 'workshop', entityId: workshop._id };
+    if (!await Notification.exists(notificationFilter)) {
+      const notification = await notify({ ...notificationFilter, title: 'Workshop place reserved', body: `Your place in ${workshop.title} is reserved. Open this notification to join the workshop.`, href: workshop.meetingUrl });
+      if (!notification) return res.status(503).json({ message: 'Your place is reserved, but the joining notification could not be saved. Please retry.' });
+    }
     return res.json({ data: { id: attendance._id, status: attendance.status, meetingUrl: workshop.meetingUrl } });
   } catch (error) {
     if (error?.code === 11000) return res.status(409).json({ message: 'Registration already changed' });

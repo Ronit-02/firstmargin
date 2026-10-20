@@ -90,6 +90,41 @@ test('collection card names both formats when a collection mixes stories and sho
   await expect(page.getByRole('article').getByText('2 stories · 1 short')).toBeVisible()
 })
 
+for (const width of [390, 1280]) {
+  test(`collection image proportions do not stretch cards at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 })
+    await mockCollections(page, false)
+    const covers = ['landscape', 'portrait', 'square', 'missing']
+    await page.route('**/collection-cover-*.svg', route => {
+      const name = route.request().url().split('collection-cover-')[1]
+      if (name === 'missing.svg') return route.fulfill({ status: 404, body: '' })
+      const [imageWidth, imageHeight] = name === 'portrait.svg' ? [200, 600] : name === 'square.svg' ? [400, 400] : [600, 200]
+      return route.fulfill({ contentType: 'image/svg+xml', body: `<svg xmlns="http://www.w3.org/2000/svg" width="${imageWidth}" height="${imageHeight}"><rect width="100%" height="100%" fill="#657b65"/></svg>` })
+    })
+    await page.route(url => url.pathname === '/api/collection', route => route.fulfill({ json: {
+      data: covers.map((cover, index) => ({ ...collection, id: `cover-${index}`, title: `Reading collection ${index + 1}`, author: { username: 'Priya Mehta' }, coverImage: `/collection-cover-${cover}.svg` })),
+      meta: { nextCursor: null },
+    } }))
+    await page.goto('/collections')
+    const cards = page.locator('.collection-card')
+    await expect(cards).toHaveCount(4)
+    for (const card of await cards.all()) await card.scrollIntoViewIfNeeded()
+    await expect.poll(() => cards.locator('.collection-card__cover img').evaluateAll(images => images.length === 3 && images.every(image => image.complete && image.naturalWidth > 0))).toBe(true)
+    await expect(cards.last().getByRole('img', { name: 'Reading collection' })).toBeAttached()
+    const sizes = await cards.evaluateAll(elements => elements.map(card => ({
+      card: card.getBoundingClientRect().height,
+      cover: card.querySelector('.collection-card__cover').getBoundingClientRect().height,
+      width: card.querySelector('.collection-card__cover').getBoundingClientRect().width,
+    })))
+    expect(Math.max(...sizes.map(size => size.card)) - Math.min(...sizes.map(size => size.card))).toBeLessThan(1)
+    expect(Math.max(...sizes.map(size => size.cover)) - Math.min(...sizes.map(size => size.cover))).toBeLessThan(1)
+    for (const size of sizes) {
+      if (width === 390) expect(size.width / size.cover).toBeCloseTo(2, 1)
+      else expect(size.cover).toBe(180)
+    }
+  })
+}
+
 for (const width of [320, 325, 390, 600, 640, 768, 1280]) {
   test(`collections keep controls and card content within bounds at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 844 })

@@ -1,6 +1,14 @@
 # Development test fixtures
 
-Last reviewed: 2026-10-19
+Last reviewed: 2026-10-21
+
+## Ten-story reading path (2026-10-21)
+
+The maintained seed includes the public story series “A Curious Life: Ten Ways of Seeing”: ten existing Maya Sen stories ordered from familiar rooms and neighborhood walks through questions, libraries, research, curation, patient technology, clear writing, street memory, and field notes. It adds a series without duplicating publications. The maintained catalog now defines 24 series; unrelated fixtures may increase persisted totals.
+
+On an already seeded isolated development database, run `node scripts/seed-development.js --add-story-series` from `Backend/`. The command requires the exact ten released stories from their original author, inserts only the named series with positions 0–9 and an unused catalog cover, and verifies persisted membership/order. Reruns verify without rewriting the series or its saves; a conflicting existing order fails verification rather than being replaced. Run the targeted command serially. Production and database names without development/test/sandbox/local markers (or containing prod/live) are rejected. No account, publication, existing series, or engagement refresh runs. The full seed includes the same reading path; `--check` validates its ten distinct fixture keys and matching author/format without database access.
+
+Verification on 2026-10-21: the targeted insert persisted exactly ten same-author, released story references at positions 0–9; a repeat run reported `created: false`. Existing guest list/detail controllers returned ten visible entries in matching order and the full ten-title preview. Catalog preflight, focused seed lint, all 120 backend contracts, and scoped whitespace checks passed. Sandbox database/localhost restrictions required outside-sandbox verification. No browser or provider actions were exercised.
 
 ## Purpose and safety
 
@@ -22,35 +30,41 @@ Fixtures support product verification without creating real charges or fabricati
 | Notifications and moderation review | Read/unread activity, report lifecycle states, and non-destructive staff review scenarios. |
 | Provider-independent lifecycle states | Billing, AI-use, media, email, and delivery-adjacent UI states without requiring live provider calls. |
 
-## Expanded reading catalog — 2026-10-19
+## Clean community catalog (2026-10-20)
 
-`npm run seed:dev` in `Backend/` now provides 74 keyed publications: 53 released stories, 17 released shorts, three future releases, and one unpublished owner example. The 32 discovery stories have distinct multi-paragraph bodies, nine more complete stories were added, and the original featured stories and shorts have fuller reading copy. The seed also provides 19 collections, seven ordered series (four story and three short), 14 reader questions, eight drafts, varied reading engagement, and subject-specific competition descriptions. Editorial copy lives in `Backend/data/development-writing.js`; boundary examples live in `Backend/data/development-edge-cases.js`; `Backend/scripts/seed-development.js` creates and links the persistent records. Existing seed keys, routes, schemas, and presentation components are retained. The corrected first discovery title is reconciled on rerun so an older demo record is not duplicated.
+### Rich story and short bodies (2026-10-20)
 
-The seed was applied to the configured development database on 2026-10-19. Its verification completed with at least the expected records; the database also contains older and independently seeded fixtures, so total collection counts can exceed this catalog. Re-running the seed refreshes records selected by their existing natural keys and should be done only in an isolated development environment.
+`Backend/data/development-rich-content.json` owns 117 keyed editorial expansions; `Backend/data/development-writing.js` composes them with the existing openings/endings using supported structured blocks. There are 111 expanded maintained publications (79 stories and 32 shorts) plus six older sample shorts. The complete micro-fiction “Wait.” and “Oh! 👀” and the near-limit short remain intentionally brief or near the existing limit. Expanded maintained stories contain 268–479 words and shorts 154–189 words, counting headings, quotes, and code but excluding image URLs. Shorts remain under 500 words.
 
-### Varied engagement fixtures — 2026-10-19
+Subject-specific sections, original pull quotes, illustrative HTTPS images with alt text, practical code or text examples, dividers, bold, and italic vary across the catalog. Technical examples appear only where relevant. The 114 maintained bodies contain 21 H1, 91 H2, 17 H3, 55 quote, eight code, eighteen image, and 27 divider blocks. Images illustrate the subject rather than document the fictional narrated events; pull quotes are original prose, not attributed interviews. Generic repeated section headings were removed when composing the richer bodies. Frontend reader components and styles are unchanged.
 
-The seed includes twelve additional reader personas and assigns deterministic, varied appreciation and comment relationships to released stories and shorts. Some items deliberately retain zero activity for empty-state checks. Displayed publication counts are reconciled to the actual relationship records after seeding, and a seed invariant requires multiple count levels in each format. The deterministic selection makes reruns idempotent; it does not change counts randomly on every execution. Future releases and the unpublished owner example are not given generated public engagement.
+For an existing isolated development database, run `node scripts/seed-development.js --refresh-content` from `Backend/`. It resolves the maintained author/title set before writing, updates only body/current revision with conflict checks, and appends immutable revision snapshots. Optional older shorts are matched to their specific sample author/title. It verifies exact persisted bodies, matching current revisions, and preservation of all other publication fields except the normal update timestamp. It does not reset account passwords, release dates, covers, engagement, collections, series, or unrelated publications. The full seed includes the expanded catalog; `--check` validates block payloads through the existing publication parser without database access.
 
-### Content boundary and rough-writing fixtures — 2026-10-19
+Verification on 2026-10-20: 120 persisted bodies and current revisions passed, including the three preserved literary/length examples. The repeat refresh made zero updates. Data checks found 117 distinct expansion keys and 313 unique long passages; composition is deterministic and preserves its inputs. Backend lint and all 116 existing contracts passed. Six live API/Chrome reading checks passed across three persisted examples at 390/1280 px, covering semantic block counts, emphasis, media alternatives, overflow, and compact-reader scrolling. The initial sandbox run could not reach the database/local HTTP; outside-sandbox verification succeeded. A broader full-seed counter check found aggregate drift in the active development environment; the scoped refresh leaves that unrelated state untouched and verifies field preservation instead. Physical devices, other browsers, and live provider actions were not tested.
 
-The development catalog varies related tag counts and order without removing each ordinary story's main subject. Published tag counts include 0, 1, several intermediate values, and 20. Tags are trimmed, lowercased, and deduplicated like the editor; intentional typo tags remain searchable custom labels. The named examples below stay within the application's publishing limits:
+The catalog now contains 91 fictional people and 114 keyed publications: 77 released stories, 33 released shorts, three future releases, and one unpublished owner example. Eight additional writers contribute 24 original stories and 16 shorts about travel, fiction, design, technology, nature, family, public space, and everyday life. Each has a subject-specific biography, stable public handle, collection, story series, and short series. There are 27 collections, 23 series, 26 questions, 16 drafts, six competitions, eight workshops, and eleven creator updates in the maintained catalog. Unrelated records from older or independent fixtures may increase database totals.
 
-| Find this title | What it exercises |
-|---|---|
-| `Wait.` and `Oh! 👀` | Very short story/short, no tags, empty-looking previews. |
-| `A reading path with every tag I could think of` | Twenty normalized tags, mixed subject labels, and one long custom tag. |
-| `I tried to explain why the old riverside footpath...` | Story title near 180 characters. |
-| `What happens when thisisoneverylongunbrokenword...` | Unbroken title/body text and a long plain-text URL. |
-| `A café, a coast, and a question: mañana? 🌊` | Accents, non-Latin scripts, emoji, and mixed-language tags. |
-| `Headings, a quote, code, and one image in the same story` | All supported reading block types, inline emphasis, literal markup text, and wide code. |
-| `The photo I forgot to check before publishing` | Valid image URL that fails to load, with descriptive fallback text. |
-| `i think this is abit messy... maybe??` | Typo tags, repeated punctuation, extra spaces, and unfinished prose. |
-| `The quick note that kept growing` | A 472-word short near the 500-word limit. |
-| `wait, why is this sign here??` | Informal question with no tags or context; the other added question has a near-limit title, five tags, and two answers. |
-| `OK`, `Still collecting...`, and the long collection title | One-item, empty, and twelve-item mixed collections; optional/long descriptions. |
+`Backend/data/development-community.js` owns the new editorial content, personas, curation, subject-cover mapping, and reproducible reader selection. Existing discovery subjects and covers now match their stories. Publication, collection, series, and competition records receive HTTPS cover URLs. Drafts, workshops, and creator updates retain their existing schemas without a cover field. Images are remote references; no media upload is required.
 
-Two rough drafts and one long-titled story series exercise Studio and series layouts. These are valid persisted states; malformed requests and prohibited content still belong in validation tests. The seed checks title, tag, block, word, description, and item limits before writing.
+### Distinct cover photos (2026-10-20)
+
+`Backend/data/development-covers.json` contains 460 distinct public Unsplash photo IDs with topic labels and source descriptions. `Backend/data/development-cover-selection.js` chooses by title/subject, uses deterministic tie-breaking, reserves each photo once across different records, and returns the same image for repeated uses of the same item. It never treats query-string/crop changes as different photos and fails if the pool is exhausted.
+
+The full seed and editorial refresh finish with a shared cover allocation across publications, collections, series, and competitions. For an existing development database, `node scripts/seed-development.js --refresh-covers` runs only the cover update and verifies persisted uniqueness. This changes image fields without rewriting content, interactions, routes, APIs, or schemas. Historical publication revisions and repeated appearances of one item are the same logical item, rather than separate cover assignments.
+
+Verification on 2026-10-20: all 460 source photo URLs returned image content. The development database has 189 distinct underlying cover photos across 127 publications, 30 collections, 25 series, and seven competitions. A rerun verified the same assignments with zero updates. Pure allocation checks covered uniqueness, repeatability, same-item reuse, crop normalization, and pool exhaustion. Backend lint and the publication catalog preflight passed.
+
+`Backend/data/development-writing.js` retains the original reading copy, and `Backend/data/development-edge-cases.js` owns the smaller reading examples. `Backend/scripts/seed-development.js` creates and links the persistent records through `npm run seed:dev`. Re-running refreshes records selected by their natural keys; use only an isolated development environment. Existing feed sections, routes, schemas, and presentation components remain in use.
+
+Earlier deliberately broken media, artificial unbroken words, and public prose describing tests were replaced with readable editorial content. Existing seed keys remain stable; renamed publications and drafts reconcile their previous titles before upserting. The catalog retains naturally short pieces, Unicode, multi-block writing, varied tag counts including twenty, an empty collection, and a near-limit short. Request-validation and browser fixtures remain the home for malformed input and intentional rendering failures.
+
+The editorial refresh also converts six specifically identified older browser-created shorts into distinct reading pieces, fills blank covers on older publications/collections/series and the existing ongoing sample contest, and reconciles one obsolete draft created during this refresh. Other writers' existing titles and bodies are preserved. `node scripts/seed-development.js --refresh-editorial` applies only that bounded repair to an already seeded development database; the full seed includes the same repair.
+
+Appreciations, saves, follows, question votes, collection followers, competition votes, threaded comments, reading checkpoints, and reading events are connected records. Counts vary by stable keyed selection and are reconciled to their source relationships or events. Competition voters occur in at most one entry per contest; closed reader results preserve ties. Counts do not change randomly on refresh or multiply on a rerun. No sample activity is claimed as real user activity.
+
+Run `node scripts/seed-development.js --check` from `Backend/` for a database-free catalog check. The seed also rejects production execution and database names without a development, test, sandbox, or local marker. Post-seed verification checks the exact keyed publication set, covers, absence of em dashes in publication titles/bodies, and agreement of appreciation/comment/view counters with stored relationships/events. Provider-dependent actions remain separate.
+
+Verification on 2026-10-20: the catalog was applied to the configured development database and the 114 keyed publications passed the persisted content and counter checks. A database-wide cover check found zero blank publication, collection, series, or competition covers; competition vote checks found no duplicate readers across entries. The public cover URLs returned image content. Backend lint and all 113 backend contract tests passed. These are data/source checks; browser rendering and live provider actions were not exercised.
 
 ## Intentional boundaries
 

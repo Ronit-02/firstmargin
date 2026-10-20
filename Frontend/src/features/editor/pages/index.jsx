@@ -1,5 +1,5 @@
 import Select from '@/shared/components/ui/Select'
-import { useState, useRef, forwardRef, useEffect, useLayoutEffect } from 'react'
+import { useState, useRef, forwardRef, useEffect, useLayoutEffect, useCallback } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { v4 as uuid } from 'uuid'
@@ -8,6 +8,7 @@ import SlashMenu from '../components/SlashMenu'
 import TagPicker from '../components/TagPicker'
 import MobileBlockMenu from '../components/MobileBlockMenu'
 import MobileEditorCommands from '../components/MobileEditorCommands'
+import InlineRichText, { getFieldSelection, setFieldSelection, rawOffset, plainText } from '../components/InlineRichText'
 import useWritingHistory from '../hooks/useWritingHistory'
 import createPost from '../api/createPost'
 import fetchDepthOptions from '../api/fetchDepthOptions'
@@ -16,6 +17,7 @@ import { createDraft, deleteDraft, fetchDraft, updateDraft } from '../api/drafts
 import { updatePost } from '../api/updatePost'
 import fetchPost from '@/features/post/api/fetchPost'
 import useToast from '@/shared/hooks/useToast'
+import isValidImageUrl from '@/shared/utils/isValidImageUrl'
 import { useSelector } from 'react-redux'
 import PageFrame from '@/shared/components/layout/PageFrame'
 import SignInPrompt from '@/shared/components/ui/SignInPrompt'
@@ -50,7 +52,8 @@ const postEditFields = (post, blocks) => ({
   title: post.title || '',
   blocks,
   tags: post.tags || [],
-  publicAt: post.publicAt ? new Date(post.publicAt).toISOString().slice(0, 16) : '',
+  publicAt: post.publicAt && new Date(post.publicAt).getTime() > Date.now()
+    ? new Date(post.publicAt).toISOString().slice(0, 16) : '',
 })
 
 const samePostEditFields = (left, right) => left.title === right.title
@@ -97,10 +100,13 @@ function MemberEditor() {
   const [tags,    setTags]    = useState([])
   const [cover,   setCover]   = useState(null)
   const [coverURL, setCoverURL] = useState('')
+  const [coverSource, setCoverSource] = useState('upload')
+  const [coverLink, setCoverLink] = useState('')
   const [publishOpen, setPublishOpen] = useState(false)
   const [instructionsOpen, setInstructionsOpen] = useState(false)
   const [activeBlockId, setActiveBlockId] = useState(null)
   const [phoneCommandsVisible, setPhoneCommandsVisible] = useState(false)
+  const [phoneTitleCommandsVisible, setPhoneTitleCommandsVisible] = useState(false)
   const [mobileMenu, setMobileMenu] = useState(null)
   const [isCompact, setIsCompact] = useState(() => window.matchMedia('(max-width: 767px)').matches)
   const [draftId, setDraftId] = useState(initialDraftId)
@@ -121,7 +127,9 @@ function MemberEditor() {
   const instructionsDialogRef = useDialogFocus(() => setInstructionsOpen(false), instructionsCloseRef, instructionsOpen)
   const publishTriggerRef = useRef(null)
   const publishCloseRef = useRef(null)
-  const closePublish = () => { if (!isPending) setPublishOpen(false) }
+  const publishPendingRef = useRef(false)
+  const savedCoverRef = useRef(null)
+  const closePublish = () => { if (!publishPendingRef.current) { if (coverURL instanceof File || coverLink) { setCoverURL(''); setCoverLink(''); setCover(savedCoverRef.current); if (fileRef.current) fileRef.current.value = '' } setPublishOpen(false) } }
   const publishDialogRef = useDialogFocus(closePublish, publishCloseRef, publishOpen)
   const blockRefs  = useRef({})
   const altRefs = useRef({})
@@ -132,7 +140,7 @@ function MemberEditor() {
         || Object.keys(altRefs.current).map(blockId => `alt:${blockId}`).find(altId => altRefs.current[altId.slice(4)] === active)
         || fallbackBlockId
     if (!id) return null
-    return { id, start: active?.selectionStart ?? 0, end: active?.selectionEnd ?? 0 }
+    return { id, ...getFieldSelection(active) }
   }
   const editBlocks = (updater, options = {}) => {
     const beforeFocus = options.beforeFocus || captureWritingFocus(options.blockId)
@@ -144,10 +152,9 @@ function MemberEditor() {
       : restore.id?.startsWith('alt:') ? altRefs.current[restore.id.slice(4)] : blockRefs.current[restore.id]
     if (!field) return
     field.focus({ preventScroll: true })
-    if (field.setSelectionRange) {
-      const start = Math.min(restore.start || 0, field.value.length)
-      field.setSelectionRange(start, Math.min(restore.end ?? start, field.value.length))
-    }
+    const length = field.isContentEditable ? field.textContent.length : field.value?.length || 0
+    const start = Math.min(restore.start || 0, length)
+    setFieldSelection(field, start, Math.min(restore.end ?? start, length))
   }, [restore])
   const handleHistoryKey = event => {
     if (!(event.ctrlKey || event.metaKey) || event.altKey) return
@@ -166,9 +173,9 @@ function MemberEditor() {
   const draftVersionRef = useRef(null)
   const wordCount = blocks.reduce((count, block) => count + String(block.content || '').trim().split(/\s+/).filter(Boolean).length, 0)
   const focusNearestWritingField = event => {
-    if (event.target.closest('textarea, input, button, label, a, [role="listbox"]')) return
+    if (event.target.closest('textarea, input, button, label, a, [role="listbox"], [contenteditable]')) return
     const fields = [titleRef.current, ...blocks.map(block => blockRefs.current[block.id])]
-      .filter(field => field instanceof HTMLTextAreaElement)
+      .filter(field => field instanceof HTMLTextAreaElement || field?.isContentEditable)
     const nearest = fields.reduce((best, field) => {
       const rect = field.getBoundingClientRect()
       const distance = Math.max(rect.top - event.clientY, 0, event.clientY - rect.bottom)
@@ -243,8 +250,9 @@ function MemberEditor() {
     setFormat(post.format || 'article')
     setTags(savedEdit?.tags || post.tags || [])
     setCover(post.coverImage || null)
+    savedCoverRef.current = post.coverImage || null
     setPostRevision(savedEdit?.expectedRevision || post.currentRevision || 1)
-    setPublicAt(savedEdit?.publicAt ?? (post.publicAt ? new Date(post.publicAt).toISOString().slice(0, 16) : ''))
+    setPublicAt(savedEdit?.publicAt ?? publishedFields.publicAt)
     hydratedDraftRef.current = true
     setAutosaveStatus(savedEdit && savedEdit.expectedRevision !== (post.currentRevision || 1) ? 'conflict' : 'saved')
   }, [editQuery.data, editQuery.isFetching, editStorageKey, initialDraftId, resetWritingHistory])
@@ -304,6 +312,7 @@ function MemberEditor() {
   const { mutate, isPending, isError, error } = useMutation({
     mutationFn: input => editPostId ? updatePost(input) : createPost(input),
     onSuccess: (response) => {
+      if (response.coverUploadFailed) notify('Cover image can’t be uploaded right now. The default cover is being used.', { tone: 'error' })
       if (editStorageKey) {
         try { localStorage.removeItem(editStorageKey) } catch { /* The update succeeded even if storage is unavailable. */ }
       }
@@ -311,7 +320,7 @@ function MemberEditor() {
       notify(editPostId ? 'Story updated.' : 'Story published.')
       // Replace the draft editor entry so browser Back cannot reopen the
       // draft after it has been deleted following publication.
-      navigate(`/post/${editPostId || response.postId}`, { replace: true });
+      navigate(`/post/${editPostId || response.postId || response.publicationId}`, { replace: true });
       // displayNotification(response.message);
     },
     onError: (error) => {
@@ -320,17 +329,27 @@ function MemberEditor() {
       // displayNotification(message, 'error');
     },
   });
+  useEffect(() => { publishPendingRef.current = isPending }, [isPending])
   
   // Submitting Form
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!loggedIn || publishRequirements.length || isPending || (editPostId && !postRevision)) return
+    if (!loggedIn || publishRequirements.length || isPending || (editPostId && !postRevision) || (coverLink.trim() && !isValidImageUrl(coverLink))) return
     if (editPostId) {
-      mutate({ postId: editPostId, expectedRevision: postRevision, title, body: JSON.stringify(blocks), tags, publicAt: publicAt ? new Date(publicAt).toISOString() : undefined })
+      const input = { postId: editPostId, expectedRevision: postRevision, title, body: JSON.stringify(blocks), tags, publicAt: publicAt ? new Date(publicAt).toISOString() : null }
+      if (coverURL instanceof File || coverLink.trim() || (!cover && editQuery.data?.coverImage)) {
+        const formData = new FormData()
+        Object.entries(input).forEach(([key, value]) => { if (key !== 'postId' && value !== undefined) formData.append(key, value === null ? '' : value) })
+        if (coverURL instanceof File) formData.append('coverURL', coverURL)
+        else if (coverLink.trim()) formData.append('coverImageUrl', coverLink.trim())
+        else formData.append('removeCover', 'true')
+        mutate({ postId: editPostId, formData })
+      } else mutate(input)
       return
     }
     const formData = new FormData();
-    formData.append('coverURL', coverURL);
+    if (coverURL instanceof File) formData.append('coverURL', coverURL)
+    if (coverLink.trim()) formData.append('coverImageUrl', coverLink.trim())
     formData.append('title', title);
     formData.append('body', JSON.stringify(blocks));
     formData.append('tags', tags);
@@ -350,6 +369,10 @@ function MemberEditor() {
       
     } 
   }
+  useEffect(() => {
+    if (typeof cover !== 'string' || !cover.startsWith('blob:')) return undefined
+    return () => URL.revokeObjectURL(cover)
+  }, [cover])
 
   // Block update and edit operations
   const updateBlock = (id, val, kind = 'typing') => {
@@ -360,6 +383,7 @@ function MemberEditor() {
   }
   const deleteBlock = (id) => {
     let focusBlkId = null;
+    let focusOffset = 0;
     
     // If last, Prevent deleting the last block
     if(blocks.length === 1) {
@@ -371,13 +395,17 @@ function MemberEditor() {
     else{
       const idx = blocks.findIndex(bl => bl.id === id);
       focusBlkId = idx > 0 ? blocks[idx - 1].id : blocks[1].id;
-      editBlocks(b => b.length > 1 ? b.filter(bl => bl.id !== id) : b, { blockId: id, afterFocus: { id: focusBlkId, start: 0, end: 0 } })
+      if (idx > 0) focusOffset = plainText(blocks[idx - 1].content).length;
+      editBlocks(b => b.length > 1 ? b.filter(bl => bl.id !== id) : b, { blockId: id, afterFocus: { id: focusBlkId, start: focusOffset, end: focusOffset } })
     }
 
-    // Focus on the new block after deletion
     setTimeout(() => {
-      placeCaretAtEnd(blockRefs.current[focusBlkId]);
+      const field = blockRefs.current[focusBlkId];
+      if (!field) return;
+      field.focus();
+      setFieldSelection(field, focusOffset);
     }, 0);
+
   }
   // Add a block after the given block, optionally with initial content
   const addAfter = (id, initialContent = '', type = 'text', beforeContent = null) => {
@@ -395,11 +423,7 @@ function MemberEditor() {
 
     setTimeout(() => {
       blockRefs.current[newBlk.id]?.focus();
-      if (initialContent) {
-        // Move cursor to start if content was split
-        const el = blockRefs.current[newBlk.id];
-        if (el && el.setSelectionRange) el.setSelectionRange(0, 0);
-      }
+      if (initialContent) setFieldSelection(blockRefs.current[newBlk.id], 0)
     }, 0);
   }
   const changeType = (id, type) => {
@@ -488,7 +512,8 @@ function MemberEditor() {
   useEffect(() => {
     const onFocus = event => {
       if (event.target.closest?.('[data-mobile-editor-commands]')) return
-      setPhoneCommandsVisible(Boolean(event.target.closest?.('[data-editor-block]') && event.target.matches('textarea')))
+      setPhoneTitleCommandsVisible(event.target.id === 'editor-title')
+      setPhoneCommandsVisible(Boolean(event.target.closest?.('[data-editor-block]') && event.target.matches('textarea, [contenteditable="true"]')))
     }
     document.addEventListener('focusin', onFocus)
     return () => document.removeEventListener('focusin', onFocus)
@@ -500,13 +525,43 @@ function MemberEditor() {
     requestAnimationFrame(() => blockRefs.current[activeBlockId]?.focus({ preventScroll: true }))
   }
 
-  const moveFocus = (id, dir) => {
+  const moveFocus = (id, dir, column = 0, preferredX = null) => {
     const i = blocks.findIndex(b => b.id === id);
     const nextIdx = i + dir;
     if (nextIdx >= 0 && nextIdx < blocks.length) {
       const nextId = blocks[nextIdx].id;
       setTimeout(() => {
-        blockRefs.current[nextId]?.focus();
+        const field = blockRefs.current[nextId];
+        if (!field) return;
+        field.focus();
+        const text = field.isContentEditable ? field.textContent : field.value;
+        const lineStart = dir < 0 ? text.lastIndexOf('\n') + 1 : 0;
+        const lineEnd = text.indexOf('\n', lineStart);
+        let offset = lineStart + Math.min(column, (lineEnd < 0 ? text.length : lineEnd) - lineStart);
+        if (field.isContentEditable && preferredX !== null) {
+          const range = document.createRange();
+          const walker = document.createTreeWalker(field, NodeFilter.SHOW_TEXT);
+          let node = walker.nextNode();
+          let base = 0;
+          let best = null;
+          while (node) {
+            for (let index = 0; index <= node.textContent.length; index += 1) {
+              range.setStart(node, index);
+              range.collapse(true);
+              const rect = range.getBoundingClientRect();
+              if (!rect.height) continue;
+              const line = rect.top;
+              const distance = Math.abs(rect.left - preferredX);
+              if (!best || (dir < 0 ? line > best.line + 2 : line < best.line - 2) || (Math.abs(line - best.line) <= 2 && distance < best.distance)) {
+                best = { line, distance, offset: base + index };
+              }
+            }
+            base += node.textContent.length;
+            node = walker.nextNode();
+          }
+          if (best) offset = best.offset;
+        }
+        setFieldSelection(field, offset);
       }, 0);
     }
   }
@@ -528,38 +583,15 @@ function MemberEditor() {
     
     setTimeout(() => {
       const textarea = blockRefs.current[prevBlk.id];
-      const cursorPos = prevBlk.content.length;
       textarea.focus();
-      textarea.setSelectionRange(cursorPos, cursorPos);
+      setFieldSelection(textarea, plainText(prevBlk.content).length);
     }, 0)
   }
 
-  const placeCaretAtEnd = (el) => {
-    if (!el) return;
-    // Use requestAnimationFrame to ensure DOM is updated
-    requestAnimationFrame(() => {
-      // For textarea or input
-      if (el.setSelectionRange && typeof el.value === 'string') {
-        el.focus();
-        const len = el.value.length;
-        el.setSelectionRange(len, len);
-      } else {
-        // For contenteditable
-        el.focus();
-        const range = document.createRange();
-        range.selectNodeContents(el);
-        range.collapse(false);
-        const selection = window.getSelection();
-        selection.removeAllRanges();
-        selection.addRange(range);
-      }
-    });
-  };
-
   // Copy content into blocks
-  const copyPasteContent = async (id) => {
+  const copyPasteContent = async (id, pastedText) => {
     try {
-      const content = await navigator.clipboard.readText();
+      const content = pastedText ?? await navigator.clipboard.readText();
       const contentArray = content
         .split('\n')
         .map(line => line.replace(/\n/g, '').trimEnd())
@@ -595,11 +627,11 @@ function MemberEditor() {
   // }, []);
 
   return (
-    <PageFrame className="!pt-6 !pb-2 lg:!pt-8">
+    <PageFrame className="!pt-6 !pb-1 lg:!pt-8">
 
       {/* <HoveringMenu position={menuPosition} onFormat={applyFormatting} /> */}
       <div className="mb-4"><BackButton fallbackTo={loggedIn ? '/studio?writingTab=drafts' : '/'} className="-ml-2" disabled={Boolean(coverURL) || ['waiting', 'saving', 'error', 'conflict'].includes(autosaveStatus)} /></div>
-      <header className="mb-8 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-[var(--color-border)] pb-5">
+      <header className="mb-8 grid grid-cols-1 items-start gap-4 border-b border-[var(--color-border)] pb-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
         <div className="min-w-0">
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-accent)]">Editing</p>
           <h1 className="mt-2 text-[24px] font-bold text-[var(--color-text)]" style={{ fontFamily: 'var(--font-display)' }}>{editPostId ? 'Edit' : 'Write'} {format === 'short' ? 'Short' : 'Story'}</h1>
@@ -608,7 +640,7 @@ function MemberEditor() {
           </p>
         </div>
 
-      <div className="ml-auto flex items-center gap-3">
+      <div className="flex items-center gap-3 sm:ml-auto">
         <button ref={instructionsTriggerRef} type="button" onClick={() => setInstructionsOpen(true)} className="flex h-11 items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-4 text-[13px] font-semibold text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]">Instructions</button>
           <Button
             ref={publishTriggerRef}
@@ -679,6 +711,13 @@ function MemberEditor() {
               moveFocus={moveFocus}
               mergeToPrevBlock={mergeToPrevBlock}
               copyPasteContent={copyPasteContent}
+              showPhoneCommands={phoneCommandsVisible && !mobileMenu && (activeBlockId === bl.id || (!activeBlockId && bl.id === blocks[0]?.id))}
+              phoneOptions={BLOCK_TYPES.filter(option => option.type !== 'divider' || blocks.length > 1)}
+              onPhoneSelect={selectPhoneCommand}
+              onUndo={undo}
+              onRedo={redo}
+              canUndo={canUndo}
+              canRedo={canRedo}
             />
           ))}
 
@@ -695,17 +734,11 @@ function MemberEditor() {
         </div>
 
         {mobileMenu && <MobileBlockMenu title={mobileMenu.mode === 'insert' ? 'Insert block' : 'Block type'} options={BLOCK_TYPES} onSelect={selectMobileBlock} onClose={() => setMobileMenu(null)} />}
-        {phoneCommandsVisible && activeBlockId && !mobileMenu && <MobileEditorCommands
-          options={BLOCK_TYPES.filter(option => option.type !== 'divider' || blocks.length > 1)}
-          activeType={blocks.find(block => block.id === activeBlockId)?.type} onSelect={selectPhoneCommand} />}
-
-        <div data-editor-footer className="flex items-center justify-between gap-2 pb-6 text-[12px] text-[var(--color-text-secondary)]">
-          <div className="flex items-center gap-2 sm:hidden">
-            <button type="button" onClick={undo} disabled={!canUndo} aria-label="Undo writing change" title="Undo (Ctrl+Z)" className="min-h-11 rounded-lg px-3 text-[13px] font-semibold text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-alt)] disabled:cursor-not-allowed disabled:opacity-50">Undo</button>
-            <button type="button" onClick={redo} disabled={!canRedo} aria-label="Redo writing change" title="Redo (Ctrl+Y)" className="min-h-11 rounded-lg px-3 text-[13px] font-semibold text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-alt)] disabled:cursor-not-allowed disabled:opacity-50">Redo</button>
-          </div>
+        {phoneTitleCommandsVisible && !mobileMenu && <MobileEditorCommands options={[]} onSelect={() => {}} onUndo={undo} onRedo={redo}
+          canUndo={canUndo} canRedo={canRedo} canFormat={false} hasSelection={false} onFormat={() => {}} />}
+        <div data-editor-footer className={`flex items-center justify-between gap-2 text-[12px] text-[var(--color-text-secondary)] ${(phoneCommandsVisible || phoneTitleCommandsVisible) && !mobileMenu ? 'mb-16 md:mb-0' : ''}`}>
           <div className="ml-auto flex items-center gap-3">
-            <p data-editor-shortcuts className="hidden whitespace-nowrap text-[11px] italic leading-5 tracking-[0.02em] text-[var(--color-text-muted)] sm:block">(ctrl+z to undo, ctrl+y to redo)</p>
+            <p data-editor-shortcuts className="hidden whitespace-nowrap text-[11px] italic leading-5 tracking-[0.02em] text-[var(--color-text-muted)] md:block">(ctrl+z to undo, ctrl+y to redo)</p>
             <p className={`shrink-0 ${format === 'short' && wordCount > 500 ? 'text-[var(--color-danger)]' : ''}`}>{format === 'short' ? `${wordCount}/500 words` : `${wordCount} ${wordCount === 1 ? 'word' : 'words'}`}</p>
           </div>
         </div>
@@ -728,30 +761,32 @@ function MemberEditor() {
 
       {publishOpen && <ModalLayer onDismiss={closePublish} dismissOnBackdrop={false} returnFocusRef={publishTriggerRef} aria-labelledby="publish-dialog-title" className="grid place-items-center p-4">
         <section ref={publishDialogRef} tabIndex={-1} className="flex w-full max-w-[560px] flex-col overflow-hidden rounded-[20px] border border-[var(--color-border)] bg-[var(--color-surface)] shadow-[var(--shadow-menu)]">
-          <ModalHeader title={editPostId ? 'Update story' : 'Publish story'} titleId="publish-dialog-title" onClose={closePublish} closeLabel="Close publishing options" closeRef={publishCloseRef} />
+          <ModalHeader title={`${editPostId ? 'Update' : 'Publish'} ${format === 'short' ? 'short' : 'story'}`} titleId="publish-dialog-title" onClose={closePublish} closeLabel="Close publishing options" closeRef={publishCloseRef} />
           <form onSubmit={handleSubmit} className="min-h-0 overflow-y-auto p-4 sm:p-6">
         <div>
           <div className="grid items-start gap-6">
             {/* ── Cover image ── */}
             {format === 'article' && <div>
               <h2 className="mb-3 text-[13px] font-semibold text-[var(--color-text)]">Cover image <span className="font-normal text-[var(--color-text-secondary)]">(optional)</span></h2>
+              <Select id="story-cover-source" label="Image source" value={coverSource} options={[{ value: 'upload', label: 'Upload file' }, { value: 'url', label: 'Paste URL' }]} onChange={value => { setCoverSource(value); setCoverURL(''); setCoverLink(''); setCover(savedCoverRef.current); if (fileRef.current) fileRef.current.value = '' }} className="mb-3 max-w-none" />
+              {coverSource === 'url' && <label htmlFor="story-cover-url" className="mb-3 block text-[12px]">Image URL<input id="story-cover-url" type="url" value={coverLink} onChange={event => { setCoverLink(event.target.value); setCover(event.target.value || savedCoverRef.current) }} placeholder="https://..." className="mt-1 w-full rounded-[10px] border border-[var(--color-border)] bg-[var(--color-bg-alt)] p-3 text-[13px]" /></label>}
               {cover ? (
                 <div className="relative">
                   <img src={cover} alt="cover" className="w-full h-40 object-cover rounded-[14px] block"/>
                   <button
                     type="button"
                     aria-label="Remove cover image"
-                    onClick={() => { setCover(null); setCoverURL(''); if (fileRef.current) fileRef.current.value = '' }}
+                    onClick={() => { setCover(null); setCoverURL(''); setCoverLink(''); if (fileRef.current) fileRef.current.value = '' }}
                     className="absolute top-2 right-2 w-11 h-11 rounded-full bg-black/60 text-white border-none cursor-pointer flex items-center justify-center text-[18px]">
                     ×
                   </button>
                 </div>
-              ) : (
+              ) : coverSource === 'upload' ? (
                 <button type="button" onClick={() => fileRef.current?.click()}
                   className="w-full min-h-40 px-3 py-3 rounded-[14px] border-2 border-dashed border-(--color-border) flex items-center justify-center text-(--color-text-muted) text-[13px] font-medium cursor-pointer bg-transparent hover:bg-(--color-bg-alt) transition-colors">
                   + Add cover image
                 </button>
-              )}
+              ) : null}
               <input
                 ref={fileRef}
                 type="file"
@@ -767,13 +802,13 @@ function MemberEditor() {
             <h3 className="mb-3 text-[12px] font-medium text-[var(--color-text-secondary)]">Publishing options</h3>
             <div className="pt-3">
             {format === 'short' && <div className="mb-7"><Select id="depth-parent" label="Link a full story (optional)" value={depthParentId} options={[{ value: '', label: 'None' }, ...(depthOptions.data || []).map(post => ({ value: post.id, label: post.title }))]} onChange={setDepthParentId} className="max-w-none" describedBy="depth-parent-help" /><p id="depth-parent-help" className="mt-2 text-[11px] text-[var(--color-text-muted)]">Choose a longer story on the same topic so readers can move between the short and full version. Select None to remove a link.</p></div>}
-            {canScheduleEarlyAccess && <div className="mb-7"><label htmlFor="public-at" className="block mb-2 text-[12px] font-semibold text-[var(--color-text)]">Public release <span className="font-normal text-[var(--color-text-muted)]">(optional)</span></label><input id="public-at" type="datetime-local" value={publicAt} min={scheduleBounds.min} max={scheduleBounds.max} onChange={event => setPublicAt(event.target.value)} className="w-full rounded-[10px] border border-[var(--color-border)] bg-[var(--color-bg-alt)] p-3 text-[13px] text-[var(--color-text)]" /><p className="mt-2 text-[11px] text-[var(--color-text-muted)]">Members can read immediately; everyone else gets access at this time.</p></div>}
+            {canScheduleEarlyAccess && <div className="mb-7"><label htmlFor="public-at" className="block mb-2 text-[12px] font-semibold text-[var(--color-text)]">Public release <span className="font-normal text-[var(--color-text-muted)]">(optional)</span></label><div className="relative"><input id="public-at" type="datetime-local" value={publicAt} min={scheduleBounds.min} max={scheduleBounds.max} onChange={event => setPublicAt(event.target.value)} className={`editor-public-at ${publicAt ? 'has-clear' : ''} w-full rounded-[10px] border border-[var(--color-border)] bg-[var(--color-bg-alt)] p-3 text-[13px] text-[var(--color-text)]`} />{publicAt && <button type="button" onClick={() => setPublicAt('')} aria-label="Remove public release date" className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-[18px] text-[var(--color-text-secondary)] hover:text-[var(--color-text)]">×</button>}</div><p className="mt-2 text-[11px] text-[var(--color-text-muted)]">Members can read immediately; everyone else gets access at this time.</p></div>}
             </div>
           </div>}
         </div>
         {isError && <p role="alert" className="mt-3 text-[12px] text-[var(--color-danger)]">{error?.response?.data?.message || 'The story could not be published.'}</p>}
         <div className="mt-5 flex justify-end gap-2">
-          <Button type="submit" disabled={Boolean(publishRequirements.length) || isPending || Boolean(editPostId && !postRevision)} data-disabled-reason={isPending ? 'Publication is in progress.' : editPostId && !postRevision ? 'The story is still loading.' : publishRequirements.length ? `To publish, ${publishRequirements.join(', ')}.` : undefined} aria-busy={isPending}>{editPostId ? 'Update' : 'Publish'}</Button>
+          <Button type="submit" disabled={Boolean(publishRequirements.length) || isPending || Boolean(editPostId && !postRevision) || Boolean(coverLink.trim() && !isValidImageUrl(coverLink))} data-disabled-reason={isPending ? 'Publication is in progress.' : editPostId && !postRevision ? 'The story is still loading.' : publishRequirements.length ? `To publish, ${publishRequirements.join(', ')}.` : undefined} aria-busy={isPending}>{editPostId ? 'Update' : 'Publish'}</Button>
         </div>
           </form>
         </section>
@@ -786,60 +821,62 @@ function MemberEditor() {
 // Single editable block
 const Block = forwardRef(
   function Block(
-    { block, format, onChange, onAltChange, onAltRef, onDelete, onSplit, onInsert, onActivate, active, openSlashMenu, closeSlashMenu, isSlashMenuOpen, moveFocus, mergeToPrevBlock, copyPasteContent },
+    { block, format, onChange, onAltChange, onAltRef, onDelete, onSplit, onInsert, onActivate, active, openSlashMenu, closeSlashMenu, isSlashMenuOpen, moveFocus, mergeToPrevBlock, copyPasteContent, showPhoneCommands, phoneOptions, onPhoneSelect, onUndo, onRedo, canUndo, canRedo },
     ref
   ) {
     const fieldRef = useRef(null)
     const [selectionToolbar, setSelectionToolbar] = useState(null)
     const selectionRef = useRef(null)
     const canFormat = !['code', 'image', 'divider'].includes(block.type)
-    const updateSelectionToolbar = () => {
+    const updateSelectionToolbar = useCallback(() => {
       const field = fieldRef.current
-      if (!canFormat || !field || field.selectionStart === field.selectionEnd) {
+      const { start, end } = getFieldSelection(field)
+      if (!canFormat || !field || start === end) {
         setSelectionToolbar(null)
         return
       }
-      const { selectionStart: start, selectionEnd: end } = field
       selectionRef.current = { start, end }
-      const rect = field.getBoundingClientRect()
-      const style = getComputedStyle(field)
-      const mirror = document.createElement('div')
-      mirror.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;box-sizing:border-box;visibility:hidden;white-space:pre-wrap;overflow-wrap:break-word;font:${style.font};letter-spacing:${style.letterSpacing};padding:${style.padding};border:${style.border};`
-      const selected = document.createElement('span')
-      selected.textContent = field.value.slice(start, end) || '\u200b'
-      mirror.append(document.createTextNode(field.value.slice(0, start)), selected)
-      document.body.appendChild(mirror)
-      const rangeRect = selected.getBoundingClientRect()
-      mirror.remove()
+      const rangeRect = window.getSelection().getRangeAt(0).getBoundingClientRect()
+      const fieldTop = field.getBoundingClientRect().top
+      const above = rangeRect.top - 52
+      const below = rangeRect.bottom + 8
       setSelectionToolbar({
         left: Math.max(80, Math.min(window.innerWidth - 80, rangeRect.left + rangeRect.width / 2)),
-        top: Math.max(8, rangeRect.top - 52),
+        top: above < fieldTop - 8 && below + 52 <= window.innerHeight ? below : Math.max(8, above),
       })
-    }
+    }, [canFormat])
     const applyInlineFormat = marker => {
       const field = fieldRef.current
       const range = selectionRef.current
       if (!field || !range || range.start === range.end) return
       const value = block.content
-      const selected = value.slice(range.start, range.end)
-      const wrapped = `${marker}${selected}${marker}`
-      onChange(value.slice(0, range.start) + wrapped + value.slice(range.end), 'action')
+      const start = rawOffset(value, range.start, 'start')
+      const end = rawOffset(value, range.end, 'end')
+      const selected = value.slice(start, end)
+      const visible = field.textContent.slice(range.start, range.end)
+      const alreadyWrapped = value.slice(start - marker.length, end + marker.length) === `${marker}${selected}${marker}`
+      const next = alreadyWrapped
+        ? value.slice(0, start - marker.length) + selected + value.slice(end + marker.length)
+        : value.slice(0, start) + marker + visible + marker + value.slice(end)
+      onChange(next, 'action')
       setSelectionToolbar(null)
       requestAnimationFrame(() => {
         field.focus()
-        const caret = range.start + wrapped.length
-        field.setSelectionRange(caret, caret)
+        setFieldSelection(field, range.end)
       })
     }
     useEffect(() => {
       const dismissOutside = event => {
-        if (event.target === fieldRef.current || event.target.closest?.('[data-selection-toolbar]')) return
+        if (event.target === fieldRef.current || event.target.closest?.('[data-selection-toolbar], [data-mobile-editor-commands]')) return
         setSelectionToolbar(null)
         selectionRef.current = null
       }
       const dismissCollapsed = () => {
         const field = fieldRef.current
-        if (document.activeElement === field && field.selectionStart === field.selectionEnd) setSelectionToolbar(null)
+        const { start, end } = getFieldSelection(field)
+        if (document.activeElement !== field) return
+        if (start === end) setSelectionToolbar(null)
+        else if (field.isContentEditable) updateSelectionToolbar()
       }
       document.addEventListener('pointerdown', dismissOutside, true)
       document.addEventListener('selectionchange', dismissCollapsed)
@@ -847,7 +884,7 @@ const Block = forwardRef(
         document.removeEventListener('pointerdown', dismissOutside, true)
         document.removeEventListener('selectionchange', dismissCollapsed)
       }
-    }, [])
+    }, [updateSelectionToolbar])
     const attachField = element => {
       fieldRef.current = element
       if (typeof ref === 'function') ref(element)
@@ -856,8 +893,8 @@ const Block = forwardRef(
 
     useLayoutEffect(() => {
       const field = fieldRef.current
-      if (!(field instanceof HTMLTextAreaElement)) return undefined
-      const resize = () => { field.style.height = 'auto'; field.style.height = `${field.scrollHeight}px` }
+    if (!field) return undefined
+    const resize = () => { field.style.height = 'auto'; field.style.height = `${field.scrollHeight}px` }
       resize()
       window.addEventListener('resize', resize)
       document.fonts?.ready.then(resize)
@@ -878,15 +915,40 @@ const Block = forwardRef(
     const handleKey = (e) => {
 
       const textarea = e.target;
+      const selection = getFieldSelection(textarea)
       if (canFormat && (e.ctrlKey || e.metaKey) && ['b', 'i'].includes(e.key.toLowerCase())) {
         e.preventDefault()
-        selectionRef.current = { start: textarea.selectionStart, end: textarea.selectionEnd }
+        selectionRef.current = selection
         applyInlineFormat(e.key.toLowerCase() === 'b' ? '**' : '*')
         return
       }
-      const cursorPos = textarea.selectionStart;
+      const cursorPos = selection.start;
       if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-        if (textarea.selectionStart !== textarea.selectionEnd) return
+        if (selection.start !== selection.end) return
+        const visibleText = textarea.isContentEditable ? textarea.textContent : textarea.value
+        const column = cursorPos - (visibleText.lastIndexOf('\n', cursorPos - 1) + 1)
+        if (textarea.isContentEditable) {
+          const caret = window.getSelection()?.getRangeAt(0)?.getBoundingClientRect()
+          const walker = document.createTreeWalker(textarea, NodeFilter.SHOW_TEXT)
+          const first = walker.nextNode()
+          let last = first
+          while (walker.nextNode()) last = walker.currentNode
+          const edge = document.createRange()
+          if (first) {
+            const node = e.key === 'ArrowUp' ? first : last
+            edge.setStart(node, e.key === 'ArrowUp' ? 0 : node.textContent.length)
+          } else {
+            edge.selectNodeContents(textarea)
+            edge.collapse(e.key === 'ArrowUp')
+          }
+          edge.collapse(true)
+          const boundary = edge.getBoundingClientRect()
+          if (caret && Math.abs(caret.top - boundary.top) <= 2) {
+            e.preventDefault()
+            moveFocus(block.id, e.key === 'ArrowUp' ? -1 : 1, column, caret.left)
+          }
+          return
+        }
         const styles = getComputedStyle(textarea)
         const mirror = document.createElement('div')
         const startMarker = document.createElement('span')
@@ -915,26 +977,27 @@ const Block = forwardRef(
           : caretTop >= endTop - lineHeight * 0.5
         if (atBoundary) {
           e.preventDefault()
-          moveFocus(block.id, e.key === 'ArrowUp' ? -1 : 1)
+          moveFocus(block.id, e.key === 'ArrowUp' ? -1 : 1, column)
         }
         return;
       }
       // Pasting content into editor into separate blocks
-      if (e.key === 'v' && e.ctrlKey) {
+      if (e.key === 'v' && e.ctrlKey && !textarea.isContentEditable) {
         e.preventDefault();
         copyPasteContent(block.id);
       }
       // Add new block on Enter (split block if content after cursor)
       if (e.key === 'Enter' && !e.shiftKey && !isSlashMenuOpen) {
         e.preventDefault();
-        const value = textarea.value;
-        const before = value.slice(0, cursorPos);
-        const after = value.slice(cursorPos);
+        const value = block.content;
+        const splitAt = textarea.isContentEditable ? rawOffset(value, cursorPos, 'start') : cursorPos
+        const before = value.slice(0, splitAt);
+        const after = value.slice(splitAt);
         onSplit(before, after);
         return
       }
       // Merge with previous block on Backspace at start
-      if (e.key === 'Backspace' && e.target.selectionStart === 0 && e.target.selectionEnd === 0 && block.content.length > 0) {
+      if (e.key === 'Backspace' && selection.start === 0 && selection.end === 0 && block.content.length > 0) {
         e.preventDefault();
         mergeToPrevBlock(block.id, block.content);
       }
@@ -956,9 +1019,10 @@ const Block = forwardRef(
     // Handle input for filtering
     const handleChange = (val, cursorPosition) => {
       onChange(val)
-      const match = val.slice(0, cursorPosition).match(/\/(\w*)$/)
+      const rawPosition = fieldRef.current?.isContentEditable ? rawOffset(val, cursorPosition, 'start') : cursorPosition
+      const match = val.slice(0, rawPosition).match(/\/(\w*)$/)
       if (match) {
-        openSlashMenu(block.id, match[1], { start: cursorPosition - match[0].length, end: cursorPosition })
+        openSlashMenu(block.id, match[1], { start: rawPosition - match[0].length, end: rawPosition })
       } else {
         closeSlashMenu()
       }
@@ -972,11 +1036,28 @@ const Block = forwardRef(
         ? 
           <button ref={attachField} type="button" aria-label="Divider block" onClick={onActivate} className="editor-divider-button flex min-h-11 w-full items-center"><span className="h-px bg-(--color-border) w-full" /></button>
         :
-          <div className="flex-1 min-w-0">
+          <div className="relative flex-1 min-w-0">
             {block.type === 'image' && block.content && (
               <img src={block.content} alt="block" className="w-full rounded-[10px] mb-2 object-cover max-h-100 block" />
             )}
-            <textarea
+            {canFormat ? <><InlineRichText
+              ref={attachField}
+              aria-label={`${block.type === 'text' ? 'Paragraph' : block.type} block`}
+              aria-controls={isSlashMenuOpen ? 'editor-slash-menu' : undefined}
+              value={block.content}
+              onChange={(value, selection) => handleChange(value, selection.start)}
+              onKeyDown={handleKey}
+              onKeyUp={updateSelectionToolbar}
+              onPointerUp={updateSelectionToolbar}
+              onPaste={event => { event.preventDefault(); copyPasteContent(block.id, event.clipboardData.getData('text/plain') || undefined) }}
+              onBlur={event => { if (!event.relatedTarget?.closest('[data-selection-toolbar], [data-mobile-editor-commands]')) setSelectionToolbar(null) }}
+              className={`editor-writing-field editor-rich-field peer w-full outline-none whitespace-pre-wrap break-words pr-3 ${block.type === 'text' ? 'editor-slash-hint' : ''} ${cls[block.type] || cls.text}`}
+              style={{ minHeight: '1.8em', fontFamily: format !== 'short' && ['text', 'quote'].includes(block.type) ? 'var(--font-reading)' : undefined }}
+            />{!plainText(block.content).trim() && <span aria-hidden="true"
+              className={`pointer-events-none absolute top-0 text-[var(--color-text-muted)] ${block.type === 'quote' ? 'left-4 text-[17px] italic leading-[1.7]' : block.type === 'h1' ? 'left-3 text-[32px] font-bold leading-[1.3]' : block.type === 'h2' ? 'left-3 text-[24px] font-bold leading-[1.35]' : block.type === 'h3' ? 'left-3 text-[18px] font-semibold leading-[1.4]' : 'left-3 hidden text-[15px] leading-[1.8] peer-focus:block'}`}
+              style={{ fontFamily: format !== 'short' && ['text', 'quote'].includes(block.type) ? 'var(--font-reading)' : undefined }}>
+              {{ text: 'Press / for formatting options', h1: 'Heading 1', h2: 'Heading 2', h3: 'Heading 3', quote: 'A thought worth quoting…' }[block.type]}
+            </span>}</> : <textarea
               ref={attachField}
               aria-label={`${block.type === 'text' ? 'Paragraph' : block.type} block`}
               aria-controls={isSlashMenuOpen ? 'editor-slash-menu' : undefined}
@@ -986,7 +1067,7 @@ const Block = forwardRef(
               onKeyUp={updateSelectionToolbar}
               onSelect={updateSelectionToolbar}
               onPointerUp={updateSelectionToolbar}
-              onBlur={event => { if (!event.relatedTarget?.closest('[data-selection-toolbar]')) setSelectionToolbar(null) }}
+              onBlur={event => { if (!event.relatedTarget?.closest('[data-selection-toolbar], [data-mobile-editor-commands]')) setSelectionToolbar(null) }}
               placeholder={{
                 text: 'Press / for formatting options', h1: 'Heading 1', h2: 'Heading 2', h3: 'Heading 3',
                 quote: 'A thought worth quoting…', code: '// code here', image: 'Paste image URL…',
@@ -995,8 +1076,11 @@ const Block = forwardRef(
               className={`editor-writing-field w-full outline-none resize-none overflow-hidden ${block.type === 'code' ? 'editor-code-field' : 'pr-3'} placeholder:text-(--color-text-muted) ${block.type === 'text' ? 'editor-slash-hint' : ''} ${cls[block.type] || cls.text}`}
               style={{ minHeight: '1.6em', fontFamily: format !== 'short' && ['text', 'quote'].includes(block.type) ? 'var(--font-reading)' : undefined }}
               onInput={e => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px' }}
-            />
-            {selectionToolbar && <div data-selection-toolbar role="toolbar" aria-label="Format selected text" style={{ left: selectionToolbar.left, top: selectionToolbar.top }} className="fixed z-[200] flex -translate-x-1/2 gap-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-1 shadow-[var(--shadow-menu)]">
+            />}
+            {showPhoneCommands && <MobileEditorCommands options={phoneOptions} activeType={block.type} onSelect={onPhoneSelect}
+              onUndo={onUndo} onRedo={onRedo} canUndo={canUndo} canRedo={canRedo}
+              canFormat={canFormat} hasSelection={Boolean(selectionToolbar)} onFormat={applyInlineFormat} />}
+            {selectionToolbar && <div data-selection-toolbar role="toolbar" aria-label="Format selected text" style={{ left: selectionToolbar.left, top: selectionToolbar.top }} className="fixed z-[200] hidden -translate-x-1/2 gap-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-1 shadow-[var(--shadow-menu)] md:flex">
               <button type="button" aria-label="Bold selected text" title="Bold (Ctrl+B)" onMouseDown={event => event.preventDefault()} onClick={() => applyInlineFormat('**')} className="flex h-10 min-w-10 items-center justify-center rounded font-bold text-[var(--color-text)] hover:bg-[var(--color-bg-alt)]">B</button>
               <button type="button" aria-label="Italicize selected text" title="Italic (Ctrl+I)" onMouseDown={event => event.preventDefault()} onClick={() => applyInlineFormat('*')} className="flex h-10 min-w-10 items-center justify-center rounded italic text-[var(--color-text)] hover:bg-[var(--color-bg-alt)]">I</button>
             </div>}

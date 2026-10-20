@@ -6,11 +6,12 @@ import ImageBox from '@/shared/components/ui/ImageBox'
 const renderInline = value => {
   const text = String(value || '')
   const parts = []
-  const pattern = /(\*\*([^*\n]+)\*\*|\*([^*\n]+)\*)/g
+  const pattern = /(\*\*\*([^*\n]+)\*\*\*|\*\*([^*\n]+)\*\*|\*([^*\n]+)\*)/g
   let cursor = 0
   for (const match of text.matchAll(pattern)) {
     if (match.index > cursor) parts.push(text.slice(cursor, match.index))
-    parts.push(match[2] ? <strong key={match.index}>{match[2]}</strong> : <em key={match.index}>{match[3]}</em>)
+    parts.push(match[2] ? <strong key={match.index}><em>{match[2]}</em></strong>
+      : match[3] ? <strong key={match.index}>{match[3]}</strong> : <em key={match.index}>{match[4]}</em>)
     cursor = match.index + match[0].length
   }
   if (cursor < text.length) parts.push(text.slice(cursor))
