@@ -82,7 +82,7 @@ for (const width of [320, 1280]) {
     await page.keyboard.press('Escape')
     await panel.getByRole('link', { name: 'Questions about science', exact: true }).click()
     await expect(page).toHaveURL('/search?q=science&type=questions')
-    await expect(panel.getByRole('link', { name: 'View responses' })).toHaveAttribute('href', `/explore/questions/${readerQuestion.id}#response-posts-title`)
+    await expect(panel.getByRole('link', { name: 'View responses' })).toHaveCount(0)
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
     await page.screenshot({ path: testInfo.outputPath('questions-search.png'), fullPage: true })
     await panel.getByRole('heading', { name: readerQuestion.text }).getByRole('link').click()

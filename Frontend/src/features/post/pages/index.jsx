@@ -32,6 +32,7 @@ import PageFrame from '@/shared/components/layout/PageFrame'
 import ImageBox from '@/shared/components/ui/ImageBox'
 import { useEscapeKey } from '@/shared/hooks/useEscapeKey'
 import AddToSeriesDialog, { SeriesActionIcon } from '@/features/discovery/components/AddToSeriesDialog'
+import { useShortSeriesDetail } from '@/features/discovery/hooks/useShortSeries'
 
 const FlagIcon = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -65,6 +66,8 @@ function ArticlePage() {
   const navigate  = useNavigate()
   const location = useLocation()
   const { id: postId } = useParams();
+  const requestedSeriesId = new URLSearchParams(location.search).get('series')
+  const seriesQuery = useShortSeriesDetail(/^[a-f\d]{24}$/i.test(requestedSeriesId || '') ? requestedSeriesId : null)
   const { loggedIn, signIn } = useAuth()
   const entitlements = useEntitlements(loggedIn)
 
@@ -199,6 +202,15 @@ function ArticlePage() {
   if (isError) return <PostErrorState onRetry={refetch} />;
   const postBlocks = parsePostBlocks(postData.body)
   if (!postBlocks) return <PostErrorState onRetry={() => navigate('/')} invalidContent />
+  const seriesPosition = seriesQuery.data?.entries?.findIndex(entry => String(entry.id) === String(postId)) ?? -1
+  const readingSeries = !seriesQuery.isError && seriesPosition >= 0 && seriesQuery.data.type !== 'short' ? seriesQuery.data : null
+  const nextPart = readingSeries?.entries[seriesPosition + 1]
+  const seriesContext = readingSeries ? { id: readingSeries.id, title: readingSeries.title, position: seriesPosition, total: readingSeries.entries.length } : postData.seriesContext
+  const seriesHref = readingSeries ? nextPart ? `/post/${nextPart.id}?series=${encodeURIComponent(readingSeries.id)}` : '/series' : seriesContext ? `/series/${seriesContext.id}` : ''
+  const seriesLabel = readingSeries ? nextPart ? `Read next part: ${nextPart.title}` : 'Explore more series' : `View series: ${seriesContext?.title}`
+  const seriesEyebrow = readingSeries ? nextPart ? `Up next · Part ${seriesPosition + 2} of ${readingSeries.entries.length}` : 'This was the last story in this series' : `This story is part of a series${Number.isInteger(seriesContext?.position) && Number.isInteger(seriesContext?.total) ? ` · Part ${seriesContext.position + 1} of ${seriesContext.total}` : ''}`
+  const seriesTitle = readingSeries && nextPart ? nextPart.title : seriesContext?.title
+  const seriesAction = readingSeries ? nextPart ? 'Read next part →' : 'Explore more series →' : 'View series →'
   const capabilities = new Set(entitlements.data?.capabilities || [])
   const moreFromAuthor = (authorPostsQuery.data?.posts || []).filter(post => String(post.id) !== String(postId)).slice(0, 5)
   const morePosts = moreFromAuthor.filter(post => post.format !== 'short')
@@ -339,8 +351,8 @@ function ArticlePage() {
             <PostBody body={postBlocks} />
           </article>
 
-          {postData.seriesContext && <nav aria-label="Story series progression" className="mt-8 w-full min-w-0">
-            <Link to={`/series/${postData.seriesContext.id}`} aria-label={`View series: ${postData.seriesContext.title}`} className="group button-target flex min-h-24 min-w-0 flex-col items-start justify-center gap-2 rounded-[14px] border border-(--color-border) bg-(--color-bg-alt) px-5 py-4 text-(--color-text) transition-colors hover:border-(--color-accent) focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-offset-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4"><span className="block w-full min-w-0 sm:flex-1"><span className="block text-[11px] font-semibold uppercase tracking-[0.1em] text-(--color-text-muted)">This story is part of a series{Number.isInteger(postData.seriesContext.position) && Number.isInteger(postData.seriesContext.total) ? ` · Part ${postData.seriesContext.position + 1} of ${postData.seriesContext.total}` : ''}</span><span data-series-next-title className="mt-1 block truncate text-[18px] font-semibold leading-snug" style={{ fontFamily: 'var(--font-display)' }}>{postData.seriesContext.title}</span></span><span data-series-next-action aria-hidden="true" className="shrink-0 whitespace-nowrap text-[13px] font-semibold text-(--color-accent)">View series →</span></Link>
+          {seriesContext && <nav aria-label="Story series progression" className="mt-8 w-full min-w-0">
+            <Link to={seriesHref} aria-label={seriesLabel} className="group button-target flex min-h-24 min-w-0 flex-col items-start justify-center gap-2 rounded-[14px] border border-(--color-border) bg-(--color-bg-alt) px-5 py-4 text-(--color-text) transition-colors hover:border-(--color-accent) focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-offset-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4"><span className="block w-full min-w-0 sm:flex-1"><span className="block text-[11px] font-semibold uppercase tracking-[0.1em] text-(--color-text-muted)">{seriesEyebrow}</span><span data-series-next-title className="mt-1 block truncate text-[18px] font-semibold leading-snug" style={{ fontFamily: 'var(--font-display)' }}>{seriesTitle}</span></span><span data-series-next-action aria-hidden="true" className="shrink-0 whitespace-nowrap text-[13px] font-semibold text-(--color-accent)">{seriesAction}</span></Link>
           </nav>}
 
           <Divider className="my-10" />

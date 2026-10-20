@@ -41,7 +41,7 @@ router.post('/:publicationId/reports',       validateToken, reportPost);
 router.get('/', getAllPosts);
 
 router.post('/', validateToken, upload.single('coverURL'), validateImageFile, createPost);
-router.put('/:id', validateToken, updatePost);
+router.put('/:id', validateToken, upload.single('coverURL'), validateImageFile, updatePost);
 router.patch('/:id/publication', validateToken, setPublication);
 router.get('/:id', optionalAuth, getPost);
 

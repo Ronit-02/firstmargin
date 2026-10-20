@@ -54,10 +54,29 @@ const profileAvatarPublicIdFromUrl = (imageURL, userId) => {
 
 const removeProfileAvatar = publicId => cloudinary.uploader.destroy(publicId, { resource_type: 'image', invalidate: true });
 
+const uploadProfileCover = (localFilePath, userId) => cloudinary.uploader.upload(localFilePath, {
+    resource_type: 'image', folder: `profile-covers/${userId}`,
+});
+
+const profileCoverPublicIdFromUrl = (imageURL, userId) => {
+    if (!imageURL || !config.CLOUDINARY_CLOUD_NAME) return null;
+    try {
+        const url = new URL(imageURL);
+        if (url.protocol !== 'https:' || url.hostname !== 'res.cloudinary.com') return null;
+        const prefix = `/${config.CLOUDINARY_CLOUD_NAME}/image/upload/`;
+        if (!url.pathname.startsWith(prefix)) return null;
+        const match = /^v\d+\/profile-covers\/([a-f\d]{24})\/([a-z\d_-]+)\.[a-z\d]+$/i.exec(url.pathname.slice(prefix.length));
+        return match && match[1] === String(userId) ? `profile-covers/${match[1]}/${match[2]}` : null;
+    } catch { return null; }
+};
+
 module.exports = {
     uploadOnCloudinary, 
     removeOnCloudinary,
     uploadProfileAvatar,
     profileAvatarPublicIdFromUrl,
     removeProfileAvatar,
+    uploadProfileCover,
+    profileCoverPublicIdFromUrl,
+    removeProfileCover: removeProfileAvatar,
 };

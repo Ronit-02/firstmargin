@@ -35,6 +35,13 @@ const profileSchema = new mongoose.Schema({
     default: null,
     trim: true,
   },
+  coverImageUrl: {
+    type: String,
+    default: null,
+    trim: true,
+    maxlength: 2000,
+    validate: { validator: value => !value || isSafeHttpUrl(value), message: 'Cover image must be a valid HTTP(S) URL' },
+  },
   websiteUrl: {
     type: String,
     default: null,

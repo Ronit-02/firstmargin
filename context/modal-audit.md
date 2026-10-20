@@ -1,5 +1,9 @@
 # Modal and overlay audit
 
+## Competition entry removal — 2026-10-21
+
+CompetitionDetail adds an owner-only Remove entry action beside the submitted state while open. Its local confirmation reuses ModalLayer, ModalHeader, Button, and useDialogFocus, with the established 420 px confirmation panel, semantic colors, and typography. It names the story and explicitly warns that all received entry votes are lost and re-entry starts at zero; publication content stays available. Cancel, Close, Escape, and backdrop dismiss before submission. Pending removal prevents dismissal and repeats. Inline server errors keep retry available. ModalLayer alone owns focus restoration: cancellation returns to the removal trigger; successful removal returns to Add your entry after query refresh. No other modal family is changed. Backend rules and evidence retention belong to architecture; verification and the complete changed-file list are in the progress tracker.
+
 ## Desktop sign-out choice — 2026-10-18
 
 The signed-in desktop Account menu uses one icon beside the user name to open a native `ModalLayer` choice dialog. It reuses `ModalHeader` and the existing logout actions for this session or all devices. Pending requests disable both choices; dismissal restores focus to the account trigger. The mobile Account sheet and logout endpoints remain unchanged. This adds a sign-out purpose to the historical modal inventory below.

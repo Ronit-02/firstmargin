@@ -17,7 +17,7 @@ export default function ReadingHistoryCard({ item }: { item: ReadingHistoryItem 
       <div className="relative z-10 min-w-0 [&>div]:gap-2">
         <AuthorMeta author={item.author} date={item.lastReadAt} readTime={item.readTime} stacked />
       </div>
-      <h2 className="mt-3 break-words text-[17px] font-bold text-[var(--color-text)]" style={{ fontFamily: 'var(--font-display)' }}>
+      <h2 className="mt-3 line-clamp-2 break-words text-[17px] font-bold text-[var(--color-text)]" style={{ fontFamily: 'var(--font-display)' }}>
         <Link to={`/post/${item.id}`} state={{ readingProgress: item.progress }} className="rounded-[4px] after:absolute after:inset-0 after:content-[''] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-offset-2">{item.title}</Link>
       </h2>
       <div className="mt-3 flex items-center gap-3">

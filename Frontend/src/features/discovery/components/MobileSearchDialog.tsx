@@ -3,7 +3,7 @@ import retainRetryView from '@/shared/utils/retainRetryView'
 import useOverlayViewport from '@/shared/hooks/useOverlayViewport'
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import useReducedMotion from '@/shared/hooks/useReducedMotion'
@@ -28,6 +28,7 @@ type Props = {
 
 export default function MobileSearchDialog({ initialQuery, origin, onClose }: Props) {
   const navigate = useNavigate()
+  const location = useLocation()
   const reducedMotion = useReducedMotion()
   const viewportStyle = useOverlayViewport()
   const dialogRef = useRef<HTMLDialogElement>(null)
@@ -93,9 +94,9 @@ export default function MobileSearchDialog({ initialQuery, origin, onClose }: Pr
   }, [activeIndex])
 
   const search = (value = input.trim()) => {
-    if (!value) return
     onClose()
-    navigate(`/search?q=${encodeURIComponent(value)}`)
+    const type = location.pathname === '/search' ? new URLSearchParams(location.search).get('type') || 'posts' : 'posts'
+    navigate(value ? `/search?q=${encodeURIComponent(value)}` : ['writers', 'shorts', 'questions'].includes(type) ? `/search?type=${type}` : '/search')
   }
   const openSuggestion = (suggestion: Suggestion) => {
     onClose()
@@ -135,7 +136,7 @@ export default function MobileSearchDialog({ initialQuery, origin, onClose }: Pr
             setActiveIndex(-1)
             inputRef.current?.focus({ preventScroll: true })
           }} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-transparent text-[24px] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]">×</button>}
-          <button type="button" disabled={!input.trim() || closing} onClick={() => search()} aria-label="Search" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[var(--color-accent)] hover:bg-[var(--color-bg-alt)] disabled:opacity-40">
+          <button type="button" disabled={closing} onClick={() => search()} aria-label="Search" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[var(--color-accent)] hover:bg-[var(--color-bg-alt)] disabled:opacity-40">
             <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12h16m-6-6 6 6-6 6" /></svg>
           </button>
         </motion.form>

@@ -1,125 +1,45 @@
 import { test, expect } from '@playwright/test'
 
-for (const { width, signedIn } of [320, 390, 1280].flatMap(width => [false, true].map(signedIn => ({ width, signedIn })))) {
-  test(`question body has distinct metadata, action, and response groups at ${width}px (${signedIn ? 'member' : 'guest'})`, async ({ page }) => {
+for (const width of [320, 390, 1280]) {
+  test(`question card keeps its preview and links at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 844 })
-    const question = { id: 'question-1', text: 'Can nature-based coastal defenses work at the scale of a large city?', author: { username: 'Noah Williams', handle: 'noah-williams' }, createdAt: '2026-09-08T00:00:00Z', context: 'Interested in evidence, limitations, and real projects.', tags: ['science', 'coastal resilience'], upvotesCount: 3, answersCount: 0, responsePosts: [{ _id: 'response-1', title: 'Can Restored Reefs Protect Coastal Cities?' }] }
+    const question = {
+      id: 'question-1',
+      text: 'How could a city make a confusing crossing safer for a visitor who cannot read the sign, moves slowly, and arrives after dark when the pavement is wet and the route is closed?',
+      author: { username: 'Noah Williams', handle: 'noah-williams' },
+      createdAt: '2026-09-08T00:00:00Z',
+      context: 'Interested in evidence, limitations, and real projects.',
+      tags: ['science', 'coastal resilience'],
+      upvotesCount: 3,
+      answersCount: 2,
+      responsePosts: [{ _id: 'response-1', title: 'Can Restored Reefs Protect Coastal Cities?' }],
+    }
     await page.route(url => url.pathname.startsWith('/api/'), route => {
       const path = new URL(route.request().url()).pathname
-      if (path === '/api/auth/refresh-token') return signedIn ? route.fulfill({ json: { accessToken: 'question-test-token', user: 'Reader', email: 'reader@example.test', role: 'regular' } }) : route.fulfill({ status: 401, json: { message: 'Signed out' } })
-      if (path === '/api/question/question-1') return route.fulfill({ json: { data: { ...question, answers: [], followersCount: 2 } } })
+      if (path === '/api/auth/refresh-token') return route.fulfill({ status: 401, json: { message: 'Signed out' } })
       if (path === '/api/search') return route.fulfill({ json: { data: { questions: [question], posts: [], writers: [], shorts: [] } } })
-      return route.fulfill({ json: { data: path === '/api/question' ? [question, { ...question, id: 'question-2', text: 'How can writers build a sustainable career?', tags: ['career'], responsePosts: [] }] : [], meta: { nextCursor: null } } })
+      return route.fulfill({ json: { data: path === '/api/question' ? [question] : [], meta: { nextCursor: null } } })
     })
     await page.goto('/explore/questions')
     const card = page.getByRole('article').first()
-    const action = card.getByRole('button', { name: 'Add response' })
-    const checkContrast = async () => {
-      const contrast = await action.evaluate(element => {
-        const luminance = color => {
-          const channels = color.match(/[\d.]+/g).slice(0, 3).map(value => Number(value) / 255).map(value => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4)
-          return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722
-        }
-        const text = luminance(getComputedStyle(element.firstElementChild).color)
-        const background = luminance(getComputedStyle(element).backgroundColor)
-        return (Math.max(text, background) + 0.05) / (Math.min(text, background) + 0.05)
-      })
-      expect(contrast).toBeGreaterThanOrEqual(4.5)
-    }
-    await expect(card.getByRole('heading', { name: question.text })).toBeVisible()
-    await expect(card.getByText(question.context)).toBeVisible()
-    await expect(card.getByText('0 short answers · 1 article response')).toBeVisible()
-    const unansweredCard = page.getByRole('article').nth(1)
-    await expect(unansweredCard.getByText('0 short answers · 0 article responses')).toBeVisible()
-    await expect(unansweredCard.getByRole('link', { name: 'View responses' })).toHaveCount(0)
-    const category = card.getByRole('link', { name: 'Questions about science' })
-    const categoryBox = await category.boundingBox()
-    const chipBox = await category.locator('span').boundingBox()
-    expect(categoryBox.height).toBeGreaterThanOrEqual(44)
-    expect(chipBox.height).toBeLessThan(categoryBox.height)
-    await expect(category).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
-    await expect(category.locator('span')).toHaveCSS('padding-left', '10px')
-    await expect(category.locator('span')).toHaveCSS('padding-right', '10px')
-    await expect(category.locator('span')).toHaveCSS('font-size', '12px')
-    const viewResponses = card.getByRole('link', { name: 'View responses' })
-    await expect(viewResponses).toHaveAttribute('href', '/explore/questions/question-1#response-posts-title')
-    await expect(card.getByText(question.responsePosts[0].title)).toHaveCount(0)
-    const actionBox = await action.boundingBox()
-    expect(actionBox.height).toBeGreaterThanOrEqual(44)
-    await checkContrast()
-    if (signedIn) await expect(action).toHaveAttribute('aria-haspopup', 'dialog')
-    const viewBox = await viewResponses.boundingBox()
-    expect(viewBox.height).toBeGreaterThanOrEqual(44)
-    expect(viewBox.y).toBeCloseTo(actionBox.y, 0)
-    expect(viewBox.x).toBeGreaterThanOrEqual(actionBox.x + actionBox.width + 7)
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
-    const authorLink = card.getByRole('link', { name: "View Noah Williams's profile" })
-    const author = await authorLink.boundingBox()
-    const date = await card.getByText('8 September 2026', { exact: true }).boundingBox()
-    const questionTitle = await card.getByRole('heading', { name: question.text }).boundingBox()
-    expect(date.y).toBeGreaterThanOrEqual(author.y + author.height + 7)
-    expect(questionTitle.y).toBeGreaterThanOrEqual(date.y + date.height + 19)
-    expect(questionTitle.y).toBeLessThanOrEqual(date.y + date.height + 25)
-    const upvoteBox = await card.getByRole('button', { name: 'Upvote question', exact: true }).boundingBox()
-    expect(upvoteBox.y).toBeCloseTo(author.y, 0)
-    expect(upvoteBox.x).toBeGreaterThanOrEqual(author.x + author.width)
-    expect(questionTitle.width).toBeCloseTo((await card.boundingBox()).width, 0)
-    await expect(authorLink).toHaveAttribute('href', '/author/noah-williams')
-    if (width === 390) {
-      await card.evaluate(element => element.scrollIntoView({ block: 'center' }))
-      await card.screenshot({ path: test.info().outputPath('question-body-mobile.png') })
-      await page.evaluate(() => localStorage.setItem('ink-theme', 'dark'))
-      await page.reload()
-      await expect(page.locator('html')).toHaveClass(/dark/)
-      await expect(action).toBeVisible()
-      await checkContrast()
-      await card.evaluate(element => element.scrollIntoView({ block: 'center' }))
-      await card.screenshot({ path: test.info().outputPath('question-body-dark.png') })
-    }
+    const title = card.getByRole('heading', { name: question.text })
+    await expect(title).toBeVisible()
+    await expect(card.getByRole('button', { name: 'Add response' })).toHaveCount(0)
+    await expect(card.getByRole('link', { name: 'View responses' })).toHaveCount(0)
+    await expect(card.getByText('2 short answers · 1 story response')).toBeVisible()
+    const titleLayout = await title.evaluate(element => ({ height: element.getBoundingClientRect().height, lineHeight: parseFloat(getComputedStyle(element).lineHeight) }))
+    expect(titleLayout.height).toBeLessThanOrEqual(titleLayout.lineHeight * 2 + 1)
+
+    const tag = card.getByRole('link', { name: 'Questions about science' })
+    const chip = tag.locator('span')
+    const initialColor = await chip.evaluate(element => getComputedStyle(element).backgroundColor)
+    await tag.hover()
+    await expect.poll(() => chip.evaluate(element => getComputedStyle(element).backgroundColor)).not.toBe(initialColor)
+    await expect(tag).toHaveAttribute('href', '/search?q=science&type=questions')
+    await expect(card.getByRole('link', { name: "View Noah Williams's profile" })).toHaveAttribute('href', '/author/noah-williams')
     await expect(card.getByRole('button', { name: 'Upvote question', exact: true })).toBeVisible()
-    await card.evaluate(element => element.scrollIntoView({ block: 'center' }))
-    const destinations = await card.evaluate(element => {
-      const author = element.firstElementChild.firstElementChild.getBoundingClientRect()
-      const context = element.querySelector('p').getBoundingClientRect()
-      return [author, context].map(rect => document.elementFromPoint(rect.x + 5, rect.bottom - 2)?.closest('a')?.getAttribute('href'))
-    })
-    expect(destinations).toEqual(['/author/noah-williams', '/explore/questions/question-1'])
-    const clickCardArea = async target => {
-      await card.evaluate(element => element.scrollIntoView({ block: 'center' }))
-      const area = await target.boundingBox()
-      const outer = await card.boundingBox()
-      await card.click({ position: { x: area.x - outer.x + 5, y: area.y - outer.y + area.height / 2 } })
-    }
-    await clickCardArea(card.getByText('8 September 2026', { exact: true }))
-    await expect(page).toHaveURL('/author/noah-williams')
-    await page.goto('/explore/questions')
-    await clickCardArea(card.getByText(question.context))
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await title.getByRole('link').click()
     await expect(page).toHaveURL('/explore/questions/question-1')
-    await page.goto('/explore/questions')
-    await card.getByRole('link', { name: 'Questions about coastal resilience' }).click()
-    await expect(page).toHaveURL('/search?q=coastal+resilience&type=questions')
-    await expect(page.getByRole('tab', { name: 'Questions', exact: true })).toHaveAttribute('aria-selected', 'true')
-    await expect(card.getByRole('heading', { name: question.text })).toBeVisible()
-    await expect(page.getByRole('article')).toHaveCount(1)
-    await expect(page.getByRole('heading', { name: 'How can writers build a sustainable career?' })).toHaveCount(0)
-    await action.click()
-    if (signedIn) {
-      const responseDialog = page.getByRole('dialog', { name: 'Add a response' })
-      await expect(responseDialog).toBeVisible()
-      await expect(responseDialog.getByRole('link', { name: 'Write a new post' })).toHaveAttribute('href', '/studio?question=question-1')
-    }
-    else await expect(page.getByRole('dialog', { name: 'Sign in to firstmargin' })).toBeVisible()
-    await page.goto('/explore/questions')
-    await expect(card.getByRole('heading', { name: question.text })).toBeVisible()
-    await viewResponses.click()
-    await expect(page).toHaveURL('/explore/questions/question-1#response-posts-title')
-    const heading = page.getByRole('heading', { name: 'Published responses' })
-    await expect(heading).toBeFocused()
-    await expect(page.getByText('#science', { exact: true })).toHaveCSS('padding-left', '10px')
-    const box = await heading.boundingBox()
-    expect(box.y).toBeGreaterThanOrEqual(56)
-    expect(box.y).toBeLessThan(700)
-    await page.getByRole('region', { name: 'Published responses' }).getByRole('link', { name: 'Read response' }).click()
-    await expect(page).toHaveURL('/post/response-1')
   })
 }

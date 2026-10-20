@@ -4,6 +4,8 @@ const Publication = require('../schemas/publication.schema');
 const Profile = require('../schemas/profile.schema');
 const { encodeCursor, decodeCursor } = require('../utils/cursor');
 const { presentDiscoveryPosts } = require('../services/publication-presenter.service');
+const { uploadOnCloudinary } = require('../utils/cloudinary');
+const fs = require('fs');
 
 const isValidId = value => mongoose.isValidObjectId(value);
 const effectiveVisibility = collection => collection.isPublic === false
@@ -177,6 +179,7 @@ const validateCollectionInput = async (body, partial = false) => {
   if (!partial || body.coverImage !== undefined) {
     const coverImage = String(body.coverImage || '').trim();
     if (coverImage.length > 2000) return { error: 'Cover image URL is too long' };
+    if (coverImage) { try { const url = new URL(coverImage); if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) return { error: 'Cover image must be a valid HTTP(S) URL' }; } catch { return { error: 'Cover image must be a valid HTTP(S) URL' }; } }
     result.coverImage = coverImage;
   }
   if (!partial || body.visibility !== undefined) {
@@ -223,6 +226,21 @@ const updateCollection = async (req, res) => {
     return res.status(exists ? 403 : 404).json({ message: exists ? 'Not authorized to edit this collection' : 'Collection not found' });
   } catch (error) {
     return res.status(500).json({ message: 'Unable to update collection' });
+  }
+};
+
+const uploadCollectionCover = async (req, res) => {
+  try {
+    if (!isValidId(req.params.id)) return res.status(400).json({ message: 'Invalid collection id' });
+    if (!req.file) return res.status(400).json({ message: 'Choose an image to upload' });
+    const collection = await Collection.findOne({ _id: req.params.id, author: req.auth.userId }).select('_id');
+    if (!collection) return res.status(404).json({ message: 'Owned collection not found' });
+    const upload = await uploadOnCloudinary(req.file.path);
+    if (!upload?.secure_url) return res.status(502).json({ message: 'Cover image upload failed' });
+    await Collection.updateOne({ _id: collection._id, author: req.auth.userId }, { $set: { coverImage: upload.secure_url } });
+    return res.status(200).json({ data: { coverImage: upload.secure_url } });
+  } finally {
+    if (req.file?.path) await fs.promises.unlink(req.file.path).catch(() => {});
   }
 };
 
@@ -286,4 +304,4 @@ const unfollowCollection = async (req, res) => {
   return res.status(200).json({ data: { isFollowing: false, followersCount: collection.followersCount || collection.followers.length } });
 };
 
-module.exports = { getCollections, getCollectionById, getOwnCollectionPosts, createCollection, updateCollection, deleteCollection, saveCollection, unsaveCollection, followCollection, unfollowCollection };
+module.exports = { getCollections, getCollectionById, getOwnCollectionPosts, createCollection, updateCollection, uploadCollectionCover, deleteCollection, saveCollection, unsaveCollection, followCollection, unfollowCollection };

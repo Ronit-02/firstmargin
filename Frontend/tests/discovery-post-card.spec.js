@@ -408,6 +408,47 @@ test('image-bearing list cards switch to a compact side cover at 540px', async (
   }
 })
 
+test('coverless list cards keep metadata before the title and footer after the excerpt', async ({ page }) => {
+  await mockApi(page, { signedIn: false, article: { ...post, image: null } })
+  for (const width of [390, 767, 768]) {
+    await page.setViewportSize({ width, height: 900 })
+    await page.goto('/search?q=mornings')
+    const card = page.getByRole('article').first()
+    const heading = card.getByRole('heading', { name: post.title })
+    const author = card.getByRole('link', { name: "View Leila Noor's profile" })
+    const footer = card.getByRole('button', { name: `Appreciate ${post.title}` })
+    const authorBox = await author.boundingBox()
+    const headingBox = await heading.boundingBox()
+    const footerBox = await footer.boundingBox()
+    expect(authorBox.y + authorBox.height).toBeLessThan(headingBox.y)
+    expect(headingBox.y + headingBox.height).toBeLessThan(footerBox.y)
+    if (width >= 540) {
+      const excerptBox = await card.getByText(post.excerpt, { exact: true }).boundingBox()
+      expect(headingBox.y + headingBox.height).toBeLessThan(excerptBox.y)
+      expect(excerptBox.y + excerptBox.height).toBeLessThan(footerBox.y)
+    }
+  }
+})
+
+test('covered and coverless list cards keep the same mobile title spacing', async ({ page }) => {
+  for (const width of [390, 539, 540, 767]) {
+    await page.setViewportSize({ width, height: 900 })
+    const gaps = []
+    for (const image of [post.image, null]) {
+      await mockApi(page, { signedIn: false, article: { ...post, image } })
+      await page.goto('/search?q=mornings')
+      const card = page.getByRole('article').first()
+      const menu = card.getByRole('button', { name: `More options for ${post.title}` })
+      const metadataRow = menu.locator('..').locator('..')
+      const rowBox = await metadataRow.boundingBox()
+      const headingBox = await card.getByRole('heading', { name: post.title }).boundingBox()
+      gaps.push(headingBox.y - (rowBox.y + rowBox.height))
+    }
+    expect(gaps[0]).toBeCloseTo(gaps[1], 0)
+    expect(gaps[0]).toBeCloseTo(width < 540 ? 8 : 20, 0)
+  }
+})
+
 test('grid author links and remaining card area keep distinct destinations', async ({ page }) => {
   await mockApi(page)
   await page.goto('/')

@@ -4,16 +4,15 @@ const longStoryTitle = 'I tried to explain why the old riverside footpath still 
 const longShortTitle = 'Three quick notes from a very ordinary walk that somehow became a surprisingly long title for a short read';
 const longTag = 'observations-from-the-old-north-riverside-neighborhood';
 const unbrokenWord = 'thisisoneverylongunbrokenwordthatkeepsgoingwithoutasingleplacetopauseorwrapcomfortably';
-const longUrl = `https://example.test/${'a-very-long-path-segment-with-no-obvious-break-'.repeat(6)}`;
 
 const longShortParagraphs = [
   'I meant to write a quick note about a morning walk. First I stopped beside the crossing and watched three people choose different routes around the same puddle. One person stepped into the road, another waited for a gap, and the third turned back. I wrote down the time because the puddle might be gone tomorrow, but the hesitation at that corner probably will not be.',
   'Then I noticed the signs. One pointed toward a library that had changed its entrance last month. The other used an arrow so small that it disappeared behind a parked bicycle. I almost rewrote the first observation as a complaint about signs, but the two details may belong together. Both ask someone to make a decision while moving through a place that is not quite as clear as its map.',
   'By the time I reached the square, my supposedly short note had become a list of questions. Who checks the crossing after rain? Who updates the sign when a door moves? Which route would a visitor choose if they could not easily turn back? I do not know the answers yet. The honest version of this piece leaves those questions open and describes what I actually saw.',
-  'I also copied one sentence twice in my notebook. That kind of mistake is useful to notice before publishing because repetition can sound like emphasis when it is only a paste error. I kept the idea once here and left this reminder in the draft. The next walk will tell me whether the first detail was unusual or part of a pattern.',
+  'At the library I compared my notes with a neighbor’s route. She had chosen the other crossing because the curb was lower there. I had never noticed the difference. We marked both choices on the map and kept the reasons beside them. A route that looks obvious to one person may contain a quiet obstacle for someone else.',
   'The practical exercise is simple: choose one ordinary route, record its conditions, and mark every point where someone slows down or changes direction. Return at another hour. You may find that the route is not a single line but a series of small negotiations with weather, signs, traffic, and other people. That is more than a quick note can settle, even when it starts as one.',
   'On the return visit, the puddle had dried but the bicycle still blocked part of the sign. A woman carrying two bags stopped, looked toward the old entrance, and then asked someone for directions. I wrote that down without assuming she had made the same mistake I would have made. The difference between seeing a pause and knowing its cause matters, especially when the note may become a public claim about a place.',
-  'I could cut this down to a neat tip, but the extra observations show why a short can still need room to breathe. The first version had a typo in the street name and an arrow drawn the wrong way. I corrected both after checking the sign. Keeping the working notes reminds me that careful writing is partly a record of corrections, not only a polished final sentence.',
+  'The next walk has a narrower question. I want to see whether people arriving from the bus stop notice the temporary sign before reaching the old entrance. I will stand in the same place for a little while and record only the pauses and turns I can actually see. The rest can wait for a conversation.',
 ];
 
 const edgeCaseFixtures = [
@@ -22,28 +21,28 @@ const edgeCaseFixtures = [
     blocks: [['text', 'I came back. The bench was gone.']],
   },
   {
-    key: 'edge-many-tags', author: 'arjun', title: 'A reading path with every tag I could think of',
+    key: 'edge-many-tags', author: 'arjun', previousTitle: 'A reading path with every tag I could think of', title: 'Follow a Question Beyond Its First Subject',
     tags: [' Design ', 'essays', 'science', 'technology', 'fiction', 'travel', 'wellness', 'public space', 'field notes', 'climate', 'urban planning', 'data literacy', 'writing craft', 'community', 'local history', 'coastal change', 'accessibility', 'reader questions', 'slower reading', longTag, 'DESIGN'],
     topicSlugs: ['technology', 'design'], age: 0.07,
     blocks: [
-      ['text', 'I added too many tags to this piece. Some describe its subject, some describe the way I researched it, and one is probably a category I should have removed. That is a common publishing mistake, and it changes how a reader encounters a story in search.'],
+      ['text', 'My reading list began with a question about the street outside my home. It led to an essay about shade, a field note from a wetland, and a story about someone who missed a train. The connections were less tidy than a subject heading, but each piece changed the way I read the next.'],
       ['h2', 'What the labels can and cannot do'],
       ['text', 'Tags are useful paths into a collection of writing, but they cannot replace a clear title or an honest description. A reader should still understand the piece when the card hides most of the labels.'],
     ],
   },
   {
-    key: 'edge-long-title', author: 'maya', title: longStoryTitle, tags: ['essays', 'public space', 'editing'], topicSlugs: ['essays', 'design'], age: 0.11,
+    key: 'edge-long-title', author: 'maya', previousTitle: longStoryTitle, title: 'The Riverside Path That Holds a Neighborhood’s Memories', tags: ['essays', 'public space', 'local memory'], topicSlugs: ['essays', 'design'], age: 0.11,
     blocks: [
-      ['text', 'The title grew every time I tried to explain another part of the story. It now carries more information than a title should, which makes it useful for checking how cards, menus, browser tabs, and share dialogs handle a long line.'],
+      ['text', 'The riverside path is not the quickest route to the shops. It bends around an old wall and crosses a patch of uneven paving. Yet the neighbors I spoke with chose it again and again, each naming a different reason to take the longer walk.'],
       ['text', 'The story itself is about a path that changes meaning with the time of day. In the morning it is a shortcut. At dusk it is where neighbors pause for a view across the water. Neither description is wrong, but neither belongs in the title in full.'],
     ],
   },
   {
-    key: 'edge-unbroken-text', author: 'arjun', title: `What happens when ${unbrokenWord}`,
-    tags: ['technology', 'layout', 'longwordwithoutanyspacesatall'], topicSlugs: ['technology', 'design'], age: 0.15,
+    key: 'edge-unbroken-text', author: 'arjun', previousTitle: `What happens when ${unbrokenWord}`, title: 'When a Link Tells You Nothing About Where It Goes',
+    tags: ['technology', 'accessibility', 'interfaces'], topicSlugs: ['technology', 'design'], age: 0.15,
     blocks: [
-      ['text', `A reader pasted a long address into the draft: ${longUrl} The link is plain text here, but it still has to wrap inside the reading column without widening the page.`],
-      ['text', `The same problem appears in names and invented words: ${unbrokenWord.repeat(2)}. It is an awkward thing to publish, but a useful thing to test at narrow widths.`],
+      ['text', 'A message arrived with a link labeled “click here.” I knew who had sent it, but nothing about the destination. Before opening it, I had to ask a question the label could have answered.'],
+      ['text', 'A useful link names its destination or the action it performs. That helps someone scanning a page, someone returning after a week, and someone navigating by a list of links. Clear language can remove a small uncertainty without adding another instruction.'],
     ],
   },
   {
@@ -52,41 +51,41 @@ const edgeCaseFixtures = [
     blocks: [
       ['text', 'At the café I wrote “mañana” beside the tide time, then added தமிழ் and العربية from a conversation at the next table. The words belong to different languages, but the note belongs to one afternoon.'],
       ['quote', 'A field note can keep the exact words someone used without pretending that translation is simple.'],
-      ['text', 'Names, accents, right-to-left text, and emoji should remain readable in the title, body, tags, search results, and share labels. I still need to check the spelling with the people who said the words.'],
+      ['text', 'I asked the people at the next table to check the words before I left. They corrected one spelling and added the name of a place I had walked past twice. The note became a record of a conversation, with room for the parts I did not yet understand.'],
     ],
   },
   {
-    key: 'edge-mixed-blocks', author: 'arjun', title: 'Headings, a quote, code, and one image in the same story',
+    key: 'edge-mixed-blocks', author: 'arjun', previousTitle: 'Headings, a quote, code, and one image in the same story', title: 'The Small Checks Behind a Clear Explanation',
     tags: ['technology', 'writing craft', 'code'], topicSlugs: ['technology', 'design'], age: 0.23,
     blocks: [
-      ['h1', 'A heading before the first paragraph'],
-      ['text', 'This line uses **bold**, *italic*, and an unfinished **marker that should stay visible. The literal text <b>not HTML</b> should be escaped by the reader.'],
-      ['h2', 'A smaller section'],
+      ['h1', 'Start with the reader’s question'],
+      ['text', 'Before adding another example, ask what the reader needs to understand next. **A clear sequence** does more work than a clever opening. Read the paragraph aloud and notice the point at which you need to explain a missing step.'],
+      ['h2', 'Keep the reasoning visible'],
       ['quote', 'A quotation can be long enough to wrap over several lines without becoming the only thing on the page.'],
-      ['h3', 'A compact heading'],
-      ['code', `const note = 'keep the meaning clear';\nconst longValue = '${unbrokenWord.repeat(3)}';\nconsole.log(note, longValue);`],
+      ['h3', 'Make the next step explicit'],
+      ['code', "const questions = ['What changed?', 'Who is affected?', 'What should happen next?'];\nquestions.forEach(question => console.log(question));"],
       ['divider', ''],
-      ['image', 'https://images.unsplash.com/photo-1518005020951-eccb494ad742?auto=format&fit=crop&w=1200&q=80', 'A street scene beneath tall buildings, included to test descriptive image text.'],
-      ['text', 'After the divider and image, the reader should return to the same text width and rhythm.'],
+      ['image', 'https://images.unsplash.com/photo-1518005020951-eccb494ad742?auto=format&fit=crop&w=1200&q=80', 'Looking up between buildings toward the sky.'],
+      ['text', 'A photograph can offer a pause, but its caption still needs to explain why it belongs. Every element on the page should help the reader follow the same question.'],
     ],
   },
   {
-    key: 'edge-image-fallback', author: 'leila', title: 'The photo I forgot to check before publishing',
+    key: 'edge-image-fallback', author: 'leila', previousTitle: 'The photo I forgot to check before publishing', title: 'What a Shoreline Photograph Leaves Out',
     tags: ['science', 'field notes', 'media'], topicSlugs: ['science'], age: 0.27,
     blocks: [
-      ['text', 'I attached a picture and wrote useful alternative text, but the image address no longer works. A reader should still understand what the missing picture was meant to show.'],
-      ['image', 'https://fixture-image.example.invalid/missing-shoreline.jpg', 'A low-tide shoreline with exposed stones and a narrow channel of water.'],
-      ['text', 'This is a deliberate broken-media fixture. The paragraph after it should remain readable and the image fallback should not collapse the page.'],
+      ['text', 'The photograph made the shore look quiet and unchanged. Beyond the edge of the frame, a team was checking a marker moved by the previous night’s tide. I had captured a view, not a complete account.'],
+      ['image', 'https://images.unsplash.com/photo-1500534623283-312aade485b7?auto=format&fit=crop&w=1200&q=80', 'A green landscape beneath an open sky.'],
+      ['text', 'I now write the time and conditions beside each image. The caption cannot hold everything, but it can stop a passing moment from pretending to be the whole story.'],
     ],
   },
   {
-    key: 'edge-rough-draft', author: 'maya', title: 'i think this is abit messy... maybe??',
-    tags: [' Essays ', 'desgin', 'ESSAYS', 'unfinished thoughts'], topicSlugs: ['essays', 'design'], age: 0.31,
+    key: 'edge-rough-draft', author: 'maya', previousTitle: 'i think this is abit messy... maybe??', title: 'The Sign Was Still Pointing to the Old Door',
+    tags: ['essays', 'design', 'wayfinding'], topicSlugs: ['essays', 'design'], age: 0.31,
     blocks: [
-      ['text', 'I went back to the same street and, um, noticed the sign again. It was still there... I should probaly check who put it up before I say anything more.'],
-      ['text', 'The notes have   extra spaces, odd punctuation!!! and a sentence that trails off because I have not decided what I mean yet. Maybe the point is—'],
-      ['quote', 'Need to verify this quote before using it in a real story.'],
-      ['text', 'Readers write imperfectly while thinking. This published demo is intentionally rough so the app can be checked with plausible mistakes as well as polished copy.'],
+      ['text', 'The entrance moved in June. By September, the arrow beside the crossing still pointed toward the old door. Most regular visitors had learned the new route, which made the mistake easy to overlook.'],
+      ['text', 'I watched three people pause beneath it in one afternoon. Two asked for directions. The third walked the long way around the building and arrived at the new entrance looking annoyed.'],
+      ['quote', 'A familiar route can hide an unfamiliar person’s problem.'],
+      ['text', 'The next week a temporary notice covered the arrow. It was handwritten, dated, and clear. A permanent replacement could wait a little longer because someone had finally answered the immediate question.'],
     ],
   },
   {
@@ -94,9 +93,9 @@ const edgeCaseFixtures = [
     blocks: [['text', 'Look again.']],
   },
   {
-    key: 'edge-long-short-title', author: 'arjun', title: longShortTitle, format: 'short',
+    key: 'edge-long-short-title', author: 'arjun', previousTitle: longShortTitle, title: 'Three Things I Missed on a Familiar Walk', format: 'short',
     tags: ['technology', 'design', 'one-small-idea', longTag], topicSlugs: ['technology', 'design'], age: 0.39,
-    blocks: [['text', 'This short has more title than explanation. The body is still a useful test: a single paragraph should fit naturally beneath a title that needs two lines on a narrow card, and its tags should remain complete in the reader.']],
+    blocks: [['text', 'The bakery had a new sign, the bus stop had moved, and the old bench had finally been repaired. I almost missed all three because I was looking at the route on my phone. The next morning I put it away for the familiar part of the walk. Knowing where I was going turned out to leave plenty of room for noticing where I was.']],
   },
   {
     key: 'edge-long-short-body', author: 'leila', title: 'The quick note that kept growing', format: 'short',
@@ -104,12 +103,12 @@ const edgeCaseFixtures = [
     blocks: longShortParagraphs.map(paragraph => ['text', paragraph]),
   },
   {
-    key: 'edge-multiline-short', author: 'maya', title: 'Wait—what did I mean by that?', format: 'short',
-    tags: ['essays', 'memo', 'typo'], topicSlugs: ['essays'], age: 0.47,
+    key: 'edge-multiline-short', author: 'maya', previousTitle: 'Wait—what did I mean by that?', title: 'What Did I Mean by That?', format: 'short',
+    tags: ['essays', 'notebooks', 'observation'], topicSlugs: ['essays'], age: 0.47,
     blocks: [
       ['text', 'First note: the door was open.\nSecond note: I forgot why I wrote that down.'],
       ['quote', 'Maybe the question is more useful than the answer?'],
-      ['text', 'A line break, a dash, a question mark, and a small correction can all appear in a genuine short draft.'],
+      ['text', 'I returned the next morning and understood the note. The door had been closed for years. Sometimes an observation needs a second visit before it becomes a sentence you can explain.'],
     ],
   },
 ];
@@ -126,14 +125,14 @@ const edgeQuestionFixtures = [
     ],
   },
   {
-    key: 'edge-informal-question', author: 'priya', text: 'wait, why is this sign here??', context: '',
+    key: 'edge-informal-question', author: 'priya', previousText: 'wait, why is this sign here??', text: 'Why does the old sign still point toward a closed entrance?', context: 'The library moved its entrance, but the sign at the crossing has not changed. Who usually owns this kind of update?',
     tags: [], voters: ['priya'], related: [], status: 'open',
   },
 ];
 
 const edgeDraftFixtures = [
   {
-    author: 'maya', title: `${longStoryTitle.slice(0, 160)} — draft notes`, format: 'story', tags: [' Essays ', 'DESIGN', 'desgin', 'draft notes'],
+    author: 'maya', previousTitle: `${longStoryTitle.slice(0, 160)} \u2014 draft notes`, title: 'Draft: Returning to the Riverside Path', format: 'story', tags: ['essays', 'design', 'draft notes'],
     blocks: [
       ['h1', 'Need a better opening'],
       ['text', 'I think the path matters because it is used differently at different hours. This sentence is too broad. Find the actual person and the exact moment.'],
@@ -142,17 +141,17 @@ const edgeDraftFixtures = [
     ],
   },
   {
-    author: 'leila', title: 'not done yet?? 🌊', format: 'short', tags: ['science', 'feild notes', 'science'],
-    blocks: [['text', 'Tide time? Check notebook. I wrote this quickly and left the spelling mistake in the tag so the draft list can be tested with ordinary unfinished work.']],
+    author: 'leila', previousTitle: 'not done yet?? 🌊', title: 'Before the Tide Turns', format: 'short', tags: ['science', 'field notes'],
+    blocks: [['text', 'Check the tide time against yesterday’s notebook. The sheltered channel looked different this morning, but the wind had changed too. Return from the same marker before deciding which difference matters.']],
   },
 ];
 
 const edgeCollectionFixtures = [
-  { title: 'OK', description: '', author: 'priya', visibility: 'public', postKeys: ['edge-tiny-short'], saved: [], followed: [] },
-  { title: 'Still collecting...', description: 'An intentionally empty collection that a reader created before choosing any stories.', author: 'noah', visibility: 'public', postKeys: [], saved: [], followed: [] },
+  { previousTitle: 'OK', title: 'One Small Reminder', description: 'A tiny reminder to look twice before moving on.', author: 'priya', visibility: 'public', postKeys: ['edge-tiny-short'], saved: [], followed: [] },
+  { previousTitle: 'Still collecting...', title: 'Places to Return To', description: 'A new shelf for essays about familiar places. The first few stories are still on my reading list.', author: 'noah', visibility: 'public', postKeys: [], saved: [], followed: [] },
   {
-    title: 'A long collection title about places, drafts, field notes, and questions that keep growing',
-    description: 'I started this as a tidy list and then kept adding things. The order moves from a one-line observation to a long short read, a broken image, and several fuller stories. Some tags are misspelled; one title is too long; another piece has no tags at all. That is the point of this demo collection: it lets us see how the same mixed reading list behaves on a phone, in search, and on a detail page without making every entry look polished.',
+    previousTitle: 'A long collection title about places, drafts, field notes, and questions that keep growing', title: 'The Questions We Carry Home',
+    description: 'A reading path through public space, notebooks, clear explanations, and the questions that deserve another visit. Begin with a brief observation, then follow the longer pieces wherever your attention leads.',
     author: 'maya', visibility: 'public',
     postKeys: ['edge-minimal-story', 'edge-tiny-short', 'edge-long-title', 'edge-unbroken-text', 'edge-unicode', 'edge-mixed-blocks', 'edge-image-fallback', 'edge-rough-draft', 'edge-long-short-title', 'edge-long-short-body', 'edge-multiline-short', 'square-seating'],
     saved: ['noah', 'priya'], followed: ['noah'],
@@ -161,8 +160,8 @@ const edgeCollectionFixtures = [
 
 const edgeSeriesFixtures = [
   {
-    title: 'A long series title about observations, unfinished sentences, and routes we almost forgot to take',
-    description: 'Two very different story lengths in one ordered path. The first is a few words; the second has a title that nearly fills the publishing limit. This series helps check previews and navigation when chapter names do not share a tidy shape.',
+    previousTitle: 'A long series title about observations, unfinished sentences, and routes we almost forgot to take', title: 'Returning to the Riverside',
+    description: 'Two ways of returning to a familiar place: a brief moment of absence and a longer account of a riverside path that holds several neighborhood memories.',
     author: 'maya', type: 'story', postKeys: ['edge-minimal-story', 'edge-long-title'], saved: ['priya'],
   },
 ];

@@ -1,5 +1,5 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { addCollectionPost, createCollection, deleteCollection, fetchCollection, fetchCollectionEligiblePosts, fetchCollections, updateCollection, updateCollectionFollow, updateCollectionSave } from '../api/collections'
+import { addCollectionPost, createCollection, deleteCollection, fetchCollection, fetchCollectionEligiblePosts, fetchCollections, updateCollection, updateCollectionFollow, updateCollectionSave, uploadCollectionCover } from '../api/collections'
 import useToast from '@/shared/hooks/useToast'
 import { useSelector } from 'react-redux'
 
@@ -88,6 +88,11 @@ export const useUpdateCollection = collectionId => {
     client.invalidateQueries({ queryKey: ['collections'] })
     notify('Collection updated.')
   }, onError: () => notify('The collection could not be updated.', { tone: 'error' }) })
+}
+export const useUploadCollectionCover = collectionId => {
+  const client = useQueryClient()
+  const { notify } = useToast()
+  return useMutation({ mutationFn: file => uploadCollectionCover({ collectionId, file }), onSuccess: () => { client.invalidateQueries({ queryKey: ['collection', collectionId] }); client.invalidateQueries({ queryKey: ['collections'] }); notify('Collection image updated.') }, onError: () => notify('Cover image can’t be uploaded right now. The default cover is being used.', { tone: 'error' }) })
 }
 export const useDeleteCollection = collectionId => {
   const client = useQueryClient()

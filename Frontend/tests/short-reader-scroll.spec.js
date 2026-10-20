@@ -187,6 +187,20 @@ test('delayed loading cannot consume another card from the same gesture', async 
   await expect(page.locator('[data-short-scroll]')).toHaveJSProperty('scrollTop', 0)
 })
 
+test('prefetches the next short and accepts a fresh gesture while detail is loading', async ({ page }) => {
+  const requested = []
+  page.on('request', request => requested.push(new URL(request.url()).pathname))
+  await openReader(page, { delay: 3000 })
+  await expect.poll(() => requested.filter(path => path === `/api/post/${items[1].id}`).length).toBe(1)
+
+  await wheel(page, 60, { count: 2 })
+  await expect(page.locator('dialog')).toHaveAttribute('aria-busy', 'true')
+  await settleCard(page)
+  await wheel(page, 60, { count: 2 })
+  await expect.poll(() => requested.filter(path => path === `/api/post/${items[2].id}`).length).toBe(1)
+  await expect(page.getByRole('dialog', { name: items[2].title })).toBeVisible()
+})
+
 test('reduced motion keeps navigation immediate and stationary', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await openReader(page)

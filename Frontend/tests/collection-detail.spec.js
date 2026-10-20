@@ -16,6 +16,28 @@ const collection = {
   ],
 }
 
+test('canceling collection image selection keeps edit open', async ({ page }) => {
+  await page.route(url => url.pathname.startsWith('/api/'), route => {
+    const pathname = new URL(route.request().url()).pathname
+    if (pathname === '/api/auth/refresh-token') return route.fulfill({ json: { accessToken: 'collection-owner', user: 'Maya Sen', email: 'maya@example.test', role: 'regular' } })
+    if (pathname === `/api/collection/${collectionId}`) return route.fulfill({ json: { data: collection } })
+    return route.fulfill({ json: { data: [], meta: { nextCursor: null } } })
+  })
+  await page.goto(`${process.env.E2E_BASE_URL || 'http://127.0.0.1:3000'}/collections/${collectionId}`)
+  await page.getByRole('button', { name: 'Edit collection' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Edit collection' })
+  await dialog.locator('input[type="file"]').evaluate(input => {
+    input.click = () => {}
+  })
+  await dialog.getByRole('button', { name: 'Replace image' }).click()
+  await page.keyboard.press('Escape')
+  await dialog.locator('input[type="file"]').evaluate(input => input.dispatchEvent(new Event('cancel', { bubbles: true })))
+  await expect(dialog).toBeVisible()
+  await page.waitForTimeout(550)
+  await page.keyboard.press('Escape')
+  await expect(dialog).toHaveCount(0)
+})
+
 test('owner adds a published story directly from collection detail', async ({ page }) => {
   const story = { id: '507f1f77bcf86cd799439033', title: 'Third story', format: 'article', author: { username: 'Maya Sen' }, readTime: '2 min read' }
   let added = false

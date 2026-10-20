@@ -31,11 +31,15 @@ const Notification = require('../schemas/notification.schema');
 const Report = require('../schemas/report.schema');
 const ModerationAction = require('../schemas/moderation-action.schema');
 const AiUsage = require('../schemas/ai-usage.schema');
+const ReadingState = require('../schemas/reading-state.schema');
+const { createCoverAllocator, photoIdentity } = require('../data/development-cover-selection');
+const { covers, stableNumber, selectReaders, readerBios, communityWriters, communityReaders, communityStories, storyComments, communityShorts, communityQuestions, communityCollections, communitySeries, discoverySubjects, legacyShorts } = require('../data/development-community');
 const { ensureCanonicalTopics } = require('../services/topic.service');
 const { normalizeQuestionText } = require('../utils/question');
 const { MaleAvatars, FemaleAvatars } = require('../assets/data');
-const { discoveryStoryBodies, shortFixtures, additionalStoryFixtures } = require('../data/development-writing');
+const { discoveryStoryBodies, shortFixtures, additionalStoryFixtures, enrichPublicationBody } = require('../data/development-writing');
 const { edgeCaseFixtures, edgeQuestionFixtures, edgeDraftFixtures, edgeCollectionFixtures, edgeSeriesFixtures } = require('../data/development-edge-cases');
+const { parsePostBody } = require('../controllers/publication.controller');
 
 if (process.env.NODE_ENV === 'production') throw new Error('Development seed is disabled in production');
 
@@ -52,8 +56,8 @@ const userFixtures = [
   { key: 'leila', email: 'leila@inkrider.local', username: 'Leila Noor', handle: 'leila-noor', bio: 'Marine science, field notes, and climate solutions.', writerStatus: 'writer', directRequestsEnabled: true, avatarUrl: FemaleAvatars[1] },
   { key: 'noah', email: 'noah@inkrider.local', username: 'Noah Williams', handle: 'noah-williams', bio: 'A curious reader exploring fiction and design.', writerStatus: 'reader', avatarUrl: MaleAvatars[1] },
   { key: 'priya', email: 'member@inkrider.local', username: 'Priya Mehta', handle: 'priya-mehta', bio: 'Member, collector, and workshop regular.', writerStatus: 'reader', avatarUrl: FemaleAvatars[2] },
-  { key: 'moderator', email: 'moderator@inkrider.local', username: 'Demo Moderator', handle: 'demo-moderator', bio: 'Reviews community reports.', writerStatus: 'reader', role: 'moderator', avatarUrl: MaleAvatars[2] },
-  { key: 'admin', email: 'admin@inkrider.local', username: 'Demo Admin', handle: 'demo-admin', bio: 'Operates competitions and platform settings.', writerStatus: 'reader', role: 'admin', avatarUrl: MaleAvatars[3] },
+  { key: 'moderator', email: 'moderator@inkrider.local', username: 'Rohan Desai', handle: 'demo-moderator', bio: 'Community moderator, careful reader, and occasional collector of short fiction.', writerStatus: 'reader', role: 'moderator', avatarUrl: MaleAvatars[2] },
+  { key: 'admin', email: 'admin@inkrider.local', username: 'Amelia Hart', handle: 'demo-admin', bio: 'Keeping firstmargin welcoming. Interested in thoughtful questions and emerging writers.', writerStatus: 'reader', role: 'admin', avatarUrl: MaleAvatars[3] },
 ];
 
 const engagementReaders = [
@@ -64,13 +68,13 @@ const engagementReaders = [
   ['kavya', 'Kavya Nair', FemaleAvatars[7]], ['leo', 'Leo Bennett', MaleAvatars[8]],
   ['mina', 'Mina Chen', FemaleAvatars[3]], ['omar', 'Omar Haddad', MaleAvatars[9]],
 ];
-userFixtures.push(...engagementReaders.map(([key, username, avatarUrl]) => ({
+userFixtures.push(...engagementReaders.map(([key, username, avatarUrl], index) => ({
   key, email: `${key}@inkrider.local`, username, handle: `reader-${key}`,
-  bio: 'A curious firstmargin reader.', writerStatus: 'reader', avatarUrl,
+  bio: readerBios[index % readerBios.length], writerStatus: 'reader', avatarUrl,
 })));
+userFixtures.push(...communityWriters, ...communityReaders);
 
-const engagementReaderKeys = ['noah', 'priya', ...engagementReaders.map(([key]) => key)];
-const stableNumber = (key, salt) => crypto.createHash('sha256').update(`${key}:${salt}`).digest().readUInt32BE(0);
+const engagementReaderKeys = ['noah', 'priya', ...engagementReaders.map(([key]) => key), ...communityReaders.map(({ key }) => key)];
 const normalizeTags = tags => [...new Set(tags.map(tag => String(tag).trim().toLowerCase()).filter(Boolean))].slice(0, 20);
 const relatedTags = {
   design: ['public space', 'urban life', 'accessibility', 'everyday design', 'community', 'observation'],
@@ -187,8 +191,8 @@ const postFixtures = [
   },
   {
     key: 'early-access', author: 'leila', title: 'Field Notes from a Living Breakwater', tags: ['science', 'travel'], topicSlugs: ['science', 'travel'], age: 0, publicAt: ahead(5),
-    coverImage: 'https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=1400&q=80',
-    blocks: [['text', 'These early field notes follow a living-breakwater team through one week of monitoring waves, sediment, and returning wildlife.'], ['text', 'Members can read the draft release now; the same story becomes public automatically in five days.']],
+    coverImage: covers.coast,
+    blocks: [['text', 'These early field notes follow a living-breakwater team through one week of monitoring waves, sediment, and returning wildlife.'], ['text', 'The first visit began with a tide marker and a question about the sheltered water behind the structure. By the end of the week, the team had a more complicated account of where the design was helping and where another visit was needed.']],
   },
   {
     key: 'early-city', author: 'maya', title: 'The Library at the End of the Street', tags: ['design', 'essays'], topicSlugs: ['design', 'essays'], age: 0, publicAt: ahead(9),
@@ -200,8 +204,8 @@ const postFixtures = [
     blocks: [['text', 'Before sharing a chart, ask what the scale hides. A dramatic line can describe a tiny change, while a flat line can conceal a meaningful difference across groups. Read the labels, then read the story again.']],
   },
   {
-    key: 'unpublished', author: 'arjun', title: 'Unpublished Demo: Notes on Humane Metrics', tags: ['technology'], topicSlugs: ['technology'], age: 2, publicationStatus: 'unpublished',
-    blocks: [['text', 'This unpublished fixture appears only in Arjun’s post-management view and direct owner access.']],
+    key: 'unpublished', author: 'arjun', previousTitle: 'Unpublished Demo: Notes on Humane Metrics', title: 'Notes on Humane Metrics', tags: ['technology'], topicSlugs: ['technology'], age: 2, publicationStatus: 'unpublished',
+    blocks: [['text', 'A useful metric needs a clear relationship to the experience it claims to describe. Before revising this piece, I want to follow one measure from the dashboard back to an actual reader’s decision.']],
   },
 ];
 
@@ -293,14 +297,6 @@ const discoverySeedStories = [
   'The Everyday Technology of Belonging',
   'A More Generous Way to Measure Progress',
 ];
-const discoveryCoverImages = [
-  'https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=1400&q=80',
-  'https://images.unsplash.com/photo-1497366811353-6870744d04b2?auto=format&fit=crop&w=1400&q=80',
-  'https://images.unsplash.com/photo-1500534623283-312aade485b7?auto=format&fit=crop&w=1400&q=80',
-  'https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=1400&q=80',
-  'https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&w=1400&q=80',
-  'https://images.unsplash.com/photo-1518005020951-eccb494ad742?auto=format&fit=crop&w=1400&q=80',
-];
 const discoveryTaxonomies = [
   { author: 'maya', tags: ['design', 'essays'], topicSlugs: ['design', 'essays'] },
   { author: 'arjun', tags: ['technology', 'design'], topicSlugs: ['technology', 'design'] },
@@ -310,27 +306,41 @@ const discoveryTaxonomies = [
 ];
 postFixtures.push(...discoverySeedStories.map((title, index) => {
   const taxonomy = discoveryTaxonomies[index % discoveryTaxonomies.length];
+  const [subject, image] = discoverySubjects[index];
   const paragraphs = discoveryStoryBodies[index];
   if (!paragraphs || paragraphs.length < 3) throw new Error(`Missing editorial content for discovery story ${index + 1}`);
   return {
     key: `discovery-story-${String(index + 1).padStart(2, '0')}`,
     ...taxonomy,
+    tags: [subject], topicSlugs: [subject],
     title,
     age: 0.5 + index * 0.35,
     appreciationsCount: 6 + ((index * 7) % 25),
-    coverImage: discoveryCoverImages[index % discoveryCoverImages.length],
+    coverImage: covers[image],
     blocks: [['text', paragraphs[0]], ['h2', 'A closer look'], ['text', paragraphs[1]], ['h2', 'What to carry forward'], ['text', paragraphs[2]]],
   };
 }));
-postFixtures.push(...additionalStoryFixtures.map((fixture, index) => ({
+postFixtures.push(...additionalStoryFixtures.map(fixture => ({
   ...fixture,
-  coverImage: discoveryCoverImages[(index + 2) % discoveryCoverImages.length],
+  coverImage: covers[({ science: 'coast', technology: 'data', design: 'architecture' })[fixture.tags[0]] || 'notebook'],
   blocks: [['text', fixture.paragraphs[0]], ['h2', 'A closer look'], ['text', fixture.paragraphs[1]], ['h2', 'What changed'], ['text', fixture.paragraphs[2]]],
 })));
 postFixtures.push(...edgeCaseFixtures.map(fixture => ({ ...fixture, edgeCase: true })));
+postFixtures.push(...communityStories, ...communityShorts);
+for (const fixture of postFixtures) fixture.blocks = enrichPublicationBody(fixture);
+// Shorts also use meaningful covers; no random image endpoint is needed at render time.
+const catalogCover = createCoverAllocator();
+for (const fixture of postFixtures) fixture.coverImage = catalogCover(`publication:${fixture.key}`, fixture);
 
 const makeBlocks = fixture => JSON.stringify(fixture.blocks.map(([type, content, alt], index) => ({ id: `seed-${fixture.key}-${index + 1}`, type, content, ...(alt ? { alt } : {}) })));
 const upsert = (Model, filter, update) => Model.findOneAndUpdate(filter, update, { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true });
+
+const tenStorySeries = {
+  title: 'A Curious Life: Ten Ways of Seeing', author: 'maya', type: 'story',
+  description: 'Ten essays about noticing more: begin with familiar rooms and neighborhood walks, then explore better questions, shared places, research, and the quiet craft of making an idea clear.',
+  postKeys: ['discovery-story-01', 'discovery-story-04', 'discovery-story-06', 'discovery-story-09', 'discovery-story-11', 'discovery-story-14', 'discovery-story-16', 'discovery-story-19', 'discovery-story-21', 'discovery-story-24'],
+  saved: [],
+};
 
 async function seedUsers() {
   const password = await bcrypt.hash(seedPassword, 12);
@@ -338,7 +348,7 @@ async function seedUsers() {
   for (const fixture of userFixtures) {
     const user = await upsert(User, { email: fixture.email }, {
       $set: { username: fixture.username, bio: fixture.bio, picture: fixture.avatarUrl, password, verified: true, role: fixture.role || 'regular', accountStatus: 'active' },
-      $setOnInsert: { followers: 0, followersCount: 0, followingCount: 0, following: [] },
+      $setOnInsert: { followers: 0, followersCount: 0, followingCount: 0, following: [], createdAt: ago(30 + stableNumber(fixture.key, 'joined') % 600) },
     });
     await upsert(Profile, { userId: user._id }, { $set: { handle: fixture.handle, displayName: fixture.username, bio: fixture.bio, avatarUrl: fixture.avatarUrl, writerStatus: fixture.writerStatus, directRequestsEnabled: Boolean(fixture.directRequestsEnabled), membershipEnabled: fixture.writerStatus === 'writer' } });
     users.set(fixture.key, user);
@@ -355,6 +365,7 @@ async function seedPosts(users, topics) {
     { $set: { title: discoverySeedStories[0] } },
   );
   for (const fixture of postFixtures) {
+    if (fixture.previousTitle) await Publication.updateOne({ author: users.get(fixture.author)._id, title: fixture.previousTitle }, { $set: { title: fixture.title } });
     const tags = tagsForFixture(fixture);
     const wordCount = fixture.blocks.reduce((total, [, content]) => total + String(content).trim().split(/\s+/).filter(Boolean).length, 0);
     if (!fixture.title.trim() || fixture.title.length > (fixture.format === 'short' ? 120 : 180)
@@ -370,7 +381,7 @@ async function seedPosts(users, topics) {
         body, format: fixture.format || 'story', tags, topics: fixture.topicSlugs.map(slug => topics.get(slug)?._id).filter(Boolean),
         coverImage: fixture.coverImage || null, publicationStatus: fixture.publicationStatus || 'published', publicAt,
         currentRevision: 1,
-        metadata: { views: fixture.appreciationsCount ? fixture.appreciationsCount * 14 : 5, shares: fixture.appreciationsCount ? Math.ceil(fixture.appreciationsCount / 3) : 0 },
+        metadata: { views: 0, shares: 0 },
       },
       $setOnInsert: { createdAt: ago(fixture.age) },
     });
@@ -382,12 +393,24 @@ async function seedPosts(users, topics) {
 
 async function seedRelationships(users, posts, topics) {
   const follows = [['noah', 'maya'], ['noah', 'arjun'], ['priya', 'maya'], ['priya', 'arjun'], ['priya', 'leila'], ['maya', 'leila']];
-  for (const [follower, following] of follows) await upsert(Follow, { followerId: users.get(follower)._id, followingId: users.get(following)._id }, { $setOnInsert: { followerId: users.get(follower)._id, followingId: users.get(following)._id } });
-  for (const fixture of userFixtures) {
-    const followingIds = follows.filter(([key]) => key === fixture.key).map(([, key]) => users.get(key)._id);
-    const followersCount = follows.filter(([, key]) => key === fixture.key).length;
-    await User.updateOne({ _id: users.get(fixture.key)._id }, { $set: { following: followingIds, followingCount: followingIds.length, followersCount, followers: followersCount } });
+  const writers = userFixtures.filter(user => user.writerStatus === 'writer').map(({ key }) => key);
+  for (const follower of engagementReaderKeys) {
+    for (const following of selectReaders(writers, follower, 'follows', 1 + stableNumber(follower, 'follow-count') % 7, [follower])) {
+      if (!follows.some(pair => pair[0] === follower && pair[1] === following)) follows.push([follower, following]);
+    }
   }
+  await Follow.bulkWrite(follows.map(([follower, following]) => {
+    const filter = { followerId: users.get(follower)._id, followingId: users.get(following)._id };
+    return { updateOne: { filter, update: { $setOnInsert: { ...filter, createdAt: ago(7 + stableNumber(`${follower}:${following}`, 'follow-age') % 180) } }, upsert: true } };
+  }));
+  const seededUserIds = [...users.values()].map(user => user._id);
+  const actualFollows = await Follow.find({ $or: [{ followerId: { $in: seededUserIds } }, { followingId: { $in: seededUserIds } }] }).select('followerId followingId').lean();
+  await User.bulkWrite(userFixtures.map(fixture => {
+    const id = users.get(fixture.key)._id;
+    const followingIds = actualFollows.filter(row => String(row.followerId) === String(id)).map(row => row.followingId);
+    const followersCount = actualFollows.filter(row => String(row.followingId) === String(id)).length;
+    return { updateOne: { filter: { _id: id }, update: { $set: { following: followingIds, followingCount: followingIds.length, followersCount, followers: followersCount } } } };
+  }));
 
   const likes = [['noah', 'recommendation-systems'], ['noah', 'walkable-city'], ['priya', 'recommendation-systems'], ['priya', 'restoring-reefs'], ['maya', 'restoring-reefs'], ['arjun', 'fiction-station'], ['noah', 'square-seating'], ['priya', 'three-tides'], ['maya', 'slower-feed'], ['leila', 'bench-care'], ['arjun', 'marsh-memory'], ['noah', 'city-crossing'], ['priya', 'model-confidence']];
   const saves = [['noah', 'walkable-city'], ['noah', 'fiction-station'], ['priya', 'restoring-reefs'], ['priya', 'recommendation-systems'], ['noah', 'square-seating'], ['priya', 'three-tides'], ['maya', 'slower-feed'], ['arjun', 'marsh-memory'], ['leila', 'field-note-date']];
@@ -411,40 +434,64 @@ async function seedRelationships(users, posts, topics) {
   for (const [user, post, content] of comments) await upsert(Comment, { userId: users.get(user)._id, publicationId: posts.get(post)._id, content }, { $setOnInsert: { userId: users.get(user)._id, publicationId: posts.get(post)._id, content, parentCommentId: null } });
   const generatedAppreciations = [];
   const generatedComments = [];
+  const generatedSaves = [];
   for (const fixture of postFixtures) {
     if (fixture.publicationStatus === 'unpublished' || (fixture.publicAt && fixture.publicAt > now)) continue;
     const post = posts.get(fixture.key);
     const eligibleReaders = engagementReaderKeys.filter(key => key !== fixture.author)
       .sort((a, b) => stableNumber(fixture.key, `reader:${a}`) - stableNumber(fixture.key, `reader:${b}`));
-    const appreciationTargets = [0, 1, 2, 3, 5, 7, 10, 14];
+    const appreciationTargets = [0, 1, 3, 7, 12, 19, 28, 43, 57, 74];
     const appreciationCount = Math.min(eligibleReaders.length, appreciationTargets[stableNumber(fixture.key, 'appreciations') % appreciationTargets.length]);
     for (const key of eligibleReaders.slice(0, appreciationCount)) {
       const userId = users.get(key)._id;
-      generatedAppreciations.push({ updateOne: { filter: { userId, publicationId: post._id }, update: { $setOnInsert: { userId, publicationId: post._id } }, upsert: true } });
+      generatedAppreciations.push({ updateOne: { filter: { userId, publicationId: post._id }, update: { $setOnInsert: { userId, publicationId: post._id, createdAt: ago(fixture.age * ((stableNumber(`${fixture.key}:${key}`, 'liked-age') % 90) + 1) / 100) } }, upsert: true } });
+    }
+    for (const key of selectReaders(eligibleReaders, fixture.key, 'saves', stableNumber(fixture.key, 'save-count') % 24)) {
+      const filter = { userId: users.get(key)._id, publicationId: post._id };
+      generatedSaves.push({ updateOne: { filter, update: { $setOnInsert: { ...filter, createdAt: ago((stableNumber(`${fixture.key}:${key}`, 'saved-age') % Math.max(1, Math.floor(fixture.age * 100))) / 100) } }, upsert: true } });
     }
     const commentsCount = stableNumber(fixture.key, 'comments') % 7;
     const copy = commentCopy[fixture.tags[0]] || commentCopy.essays;
     for (let index = 0; index < commentsCount; index += 1) {
       const userId = users.get(eligibleReaders[(index + 3) % eligibleReaders.length])._id;
       const content = copy[(stableNumber(fixture.key, 'comment-copy') + index) % copy.length];
-      generatedComments.push({ updateOne: { filter: { userId, publicationId: post._id, content }, update: { $setOnInsert: { userId, publicationId: post._id, content, parentCommentId: null } }, upsert: true } });
+      generatedComments.push({ updateOne: { filter: { userId, publicationId: post._id, content }, update: { $setOnInsert: { userId, publicationId: post._id, content, parentCommentId: null, createdAt: ago(fixture.age * (0.1 + (index + 1) / 10)) } }, upsert: true } });
     }
   }
   if (generatedAppreciations.length) await Appreciation.bulkWrite(generatedAppreciations, { ordered: false });
   if (generatedComments.length) await Comment.bulkWrite(generatedComments, { ordered: false });
+  if (generatedSaves.length) await Save.bulkWrite(generatedSaves, { ordered: false });
+  for (const [index, fixture] of communityStories.entries()) {
+    const post = posts.get(fixture.key);
+    const content = storyComments[index];
+    const userId = users.get(engagementReaderKeys[(index * 7) % engagementReaderKeys.length])._id;
+    const parent = await upsert(Comment, { userId, publicationId: post._id, content }, { $setOnInsert: { userId, publicationId: post._id, content, parentCommentId: null, createdAt: ago(fixture.age * 0.7) } });
+    const reply = ({ sofia: 'Thank you. The small detours have become the first thing I write down after a trip. I am glad this one stayed with you.', theo: 'That is a useful example. Looking at the whole experience often changes where I think the design problem begins.', nisha: 'I am glad the detail felt familiar. Those ordinary conversations keep turning out to be the part I want to preserve.', lucas: 'I would be interested to hear how it works for your team. The important part for us was making the next decision explicit.', anika: 'Keep the exceptions in the notebook too. They often suggest a much better question for the next observation.', mateo: 'Thank you for noticing that detail. I cut a longer final paragraph because the scene seemed to have already said enough.', zoe: 'I am glad it felt usable. I keep trying to leave room for the days when the routine needs to change.', daniel: 'That is exactly the kind of detail I want the picture to leave room for. Thank you for adding another perspective.' })[fixture.author];
+    await upsert(Comment, { userId: post.author, publicationId: post._id, parentCommentId: parent._id }, { $setOnInsert: { userId: post.author, publicationId: post._id, parentCommentId: parent._id, content: reply, createdAt: ago(fixture.age * 0.5) } });
+  }
 
   const spread = {
     story: { appreciations: new Set(), comments: new Set() },
     short: { appreciations: new Set(), comments: new Set() },
   };
+  const publicationIds = [...posts.values()].map(post => post._id);
+  const [appreciationTotals, commentTotals] = await Promise.all([
+    Appreciation.aggregate([{ $match: { publicationId: { $in: publicationIds } } }, { $group: { _id: '$publicationId', count: { $sum: 1 } } }]),
+    Comment.aggregate([{ $match: { publicationId: { $in: publicationIds }, deletedAt: null } }, { $group: { _id: '$publicationId', count: { $sum: 1 } } }]),
+  ]);
+  const appreciationsByPost = new Map(appreciationTotals.map(row => [String(row._id), row.count]));
+  const commentsByPost = new Map(commentTotals.map(row => [String(row._id), row.count]));
+  const counterUpdates = [];
   for (const post of posts.values()) {
-    const [appreciationsCount, commentsCount] = await Promise.all([Appreciation.countDocuments({ publicationId: post._id }), Comment.countDocuments({ publicationId: post._id, deletedAt: null })]);
-    await Publication.updateOne({ _id: post._id }, { $set: { appreciationsCount, commentsCount } });
+    const appreciationsCount = appreciationsByPost.get(String(post._id)) || 0;
+    const commentsCount = commentsByPost.get(String(post._id)) || 0;
+    counterUpdates.push({ updateOne: { filter: { _id: post._id }, update: { $set: { appreciationsCount, commentsCount } } } });
     if (post.publicationStatus === 'published' && (!post.publicAt || post.publicAt <= now)) {
       spread[post.format].appreciations.add(appreciationsCount);
       spread[post.format].comments.add(commentsCount);
     }
   }
+  await Publication.bulkWrite(counterUpdates);
   for (const [format, levels] of Object.entries(spread)) {
     if (levels.appreciations.size < 3 || levels.comments.size < 3) {
       throw new Error(`Seed verification failed: ${format} engagement counts need more variation`);
@@ -452,8 +499,9 @@ async function seedRelationships(users, posts, topics) {
   }
 
   const interestMap = { noah: [['fiction', 1], ['design', 0.8], ['technology', 0.5]], priya: [['science', 1], ['technology', 0.8], ['essays', 0.7]], maya: [['design', 1], ['essays', 0.9]], arjun: [['technology', 1], ['design', 0.7]] };
+  for (const writer of communityWriters) interestMap[writer.key] = [[writer.topic, 1], [writer.topic === 'essays' ? 'travel' : 'essays', 0.5]];
   for (const [userKey, interests] of Object.entries(interestMap)) for (const [slug, weight] of interests) await upsert(UserInterest, { userId: users.get(userKey)._id, topicId: topics.get(slug)._id }, { $set: { explicitWeight: weight, inferredWeight: weight / 4 } });
-  for (const key of ['noah', 'priya']) await User.updateOne({ _id: users.get(key)._id }, { $set: { onboardingCompletedAt: ago(20) } });
+  await User.updateMany({ _id: { $in: ['noah', 'priya', ...communityWriters.map(writer => writer.key)].map(key => users.get(key)._id) } }, { $set: { onboardingCompletedAt: ago(20) } });
 }
 
 async function seedQuestions(users, posts) {
@@ -471,6 +519,7 @@ async function seedQuestions(users, posts) {
     { key: 'community-discovery', author: 'priya', text: 'How should reader questions shape a story feed without rewarding only popular requests?', context: 'I want to understand how new writers can still be discovered.', tags: ['technology', 'essays'], voters: ['priya', 'noah', 'arjun'], related: ['discovery-story-26'], status: 'answered' },
     { key: 'unanswered-city', author: 'noah', text: 'What would make an evening walking route feel safer to someone who moves slowly?', context: 'I would like observations from residents and maintenance teams, not just a map.', tags: ['design'], voters: ['noah', 'priya'], related: [], status: 'open' },
   ];
+  fixtures.push(...communityQuestions);
   fixtures.push(...edgeQuestionFixtures);
   const questions = new Map();
   for (const fixture of fixtures) {
@@ -478,10 +527,13 @@ async function seedQuestions(users, posts) {
       || normalizeTags(fixture.tags).length > 5 || normalizeTags(fixture.tags).some(tag => tag.length > 30)) {
       throw new Error(`Invalid development question: ${fixture.key}`);
     }
-    const voters = fixture.voters.map(key => users.get(key)._id);
-    const data = { text: fixture.text, normalizedText: normalizeQuestionText(fixture.text), context: fixture.context, tags: normalizeTags(fixture.tags).slice(0, 5), author: users.get(fixture.author)._id, upvotes: voters, upvotesCount: voters.length, relatedPublications: fixture.related.map(key => posts.get(key)._id), status: fixture.status };
+    const voterKeys = [...new Set([...fixture.voters, ...selectReaders(engagementReaderKeys, fixture.key, 'question-votes', stableNumber(fixture.key, 'question-count') % 59, [fixture.author])])];
+    if (fixture.previousText) await Question.updateOne({ author: users.get(fixture.author)._id, normalizedText: normalizeQuestionText(fixture.previousText) }, { $set: { text: fixture.text, normalizedText: normalizeQuestionText(fixture.text) } });
+    const voters = voterKeys.map(key => users.get(key)._id);
+    const followers = selectReaders(engagementReaderKeys, fixture.key, 'question-followers', 1 + stableNumber(fixture.key, 'question-follows') % 27).map(key => users.get(key)._id);
+    const data = { text: fixture.text, normalizedText: normalizeQuestionText(fixture.text), context: fixture.context, tags: normalizeTags(fixture.tags).slice(0, 5), author: users.get(fixture.author)._id, upvotes: voters, upvotesCount: voters.length, followers, relatedPublications: fixture.related.map(key => posts.get(key)._id), status: fixture.status };
     const update = { $set: data };
-    if (fixture.answers) update.$setOnInsert = { answers: fixture.answers.map(([author, text, answerVoters]) => ({ text, author: users.get(author)._id, upvotes: answerVoters.map(key => users.get(key)._id) })) };
+    update.$setOnInsert = { createdAt: ago(3 + stableNumber(fixture.key, 'question-age') % 36), ...(fixture.answers ? { answers: fixture.answers.map(([author, text, answerVoters]) => ({ text, author: users.get(author)._id, upvotes: answerVoters.map(key => users.get(key)._id), createdAt: ago(1 + stableNumber(fixture.key, 'answer-age') % 2) })) } : {}) };
     const question = await upsert(Question, { normalizedText: normalizeQuestionText(fixture.text) }, update);
     questions.set(fixture.key, question);
   }
@@ -500,11 +552,13 @@ async function seedAuthoring(users, posts, questions) {
     { author: 'leila', title: 'Draft: Listening After a Storm', format: 'story', tags: ['science', 'travel'], blocks: [['text', 'The storm left visible debris, but the first sound I noticed was water moving through a channel that had been dry the previous week.'], ['h2', 'What to verify'], ['text', 'Compare observations from the same location before and after the storm, and ask local residents where the water crossed their routes.'], ['text', 'This is an opening scene, not yet an argument about recovery. I need a second visit before drawing a conclusion.']] },
   ];
   drafts.push(...edgeDraftFixtures);
+  drafts.push(...communityWriters.map(writer => ({ author: writer.key, title: `Notes for the next ${writer.topic === 'fiction' ? 'story' : 'essay'}`, format: 'story', tags: [writer.topic], blocks: [['text', `I keep returning to the question behind “${communityStories.find(post => post.author === writer.key).title}”. The next piece needs a different opening and a more specific example.`], ['h2', 'Before the next draft'], ['text', 'Return to the notes, check the sequence of events, and choose one scene that carries the question. Ask a reader what remains unclear before writing the conclusion.']] })));
   for (const fixture of drafts) {
     if (fixture.title.length > (fixture.format === 'short' ? 120 : 180) || normalizeTags(fixture.tags).some(tag => tag.length > 60)) {
       throw new Error(`Invalid development draft: ${fixture.title}`);
     }
     const body = JSON.stringify(fixture.blocks.map(([type, content], index) => ({ id: `seed-draft-${fixture.author}-${index}`, type, content })));
+    if (fixture.previousTitle) await Draft.updateOne({ authorId: users.get(fixture.author)._id, title: fixture.previousTitle }, { $set: { title: fixture.title } });
     await upsert(Draft, { authorId: users.get(fixture.author)._id, title: fixture.title }, { $set: { format: fixture.format, body, tags: normalizeTags(fixture.tags), version: 3, sourceQuestion: fixture.sourceQuestion ? questions.get(fixture.sourceQuestion)._id : null } });
   }
   await Publication.updateOne({ _id: posts.get('attention-one')._id }, { $set: { depthParent: posts.get('walkable-city')._id } });
@@ -530,12 +584,16 @@ async function seedCollectionsAndSeries(users, posts) {
     { title: 'A Fiction Writer’s Toolkit', description: 'Use weather, movement, and precise details to make an unfamiliar scene feel lived in.', author: 'maya', visibility: 'unlisted', postKeys: ['fiction-station', 'discovery-story-10', 'attention-one', 'memory-map'], saved: ['priya'], followed: ['priya'] },
   ];
   collectionFixtures.push(...edgeCollectionFixtures);
+  collectionFixtures.push(...communityCollections);
   for (const fixture of collectionFixtures) {
+    if (fixture.previousTitle) await Collection.updateOne({ author: users.get(fixture.author)._id, title: fixture.previousTitle }, { $set: { title: fixture.title } });
+    fixture.saved = [...new Set([...fixture.saved, ...selectReaders(engagementReaderKeys, fixture.title, 'collection-saves', fixture.visibility === 'private' ? 0 : stableNumber(fixture.title, 'save-count') % 35, [fixture.author])])];
+    fixture.followed = [...new Set([...fixture.followed, ...selectReaders(engagementReaderKeys, fixture.title, 'collection-follows', fixture.visibility === 'private' ? 0 : stableNumber(fixture.title, 'follow-count') % 23, [fixture.author])])];
     if (fixture.title.trim().length < 2 || fixture.title.length > 100 || fixture.description.length > 500 || fixture.postKeys.length > 100) {
       throw new Error(`Invalid development collection: ${fixture.title}`);
     }
     const publicationIds = fixture.postKeys.map(key => posts.get(key)._id);
-    await upsert(Collection, { author: users.get(fixture.author)._id, title: fixture.title }, { $set: { description: fixture.description, publications: publicationIds, items: publicationIds.map((post, position) => ({ publication: post, position, addedAt: ago(position) })), visibility: fixture.visibility, isPublic: fixture.visibility === 'public', savedBy: fixture.saved.map(key => users.get(key)._id), savedCount: fixture.saved.length, followers: fixture.followed.map(key => users.get(key)._id), followersCount: fixture.followed.length } });
+    await upsert(Collection, { author: users.get(fixture.author)._id, title: fixture.title }, { $set: { description: fixture.description, coverImage: fixture.coverImage || posts.get(fixture.postKeys[0])?.coverImage || covers.books, publications: publicationIds, items: publicationIds.map((post, position) => ({ publication: post, position, addedAt: ago(position) })), visibility: fixture.visibility, isPublic: fixture.visibility === 'public', savedBy: fixture.saved.map(key => users.get(key)._id), savedCount: fixture.saved.length, followers: fixture.followed.map(key => users.get(key)._id), followersCount: fixture.followed.length } });
   }
   const seriesFixtures = [
     { title: 'A Practice of Attention', author: 'maya', type: 'short', description: 'Four small exercises that move from noticing one detail to reading a familiar place anew.', postKeys: ['attention-one', 'attention-two', 'city-crossing', 'memory-map'], saved: ['noah', 'priya'] },
@@ -546,7 +604,10 @@ async function seedCollectionsAndSeries(users, posts) {
     { title: 'Field Notes and Living Coasts', author: 'leila', type: 'story', description: 'A connected account of shore sounds, careful observation, reef protection, and patient monitoring.', postKeys: ['three-tides', 'discovery-story-03', 'discovery-story-18', 'restoring-reefs', 'early-access'], saved: ['maya'] },
   ];
   seriesFixtures.push(...edgeSeriesFixtures);
+  seriesFixtures.push(...communitySeries);
+  seriesFixtures.push(tenStorySeries);
   for (const fixture of seriesFixtures) {
+    if (fixture.previousTitle) await ShortSeries.updateOne({ author: users.get(fixture.author)._id, title: fixture.previousTitle }, { $set: { title: fixture.title } });
     if (fixture.title.trim().length < 2 || fixture.title.length > 100 || fixture.description.length > 500 || fixture.postKeys.length < 2) {
       throw new Error(`Invalid development series: ${fixture.title}`);
     }
@@ -556,7 +617,8 @@ async function seedCollectionsAndSeries(users, posts) {
         throw new Error(`Invalid ${fixture.type} series item: ${fixture.title} / ${key}`);
       }
     }
-    await upsert(ShortSeries, { author: users.get(fixture.author)._id, title: fixture.title }, { $set: { description: fixture.description, type: fixture.type, visibility: 'public', savedBy: fixture.saved.map(key => users.get(key)._id), savedCount: fixture.saved.length, items: fixture.postKeys.map((key, position) => ({ publication: posts.get(key)._id, position })) } });
+    const saved = [...new Set([...fixture.saved, ...selectReaders(engagementReaderKeys, fixture.title, 'series-saves', stableNumber(fixture.title, 'saved') % 31, [fixture.author])])];
+    await upsert(ShortSeries, { author: users.get(fixture.author)._id, title: fixture.title }, { $set: { description: fixture.description, coverImage: fixture.coverImage || posts.get(fixture.postKeys[0]).coverImage, type: fixture.type, visibility: 'public', savedBy: saved.map(key => users.get(key)._id), savedCount: saved.length, items: fixture.postKeys.map((key, position) => ({ publication: posts.get(key)._id, position })) } });
   }
 }
 
@@ -566,13 +628,30 @@ async function seedCompetitions(users, posts) {
     { key: 'judging', title: 'Explain Tomorrow', description: 'Make an emerging idea clear without hiding its uncertainty, limits, or effect on real people.', status: 'judging', openDate: ago(12), closeDate: ago(1), resultsDate: ahead(2), votingMode: 'hybrid', competitionType: 'timed', entries: [['leila', 'restoring-reefs', ['noah', 'priya']], ['arjun', 'recommendation-systems', ['maya']]] },
     { key: 'closed', title: 'Journey in 1,000 Words', description: 'Tell a complete journey through a change of place, perspective, or understanding.', status: 'closed', openDate: ago(40), closeDate: ago(30), resultsDate: ago(25), votingMode: 'judges', competitionType: 'reader_choice', entries: [['maya', 'fiction-station', ['noah', 'priya']], ['arjun', 'recommendation-systems', ['leila']]], winnerIndex: 0 },
   ];
+  fixtures.push(
+    { key: 'everyday', title: 'An Ordinary Day, Closely Observed', description: 'Find a story in a small routine. Give readers a particular place, a concrete detail, and a reason to look again.', coverImage: covers.coffee, status: 'open', openDate: ago(4), closeDate: ahead(12), resultsDate: ahead(12), votingMode: 'readers', competitionType: 'reader_choice', entries: [['nisha', 'recipe-margin', []], ['zoe', 'friendship-calendar', []], ['daniel', 'noticeboard', []], ['maya', 'square-seating', []]] },
+    { key: 'departures', title: 'Between Arrivals and Departures', description: 'A short-fiction invitation for encounters on platforms, in doorways, and at the moment someone decides to stay.', coverImage: covers.train, status: 'open', openDate: ago(1), closeDate: ahead(18), resultsDate: ahead(21), votingMode: 'hybrid', competitionType: 'collective_choice', entries: [['mateo', 'wrong-platform', []], ['maya', 'fiction-station', []]] },
+    { key: 'field-notes', title: 'Notes from a Changing Season', description: 'Write from repeated observation. Show what changed between visits and keep your questions as visible as your conclusions.', coverImage: covers.forest, status: 'closed', openDate: ago(50), closeDate: ago(20), resultsDate: ago(18), votingMode: 'readers', competitionType: 'reader_choice', entries: [['anika', 'rain-notebook', []], ['leila', 'three-tides', []], ['sofia', 'one-neighborhood', []]], winnerIndex: 0 },
+  );
   const competitions = new Map();
   for (const fixture of fixtures) {
+    if (fixture.key === 'open') { fixture.competitionType = 'reader_choice'; fixture.coverImage = covers.architecture; }
+    if (fixture.key === 'judging') { fixture.competitionType = 'collective_choice'; fixture.coverImage = covers.data; }
+    if (fixture.key === 'closed') { fixture.votingMode = 'readers'; fixture.coverImage = covers.train; }
     let competition = await Competition.findOne({ title: fixture.title });
     if (!competition) competition = new Competition({ title: fixture.title, closeDate: fixture.closeDate });
-    competition.set({ description: fixture.description, status: fixture.status, openDate: fixture.openDate, closeDate: fixture.closeDate, resultsDate: fixture.resultsDate, votingMode: fixture.votingMode, competitionType: fixture.competitionType, rules: ['Submit an owned published post.', 'Respect the announced theme.', 'Reader votes must be independent.'], prizes: [{ rank: 'Winner', amount: 'Featured writer placement' }], maxEntries: 50, createdBy: users.get('admin')._id });
-    competition.entries = fixture.entries.map(([author, post, voters], index) => ({ author: users.get(author)._id, publication: posts.get(post)._id, publicationRevision: 1, note: index ? 'A contrasting perspective.' : 'Primary demo entry.', votes: voters.map(key => users.get(key)._id), votesCount: voters.length, judgeScores: fixture.votingMode === 'readers' ? [] : [{ judgeId: users.get('moderator')._id, craft: 8 - index, originality: 9 - index, relevance: 8, note: 'Seeded judging note for staff-console testing.' }] }));
-    competition.winnerEntryIds = fixture.winnerIndex == null ? [] : [competition.entries[fixture.winnerIndex]._id];
+    competition.set({ description: fixture.description, coverImage: fixture.coverImage, status: fixture.status, openDate: fixture.openDate, closeDate: fixture.closeDate, resultsDate: fixture.resultsDate, votingMode: fixture.votingMode, competitionType: fixture.competitionType, rules: ['Submit one original, published piece that you own.', 'Keep your writing connected to the announced theme.', 'Vote for one entry. Independent reader votes may be changed before voting closes.'], prizes: [{ rank: 'Winner', amount: 'Featured writer placement' }], maxEntries: 50, createdBy: users.get('admin')._id, judgeRoster: fixture.status === 'judging' ? [users.get('moderator')._id] : [], finalizedAt: fixture.status === 'closed' ? fixture.resultsDate : null });
+    const existingEntries = new Map(competition.entries.map(entry => [String(entry.publication), entry]));
+    const participatingReaders = selectReaders(engagementReaderKeys, fixture.key, 'contest-voters', 17 + stableNumber(fixture.key, 'turnout') % 52);
+    competition.entries = fixture.entries.map(([author, post], index) => {
+      const voters = participatingReaders.filter((key, position) => position % fixture.entries.length === index && key !== author);
+      return { ...(existingEntries.get(String(posts.get(post)._id))?._id ? { _id: existingEntries.get(String(posts.get(post)._id))._id } : {}), author: users.get(author)._id, publication: posts.get(post)._id, publicationRevision: 1,
+        note: `My entry explores the theme through “${posts.get(post).title}”.`, votes: voters.map(key => users.get(key)._id), votesCount: voters.length,
+        judgeScores: fixture.status === 'judging' && index === 0 ? [{ judgeId: users.get('moderator')._id, submittedBy: users.get('moderator')._id, craft: 8, originality: 9, relevance: 8, note: 'A clear central question, specific examples, and an ending that stays honest about the evidence.' }] : [] };
+    });
+    if (fixture.status === 'closed') fixture.winnerIndex = competition.entries.reduce((best, entry, index, entries) => entry.votesCount > entries[best].votesCount ? index : best, 0);
+    const winningVotes = fixture.status === 'closed' ? Math.max(...competition.entries.map(entry => entry.votesCount)) : null;
+    competition.winnerEntryIds = winningVotes == null ? [] : competition.entries.filter(entry => entry.votesCount === winningVotes).map(entry => entry._id);
     await competition.save();
     await upsert(CompetitionAudit, { competitionId: competition._id, action: 'created' }, { $setOnInsert: { competitionId: competition._id, actorId: users.get('admin')._id, action: 'created', details: { seeded: true } } });
     if (fixture.status === 'closed') await upsert(CompetitionAudit, { competitionId: competition._id, action: 'results_published' }, { $set: { actorId: users.get('admin')._id, details: { winnerEntryIds: competition.winnerEntryIds, seeded: true } } });
@@ -597,11 +676,29 @@ async function seedPremium(users, posts) {
     ['maya', 'Notebook scan: observing without interpreting', 'Supporters get the rough field-note prompts behind the next essay.', 'supporters'],
     ['leila', 'Behind the reef-restoration reporting', 'A short account of the evidence I removed, the uncertainty I kept, and the experts who challenged the first draft.', 'members'],
   ];
-  for (const [creator, title, body, audience] of updates) await upsert(CreatorUpdate, { creatorId: users.get(creator)._id, title }, { $set: { body, audience, status: 'published', publishedAt: ago(0.5) } });
+  const notebookNotes = {
+    sofia: 'The train piece began as a list of practical tips. The bakery changed the draft because it gave the journey a scene. I kept the timetable in my notes and let the shared breakfast carry the opening. For the next trip, I am leaving a whole morning without bookings so I can follow a smaller story.',
+    theo: 'I photographed the lamp before opening it, then took another photograph at each step. The most useful image showed the broken clip rather than the loose connection. It changed the piece from a repair anecdote into a question about the choices made before an object reaches its owner.',
+    nisha: 'I called my mother to check the recipe and we spent twenty minutes discussing the cup in the photograph. That conversation did not belong in the finished essay, but it clarified its subject. I was writing about the small ways a kitchen becomes familiar, with the recipe as a route into it.',
+    lucas: 'The decision-log draft originally included our entire template. I removed most of it after a reader asked why any of the fields mattered. The revised piece starts with the forgotten constraint, then explains only the lines that would have saved us from repeating the discussion.',
+    anika: 'My first week of bird notes looked impressively consistent until I checked the times. I had watched at a different hour on the rainy days. I kept those pages and marked the limitation. The next month will use the same observation window, with weather recorded separately.',
+    mateo: 'The first version explained who the visitor was before Amir noticed the suitcase. I moved that information later and cut the final paragraph. The spare chair now has room to carry a feeling the character is not ready to name. I am still deciding whether the balcony needs one more concrete detail.',
+    zoe: 'I nearly gave the walk essay a list of rules. Reading it aloud made that ending feel wrong: the piece was asking for more choice, and I had answered with another routine to follow. The final version leaves room for tracking a route and leaving the watch at home.',
+    daniel: 'I returned to the library at noon and after school with the same lens and viewpoint. The arrangement of chairs told the story more clearly than a wide view of the building. I kept identifiable faces out of the photographs and asked the staff which details would be misleading without a caption.',
+  };
+  updates.push(...communityWriters.map(writer => [writer.key, `Inside the notebook: ${communityStories.find(post => post.author === writer.key).title}`, notebookNotes[writer.key], 'members']));
+  for (const [index, [creator, title, body, audience]] of updates.entries()) await upsert(CreatorUpdate, { creatorId: users.get(creator)._id, title }, { $set: { body, audience, status: 'published', publishedAt: ago(0.5 + index * 0.8) } });
+  for (const [index, writer] of communityWriters.entries()) {
+    await upsert(Membership, { userId: users.get(writer.key)._id }, { $set: { plan: 'member', status: 'active', provider: null, currentPeriodStart: ago(10 + index), currentPeriodEnd: ahead(20 - index), cancelAtPeriodEnd: false } });
+    if (index % 2) continue;
+    const title = ({ sofia: 'Writing the Journey Between Destinations', nisha: 'Finding an Essay in a Family Story', anika: 'Start a Seasonal Nature Notebook', zoe: 'Make Space for a Sustainable Writing Routine' })[writer.key];
+    const workshop = await upsert(Workshop, { hostId: users.get(writer.key)._id, title }, { $set: { description: `Join ${writer.username} for a small-group session with a guided exercise, a discussion of your notes, and time for questions. Bring one unfinished idea; no polished draft is needed.`, startsAt: ahead(5 + index * 2), endsAt: new Date(ahead(5 + index * 2).getTime() + 90 * 60 * 1000), capacity: 12 + index * 3, meetingUrl: `https://meet.example.test/${writer.key}-writing`, status: 'published' } });
+    for (const key of ['priya', ...communityWriters.slice(0, index + 1).map(item => item.key)].filter(key => key !== writer.key)) await upsert(WorkshopAttendance, { workshopId: workshop._id, userId: users.get(key)._id }, { $set: { status: 'registered' } });
+  }
 
   const requests = [
     ['priya', 'maya', 'How do you structure an essay from field notes?', 'Please show how fragments become a coherent argument.', 'pending', null],
-    ['noah', 'maya', 'Could you write about hostile architecture?', 'I am interested in design choices that quietly exclude people.', 'accepted', 'Yes—I am collecting examples now.'],
+    ['noah', 'maya', 'Could you write about hostile architecture?', 'I am interested in design choices that quietly exclude people.', 'accepted', 'Yes, I am collecting examples now.'],
     ['priya', 'arjun', 'Explain recommendation diversity', 'A practical piece with examples would be ideal.', 'answered', 'The new story on recommendation systems addresses this.'],
   ];
   for (const [requester, creator, subject, details, status, response] of requests) await upsert(CreatorRequest, { requesterId: users.get(requester)._id, creatorId: users.get(creator)._id, subject }, { $set: { details, status, response, periodKey: monthKey } });
@@ -626,28 +723,136 @@ async function seedEvents(users, posts) {
     const [actor, post, eventType, surface, position, readingDepth, age] = fixtures[index];
     await upsert(InteractionEvent, { eventId: `ink-rider-seed-event-${index + 1}` }, { $set: { actorId: users.get(actor)._id, anonymousSessionId: null, eventType, publicationId: posts.get(post)._id, writerId: posts.get(post).author, surface, position, recommendationRequestId: `seed-recommendation-${actor}`, eventAt: ago(age), metadata: { readingDepth } } });
   }
+  const events = [];
+  const checkpoints = [];
+  for (const fixture of postFixtures) {
+    if (fixture.publicationStatus === 'unpublished' || (fixture.publicAt && fixture.publicAt > now)) continue;
+    const post = posts.get(fixture.key);
+    const interestedIds = new Set((await Appreciation.find({ publicationId: post._id }).select('userId').lean()).map(row => String(row.userId)));
+    const readers = [...new Set([
+      ...engagementReaderKeys.filter(key => interestedIds.has(String(users.get(key)._id))),
+      ...selectReaders(engagementReaderKeys, fixture.key, 'readers', 9 + stableNumber(fixture.key, 'read-count') % 64, [fixture.author]),
+      'noah', 'priya',
+    ])].filter(key => key !== fixture.author);
+    for (const key of readers) {
+      const actorId = users.get(key)._id;
+      const age = fixture.age * (0.05 + (stableNumber(`${key}:${fixture.key}`, 'read-age') % 80) / 100);
+      const progress = [20, 40, 60, 80, 100][stableNumber(`${key}:${fixture.key}`, 'progress') % 5];
+      const eventAt = ago(age);
+      for (const eventType of ['impression', 'open', progress === 100 ? 'complete' : 'reading_depth']) {
+        const eventId = `community-${stableNumber(key, fixture.key).toString(16)}-${fixture.key.slice(0, 28)}-${eventType}`;
+        const data = { actorId, eventType, publicationId: post._id, writerId: post.author, surface: eventType === 'impression' ? 'home' : 'story', eventAt, metadata: { readingDepth: ['impression', 'open'].includes(eventType) ? null : progress } };
+        events.push({ updateOne: { filter: { eventId }, update: { $set: data }, upsert: true } });
+      }
+      checkpoints.push({ updateOne: { filter: { userId: actorId, publicationId: post._id }, update: { $set: { progress, completed: progress === 100, lastReadAt: eventAt } }, upsert: true } });
+    }
+  }
+  for (let offset = 0; offset < events.length; offset += 500) await InteractionEvent.bulkWrite(events.slice(offset, offset + 500));
+  for (let offset = 0; offset < checkpoints.length; offset += 500) await ReadingState.bulkWrite(checkpoints.slice(offset, offset + 500));
+  const views = await InteractionEvent.aggregate([
+    { $match: { publicationId: { $in: [...posts.values()].map(post => post._id) }, eventType: 'open' } },
+    { $group: { _id: '$publicationId', count: { $sum: 1 } } },
+  ]);
+  await Publication.bulkWrite(views.map(row => ({ updateOne: { filter: { _id: row._id }, update: { $set: { 'metadata.views': row.count } } } })));
 }
 
 async function seedModerationAndNotifications(users, posts, questions, competitions) {
   const comment = await Comment.findOne({ publicationId: posts.get('walkable-city')._id });
   const reports = [
-    { key: 'pending', reporter: 'noah', subjectType: 'publication', subjectId: posts.get('recommendation-systems')._id, reason: 'misinformation', details: 'Seeded pending report for queue testing.', status: 'pending' },
-    { key: 'reviewing', reporter: 'priya', subjectType: 'comment', subjectId: comment._id, reason: 'toxicity', details: 'Seeded report currently under review.', status: 'reviewing' },
-    { key: 'dismissed', reporter: 'maya', subjectType: 'question', subjectId: questions.get('fiction')._id, reason: 'other', details: 'Seeded dismissed report.', status: 'dismissed' },
+    { key: 'pending', reporter: 'noah', subjectType: 'publication', subjectId: posts.get('recommendation-systems')._id, reason: 'misinformation', details: 'Could a reviewer check whether the example is clearly presented as an illustration rather than a measured result?', status: 'pending' },
+    { key: 'reviewing', reporter: 'priya', subjectType: 'comment', subjectId: comment._id, reason: 'toxicity', details: 'I may be missing context, but the wording felt directed at another participant. Please review the surrounding discussion.', status: 'reviewing' },
+    { key: 'dismissed', reporter: 'maya', subjectType: 'question', subjectId: questions.get('fiction')._id, reason: 'other', details: 'This looked similar to an earlier question about sensory detail. Please check whether they should be connected.', status: 'dismissed' },
   ];
   const reportMap = new Map();
   for (const fixture of reports) reportMap.set(fixture.key, await upsert(Report, { reporterId: users.get(fixture.reporter)._id, subjectType: fixture.subjectType, subjectId: fixture.subjectId }, { $set: { reason: fixture.reason, details: fixture.details, status: fixture.status } }));
-  await upsert(ModerationAction, { reportId: reportMap.get('reviewing')._id, action: 'begin_review' }, { $set: { moderatorId: users.get('moderator')._id, note: 'Review started from the seeded staff queue.' } });
-  await upsert(ModerationAction, { reportId: reportMap.get('dismissed')._id, action: 'dismiss' }, { $set: { moderatorId: users.get('moderator')._id, note: 'No policy violation found in the seeded example.' } });
+  await upsert(ModerationAction, { reportId: reportMap.get('reviewing')._id, action: 'begin_review' }, { $set: { moderatorId: users.get('moderator')._id, note: 'Reading the full conversation before making a recommendation.' } });
+  await upsert(ModerationAction, { reportId: reportMap.get('dismissed')._id, action: 'dismiss' }, { $set: { moderatorId: users.get('moderator')._id, note: 'The questions ask for different examples. No policy violation found; both can remain available.' } });
 
   const request = await CreatorRequest.findOne({ requesterId: users.get('priya')._id, creatorId: users.get('maya')._id, status: 'pending' });
   const notificationFixtures = [
-    ['noah', 'maya', 'question_answered', 'Your question has a new story', 'Arjun answered a reader-demand question.', `/post/${posts.get('recommendation-systems')._id}`, 'publication', posts.get('recommendation-systems')._id, null],
-    ['maya', 'priya', 'direct_request_received', 'New direct member request', 'A member asked for an story.', '/studio?writingTab=requests', 'creator_request', request._id, null],
+    ['noah', 'arjun', 'question_answered', 'Your question has a new story', 'Arjun Rao responded to your question about discovering unfamiliar ideas.', `/post/${posts.get('recommendation-systems')._id}`, 'publication', posts.get('recommendation-systems')._id, null],
+    ['maya', 'priya', 'direct_request_received', 'New direct member request', 'Priya Mehta asked how you turn field notes into an essay.', '/studio?writingTab=requests', 'creator_request', request._id, null],
     ['maya', 'admin', 'competition_result', 'You placed in Journey in 1,000 Words', 'The results are now public.', `/explore/competitions/${competitions.get('closed')._id}`, 'competition', competitions.get('closed')._id, ago(2)],
     ['noah', 'moderator', 'moderation', 'Report received', 'Your report is waiting for review.', '/notifications', 'report', reportMap.get('pending')._id, ago(1)],
   ];
-  for (const [recipient, actor, type, title, body, href, entityType, entityId, readAt] of notificationFixtures) await upsert(Notification, { recipientId: users.get(recipient)._id, type, entityType, entityId }, { $set: { actorId: users.get(actor)._id, title, body, href, readAt } });
+  for (const [index, fixture] of communityStories.entries()) {
+    for (const recipient of ['noah', 'priya', fixture.author]) {
+      const actor = recipient === fixture.author ? engagementReaderKeys[(index * 7) % engagementReaderKeys.length] : fixture.author;
+      notificationFixtures.push([recipient, actor, 'publication_commented', `${users.get(actor).username} joined the discussion`, `A new comment on “${fixture.title}”.`, `/post/${posts.get(fixture.key)._id}`, 'publication', posts.get(fixture.key)._id, index % 3 ? null : ago(index / 5 + 0.1)]);
+    }
+  }
+  for (const [index, [recipient, actor, type, title, body, href, entityType, entityId, readAt]] of notificationFixtures.entries()) {
+    const post = entityType === 'publication' ? [...posts.values()].find(item => String(item._id) === String(entityId)) : null;
+    const age = Math.min(0.01 + index * 0.08, post ? Math.max(0.001, (now - post.publicAt) / DAY * 0.3) : Infinity);
+    const createdAt = ago(age);
+    await upsert(Notification, { recipientId: users.get(recipient)._id, type, entityType, entityId }, { $set: { actorId: users.get(actor)._id, title, body, href, readAt: readAt ? new Date(Math.max(readAt.getTime(), createdAt.getTime())) : null }, $setOnInsert: { createdAt } });
+  }
+}
+
+async function refreshLegacyEditorial() {
+  const noah = await User.findOne({ email: 'noah@inkrider.local' }).select('_id').lean();
+  if (noah) {
+    const oldShorts = await Publication.find({ author: noah._id, title: { $in: ['A browser-tested short reading flow', ...legacyShorts.map(([title]) => title)] } }).sort({ _id: 1 });
+    for (const [index, post] of oldShorts.entries()) {
+      if (index >= legacyShorts.length) break;
+      const [title, text, image, tags] = legacyShorts[index];
+      // These are specifically identified browser-created examples, not user writing.
+      const fixture = { key: `legacy-${String(index + 1).padStart(2, '0')}`, format: 'short', blocks: [['text', text]] };
+      fixture.blocks = enrichPublicationBody(fixture);
+      post.set({ title, body: makeBlocks(fixture), tags, coverImage: covers[image] });
+      await post.save();
+    }
+  }
+  const missingCovers = await Publication.find({ coverImage: { $in: ['', null] } }).select('_id tags title').lean();
+  if (missingCovers.length) await Publication.bulkWrite(missingCovers.map(post => ({ updateOne: {
+    filter: { _id: post._id, coverImage: { $in: ['', null] } },
+    update: { $set: { coverImage: covers[post.tags.includes('news') ? 'street' : post.tags.includes('technology') ? 'data' : post.tags.includes('science') ? 'forest' : 'notebook'] } },
+  } })));
+  for (const Model of [Collection, ShortSeries]) {
+    const missing = await Model.find({ coverImage: { $in: ['', null] } }).select('_id title').lean();
+    if (missing.length) await Model.bulkWrite(missing.map(item => ({ updateOne: {
+      filter: { _id: item._id, coverImage: { $in: ['', null] } },
+      update: { $set: { coverImage: covers[/coast|ocean|reef/i.test(item.title) ? 'coast' : /city|place|street/i.test(item.title) ? 'architecture' : 'books'] } },
+    } })));
+  }
+  await Competition.updateOne({ title: 'The Places That Shape Us', coverImage: { $in: ['', null] } }, { $set: { coverImage: covers.architecture } });
+  const maya = await User.findOne({ email: 'maya@inkrider.local' }).select('_id').lean();
+  if (maya) {
+    const obsoleteTitle = `${'I tried to explain why the old riverside footpath still matters to our neighborhood, then kept adding details until the title became much too long for a comfortable card'.slice(0, 160)}: draft notes`;
+    const replacement = await Draft.exists({ authorId: maya._id, title: 'Draft: Returning to the Riverside Path' });
+    if (replacement) await Draft.deleteOne({ authorId: maya._id, title: obsoleteTitle, body: /CHECK QUOTE WITH NEIGHBOR BEFORE PUBLISHING/ });
+  }
+  const leila = await User.findOne({ email: 'leila@inkrider.local' }).select('_id').lean();
+  if (leila) await Publication.updateOne({ author: leila._id, title: 'Field Notes from a Living Breakwater' }, { $set: { coverImage: covers.coast } });
+  console.log('Legacy sample shorts refreshed; missing publication covers filled; task-created duplicate draft reconciled.');
+}
+
+async function refreshUniqueCovers() {
+  const allocate = createCoverAllocator();
+  const counts = {};
+  const identities = new Set();
+  for (const [name, Model] of [['publications', Publication], ['collections', Collection], ['series', ShortSeries], ['competitions', Competition]]) {
+    const records = await Model.find({}).sort({ _id: 1 }).select('_id title tags description coverImage').lean();
+    const updates = [];
+    for (const record of records) {
+      const coverImage = allocate(`${name}:${record._id}`, record);
+      const identity = photoIdentity(coverImage);
+      if (identities.has(identity)) throw new Error('Development cover photo was assigned more than once');
+      identities.add(identity);
+      if (record.coverImage !== coverImage) updates.push({ updateOne: { filter: { _id: record._id }, update: { $set: { coverImage } } } });
+    }
+    if (updates.length) await Model.bulkWrite(updates);
+    counts[name] = { records: records.length, updated: updates.length };
+  }
+  const persisted = new Set();
+  for (const Model of [Publication, Collection, ShortSeries, Competition]) {
+    for (const record of await Model.find({}).select('coverImage').lean()) {
+      const identity = photoIdentity(record.coverImage);
+      if (persisted.has(identity)) throw new Error('Persisted development covers repeat an underlying photo');
+      persisted.add(identity);
+    }
+  }
+  console.log('Distinct development cover photos verified:', { photos: persisted.size, counts });
 }
 
 async function verifySeed() {
@@ -656,18 +861,41 @@ async function verifySeed() {
     ['competitions', Competition], ['memberships', Membership], ['workshops', Workshop], ['creatorUpdates', CreatorUpdate], ['creatorRequests', CreatorRequest],
     ['notifications', Notification], ['reports', Report], ['events', InteractionEvent],
   ].map(async ([key, Model]) => [key, await Model.countDocuments(key === 'users' ? { email: /@inkrider\.local$/ } : {})])));
-  const minimums = { users: 19, profiles: 19, posts: 74, drafts: 8, questions: 14, collections: 19, series: 7, competitions: 3, memberships: 2, workshops: 4, creatorUpdates: 3, creatorRequests: 3, notifications: 4, reports: 3, events: 8 };
+  const minimums = { users: 91, profiles: 91, posts: 114, drafts: 16, questions: 26, collections: 27, series: 23, competitions: 6, memberships: 2, workshops: 4, creatorUpdates: 3, creatorRequests: 3, notifications: 76, reports: 3, events: 1000 };
   for (const [key, minimum] of Object.entries(minimums)) if (counts[key] < minimum) throw new Error(`Seed verification failed: expected at least ${minimum} ${key}, found ${counts[key]}`);
+  const seededUsers = await User.find({ email: { $in: userFixtures.map(user => user.email) } }).select('_id email').lean();
+  const userIds = new Map(seededUsers.map(user => [user.email, user._id]));
+  const publications = await Publication.find({ $or: postFixtures.map(fixture => ({ author: userIds.get(userFixtures.find(user => user.key === fixture.author).email), title: fixture.title })) }).lean();
+  if (publications.length !== postFixtures.length) throw new Error('Seed verification failed: missing or duplicated keyed publications');
+  const ids = publications.map(post => post._id);
+  const [appreciations, comments, views] = await Promise.all([
+    Appreciation.aggregate([{ $match: { publicationId: { $in: ids } } }, { $group: { _id: '$publicationId', count: { $sum: 1 } } }]),
+    Comment.aggregate([{ $match: { publicationId: { $in: ids }, deletedAt: null } }, { $group: { _id: '$publicationId', count: { $sum: 1 } } }]),
+    InteractionEvent.aggregate([{ $match: { publicationId: { $in: ids }, eventType: 'open' } }, { $group: { _id: '$publicationId', count: { $sum: 1 } } }]),
+  ]);
+  const countMap = rows => new Map(rows.map(row => [String(row._id), row.count]));
+  const actual = [appreciations, comments, views].map(countMap);
+  for (const post of publications) {
+    const id = String(post._id);
+    if (!/^https:\/\//.test(post.coverImage) || `${post.title}${post.body}`.includes('\u2014')
+      || post.appreciationsCount !== (actual[0].get(id) || 0) || post.commentsCount !== (actual[1].get(id) || 0)
+      || post.metadata.views !== (actual[2].get(id) || 0)) throw new Error('Seed verification failed: publication content, cover, or source counters disagree');
+  }
+  console.log('Verified keyed publication content, covers, and relationship/event counters:', publications.length);
   return counts;
 }
 
 async function run() {
   await connectToMongoDB();
+  if (!/(?:dev|test|sandbox|local)/i.test(mongoose.connection.name)) throw new Error('Development seed requires an explicitly isolated database name');
   await ensureCanonicalTopics();
   const topics = new Map((await Topic.find({ status: 'active' })).map(topic => [topic.slug, topic]));
   const users = await seedUsers();
+  console.log('Development people and profiles ready.');
   const posts = await seedPosts(users, topics);
+  console.log('Development publications and covers ready.');
   await seedRelationships(users, posts, topics);
+  console.log('Development engagement reconciled to source relationships.');
   const questions = await seedQuestions(users, posts);
   await seedAuthoring(users, posts, questions);
   await seedCollectionsAndSeries(users, posts);
@@ -675,9 +903,173 @@ async function run() {
   await seedPremium(users, posts);
   await seedEvents(users, posts);
   await seedModerationAndNotifications(users, posts, questions, competitions);
+  await refreshLegacyEditorial();
+  await refreshUniqueCovers();
   const counts = await verifySeed();
   console.log('Comprehensive development fixtures are ready:', counts);
   console.log('Demo account credentials are configured through SEED_PASSWORD and are not printed.');
 }
 
-run().catch(() => { console.error('Development seed failed. Check the database and configuration.'); process.exitCode = 1 }).finally(() => mongoose.disconnect());
+function validateCatalog() {
+  const keys = new Set();
+  const coverPhotos = new Set();
+  const authors = new Set(userFixtures.map(user => user.key));
+  const lengths = { stories: [], shorts: [] };
+  const blockCounts = {};
+  for (const fixture of postFixtures) {
+    if (keys.has(fixture.key) || !authors.has(fixture.author)) throw new Error(`Duplicate key or unknown author: ${fixture.key}`);
+    keys.add(fixture.key);
+    const identity = photoIdentity(fixture.coverImage);
+    if (coverPhotos.has(identity)) throw new Error(`Repeated publication cover photo: ${fixture.key}`);
+    coverPhotos.add(identity);
+    const words = fixture.blocks.filter(([type]) => type !== 'image').reduce((total, [, content]) => total + content.trim().split(/\s+/).filter(Boolean).length, 0);
+    if (!['edge-minimal-story', 'edge-tiny-short', 'edge-long-short-body'].includes(fixture.key)) lengths[fixture.format === 'short' ? 'shorts' : 'stories'].push(words);
+    for (const [type, content, alt] of fixture.blocks) {
+      blockCounts[type] = (blockCounts[type] || 0) + 1;
+      if (!['text', 'h1', 'h2', 'h3', 'quote', 'code', 'image', 'divider'].includes(type)
+        || content.length > (type === 'code' ? 50_000 : 10_000)
+        || (type === 'image' && (!/^https:\/\//.test(content) || !alt || alt.length > 300))) throw new Error(`Invalid editorial block: ${fixture.key}`);
+    }
+    if (!parsePostBody(makeBlocks(fixture)) || fixture.title.length > (fixture.format === 'short' ? 120 : 180) || (fixture.format === 'short' && words > 500)
+      || JSON.stringify({ title: fixture.title, blocks: fixture.blocks }).includes('\u2014') || !/^https:\/\//.test(fixture.coverImage)) throw new Error(`Invalid content or cover: ${fixture.key}`);
+  }
+  if (tenStorySeries.postKeys.length !== 10 || new Set(tenStorySeries.postKeys).size !== 10) throw new Error('Ten-story series requires ten distinct publications');
+  for (const fixture of [...communityCollections, ...communitySeries, tenStorySeries]) {
+    if (fixture.title.length > 100 || fixture.description.length > 500) throw new Error(`Invalid curation: ${fixture.title}`);
+    for (const key of fixture.postKeys) {
+      const post = postFixtures.find(item => item.key === key);
+      if (!post || (fixture.type && (post.author !== fixture.author || (post.format || 'story') !== fixture.type))) throw new Error(`Invalid curation item: ${fixture.title}/${key}`);
+    }
+  }
+  console.log('Development catalog validated:', { people: userFixtures.length, publications: postFixtures.length, newStories: communityStories.length, newShorts: communityShorts.length });
+  console.log('Reading content:', { lengths: Object.fromEntries(Object.entries(lengths).map(([format, words]) => [format, { count: words.length, min: Math.min(...words), max: Math.max(...words) }])), blockCounts });
+}
+
+validateCatalog();
+async function repairReadingContent() {
+  await connectToMongoDB();
+  if (!/(?:dev|test|sandbox|local)/i.test(mongoose.connection.name)) throw new Error('Development seed requires an explicitly isolated database name');
+  const people = await User.find({ email: { $in: userFixtures.map(user => user.email) } }).select('_id email').lean();
+  const authors = new Map(people.map(user => [user.email, user._id]));
+  const targets = [];
+  const scopes = postFixtures.map(fixture => {
+    const email = userFixtures.find(user => user.key === fixture.author).email;
+    if (!authors.has(email)) throw new Error('Seed the development catalog before refreshing reading content');
+    return { author: authors.get(email), title: fixture.title };
+  });
+  const legacyAuthor = authors.get('noah@inkrider.local');
+  if (legacyAuthor) scopes.push(...legacyShorts.map(([title]) => ({ author: legacyAuthor, title })));
+  const records = await Publication.find({ $or: scopes }).lean();
+  // Resolve the complete owned catalog before writing; never fall back to an
+  // unscoped title match or rewrite another writer's work.
+  for (const fixture of postFixtures) {
+    const email = userFixtures.find(user => user.key === fixture.author).email;
+    if (!authors.has(email)) throw new Error('Seed the development catalog before refreshing reading content');
+    const matches = records.filter(post => String(post.author) === String(authors.get(email)) && post.title === fixture.title);
+    if (matches.length !== 1) throw new Error(`Missing or ambiguous development publication: ${fixture.key}`);
+    targets.push({ post: matches[0], body: makeBlocks(fixture) });
+  }
+  for (const [index, [title, text]] of legacyShorts.entries()) {
+    const matches = records.filter(post => String(post.author) === String(legacyAuthor) && post.title === title);
+    if (matches.length > 1) throw new Error('Ambiguous legacy development short');
+    if (!matches.length) continue;
+    const fixture = { key: `legacy-${String(index + 1).padStart(2, '0')}`, format: 'short', blocks: [['text', text]] };
+    fixture.blocks = enrichPublicationBody(fixture);
+    const body = makeBlocks(fixture);
+    const words = fixture.blocks.filter(([type]) => type !== 'image').reduce((sum, [, content]) => sum + content.trim().split(/\s+/).filter(Boolean).length, 0);
+    if (!parsePostBody(body) || words > 500) throw new Error('Invalid legacy development reading body');
+    targets.push({ post: matches[0], body });
+  }
+  let updated = 0;
+  for (const { post, body } of targets) {
+    if (post.body === body) continue;
+    const latest = await PublicationRevision.findOne({ publicationId: post._id }).sort({ revision: -1 }).select('revision').lean();
+    const revision = Math.max(post.currentRevision || 1, latest?.revision || 0) + 1;
+    const snapshot = await PublicationRevision.create({ publicationId: post._id, revision, authorId: post.author, title: post.title, body, coverImage: post.coverImage, format: post.format, tags: post.tags, publicAt: post.publicAt });
+    let saved;
+    try {
+      saved = await Publication.updateOne({ _id: post._id, currentRevision: post.currentRevision, body: post.body }, { $set: { body, currentRevision: revision } });
+    } catch (error) {
+      await PublicationRevision.deleteOne({ _id: snapshot._id });
+      throw error;
+    }
+    if (saved.matchedCount !== 1) {
+      await PublicationRevision.deleteOne({ _id: snapshot._id });
+      throw new Error('Development publication changed during refresh; rerun after editing stops');
+    }
+    updated += 1;
+  }
+  const protectedFields = post => JSON.stringify({ ...post, body: undefined, currentRevision: undefined, updatedAt: undefined });
+  const savedRecords = await Publication.find({ _id: { $in: targets.map(({ post }) => post._id) } }).lean();
+  const savedById = new Map(savedRecords.map(post => [String(post._id), post]));
+  const revisions = await PublicationRevision.find({ $or: savedRecords.map(post => ({ publicationId: post._id, revision: post.currentRevision })) }).lean();
+  const revisionsById = new Map(revisions.map(revision => [String(revision.publicationId), revision]));
+  for (const { post, body } of targets) {
+    const saved = savedById.get(String(post._id));
+    if (!saved || saved.body !== body || protectedFields(saved) !== protectedFields(post)) throw new Error('Reading refresh failed body or preserved-field verification');
+    const revision = revisionsById.get(String(saved._id));
+    if (!revision) throw new Error('Reading refresh is missing its current revision');
+    if (revision && revision.body !== body) throw new Error('Reading refresh revision does not match the body');
+  }
+  // This body-only operation checks the fields it promises to preserve. The
+  // full seed's aggregate-counter reconciliation is intentionally not run on a
+  // database that may have accumulated independent reading activity.
+  console.log('Development reading bodies verified:', { publications: targets.length, updated, unchanged: targets.length - updated });
+}
+async function repairEditorial() {
+  await connectToMongoDB();
+  if (!/(?:dev|test|sandbox|local)/i.test(mongoose.connection.name)) throw new Error('Development seed requires an explicitly isolated database name');
+  await refreshLegacyEditorial();
+  await refreshUniqueCovers();
+  await verifySeed();
+}
+async function repairCovers() {
+  await connectToMongoDB();
+  if (!/(?:dev|test|sandbox|local)/i.test(mongoose.connection.name)) throw new Error('Development seed requires an explicitly isolated database name');
+  await refreshUniqueCovers();
+}
+
+async function addTenStorySeries() {
+  await connectToMongoDB();
+  if (!/(?:dev|test|sandbox|local)/i.test(mongoose.connection.name) || /prod|live/i.test(mongoose.connection.name)) throw new Error('Ten-story series requires an isolated development database');
+  const fixture = tenStorySeries;
+  const authorFixture = userFixtures.find(user => user.key === fixture.author);
+  const author = await User.findOne({ email: authorFixture.email }).select('_id').lean();
+  if (!author) throw new Error('Seed the development author before adding the ten-story series');
+  const titles = fixture.postKeys.map(key => postFixtures.find(post => post.key === key).title);
+  const publications = await Publication.find({
+    author: author._id, title: { $in: titles }, format: 'story', publicationStatus: 'published',
+    $or: [{ publicAt: { $lte: new Date() } }, { publicAt: null }],
+  }).select('_id title').lean();
+  if (publications.length !== 10 || titles.some(title => publications.filter(post => post.title === title).length !== 1)) throw new Error('Seed the ten released development stories before adding their series');
+  const items = titles.map((title, position) => ({ publication: publications.find(post => post.title === title)._id, position }));
+  const filter = { author: author._id, title: fixture.title };
+  let series = await ShortSeries.findOne(filter).lean();
+  let created = false;
+  if (!series) {
+    const usedPhotos = new Set();
+    for (const Model of [Publication, Collection, ShortSeries, Competition]) {
+      for (const record of await Model.find({ coverImage: { $nin: ['', null] } }).select('coverImage').lean()) {
+        if (record.coverImage) usedPhotos.add(photoIdentity(record.coverImage));
+      }
+    }
+    const allocate = createCoverAllocator();
+    let coverImage;
+    let attempt = 0;
+    do { coverImage = allocate(`ten-story-series:${attempt++}`, fixture) } while (usedPhotos.has(photoIdentity(coverImage)));
+    series = (await ShortSeries.create({ ...filter, description: fixture.description, type: fixture.type, visibility: 'public', coverImage, items })).toObject();
+    created = true;
+  }
+  // Reruns verify the existing record without overwriting owner edits or saves.
+  const persisted = await ShortSeries.findById(series._id).lean();
+  if (!persisted || persisted.type !== 'story' || persisted.visibility !== 'public' || persisted.items.length !== 10
+    || persisted.items.some((item, index) => String(item.publication) !== String(items[index].publication) || item.position !== index)) throw new Error('Seed verification failed: ten-story series membership or order differs');
+  if (await ShortSeries.countDocuments(filter) !== 1) throw new Error('Seed verification failed: duplicated ten-story series');
+  console.log('Ten-story development series verified:', { title: persisted.title, stories: persisted.items.length, created, path: `/series/${persisted._id}` });
+}
+if (!process.argv.includes('--check')) (process.argv.includes('--add-story-series') ? addTenStorySeries() : process.argv.includes('--refresh-content') ? repairReadingContent() : process.argv.includes('--refresh-covers') ? repairCovers() : process.argv.includes('--refresh-editorial') ? repairEditorial() : run())
+  .catch(error => {
+    const verificationFailure = /^(Reading refresh|Seed verification|Development publication changed|Missing or ambiguous|Ambiguous legacy|Invalid legacy|Seed the development)/.test(error.message || '');
+    console.error('Development seed failed:', error.name, error.code || (verificationFailure ? error.message : 'Check the database and configuration.'));
+    process.exitCode = 1;
+  }).finally(() => mongoose.disconnect());

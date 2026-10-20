@@ -13,7 +13,9 @@ import Button from '@/shared/components/ui/Button'
 import Divider from '@/shared/components/ui/Divider'
 import PostBody from '@/features/post/pages/PostBody'
 import CommentsSection from '@/features/post/pages/CommentsSection'
-import useFetchPost from '@/features/post/hooks/useFetchPost'
+import useFetchPost, { postQueryOptions } from '@/features/post/hooks/useFetchPost'
+import { useQueryClient } from '@tanstack/react-query'
+import { useSelector } from 'react-redux'
 import usePostLike from '@/features/post/hooks/usePostLike'
 import AppreciationButton from '@/features/post/components/AppreciationButton'
 import useAuth from '@/features/auth/hooks/useAuth'
@@ -61,10 +63,10 @@ export default function ShortReadModal({ postId, onClose, onNavigate, onNavigate
     navigate(nextId, direction)
     return true
   }
-  return <ShortReader returnFocusRef={returnFocusRef} postId={activeId} onClose={onClose} onNavigateAway={onNavigateAway} listPosition={listIndex} listCount={listIds.length} onNavigateList={navigateList} transitionDirection={direction} />
+  return <ShortReader returnFocusRef={returnFocusRef} postId={activeId} onClose={onClose} onNavigateAway={onNavigateAway} listPosition={listIndex} listCount={listIds.length} nextId={listIds[listIndex + 1]} onNavigateList={navigateList} transitionDirection={direction} />
 }
 
-function ShortReader({ postId, onClose, onNavigateAway, returnFocusRef, listPosition, listCount, onNavigateList, transitionDirection }) {
+function ShortReader({ postId, onClose, onNavigateAway, returnFocusRef, listPosition, listCount, nextId, onNavigateList, transitionDirection }) {
   const closeButtonRef = useRef(null)
   const readingPaneRef = useRef(null)
   const touchStartRef = useRef(null)
@@ -81,6 +83,9 @@ function ShortReader({ postId, onClose, onNavigateAway, returnFocusRef, listPosi
   const previousPostRef = useRef(postId)
   const reducedMotion = useReducedMotion()
   const { loggedIn, signIn, user } = useAuth()
+  const queryClient = useQueryClient()
+  const viewer = useSelector(state => state.auth.user)
+  const isAuthReady = useSelector(state => state.auth.isReady)
   const postQuery = retainRetryView(useFetchPost(postId))
   const likeMutation = usePostLike(postId)
   const post = postQuery.data
@@ -88,6 +93,13 @@ function ShortReader({ postId, onClose, onNavigateAway, returnFocusRef, listPosi
   const { containerRef: tagsRef, visibleCount: visibleTags } = useFittingPills(tags)
   const blocks = post ? parseBlocks(post.body) : null
   const authorHandle = post?.author?.handle || post?.author?.username?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+
+  useEffect(() => {
+    if (!nextId || !isAuthReady) return
+    // The reader already knows the next ID. Fill the same viewer-specific cache
+    // used by useFetchPost while the current short is being read.
+    queryClient.prefetchQuery(postQueryOptions(nextId, viewer))
+  }, [isAuthReady, nextId, queryClient, viewer])
 
   const handleClose = useCallback(() => onClose(), [onClose])
   const dialogRef = useDialogFocus(handleClose, closeButtonRef)
@@ -186,7 +198,7 @@ function ShortReader({ postId, onClose, onNavigateAway, returnFocusRef, listPosi
       wheelGestureRef.current = gesture
     }
     gesture.time = now
-    if (gesture.navigated || now < transitionUntilRef.current || postQuery.isPending) return
+    if (gesture.navigated || now < transitionUntilRef.current) return
 
     const direction = Math.sign(event.deltaY)
     const pixels = Math.abs(event.deltaY) * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? pane?.clientHeight || window.innerHeight : 1)
@@ -222,7 +234,7 @@ function ShortReader({ postId, onClose, onNavigateAway, returnFocusRef, listPosi
   const handleTouchStart = event => {
     const pane = readingPaneRef.current
     const touch = event.touches[0]
-    touchStartRef.current = touch && event.touches.length === 1 && pane?.contains(event.target) && !interactiveTarget(event.target) && !commentsOpen && !shareOpen && !saveOpen && !postQuery.isPending && Date.now() >= transitionUntilRef.current
+    touchStartRef.current = touch && event.touches.length === 1 && pane?.contains(event.target) && !interactiveTarget(event.target) && !commentsOpen && !shareOpen && !saveOpen && Date.now() >= transitionUntilRef.current
       ? { x: touch.clientX, y: touch.clientY, atTop: atEdge(pane, -1), atBottom: atEdge(pane, 1) }
       : null
   }
@@ -286,7 +298,7 @@ function ShortReader({ postId, onClose, onNavigateAway, returnFocusRef, listPosi
         {postQuery.isError && <div className="py-16 text-center"><p role="alert" className="text-[13px] text-[var(--color-danger)]">This short could not be loaded.</p><Button className="mt-4" variant="secondary" onClick={() => postQuery.refetch()} aria-busy={postQuery.isFetching} disabled={postQuery.isFetching}>Try again</Button></div>}
         {post && !blocks && <div className="py-16 text-center"><p role="alert" className="text-[13px] text-[var(--color-danger)]">This short could not be displayed.</p><Button className="mt-4" variant="secondary" onClick={onClose}>Close</Button></div>}
         {post && blocks && <>
-          {post.coverImage && <img src={post.coverImage} alt="" className="mx-auto mb-6 aspect-[4/5] w-full max-w-[320px] rounded-[10px] object-cover" />}
+          {post.coverImage && <img src={post.coverImage} alt="" className="mx-auto mb-6 aspect-[16/9] w-full max-w-[320px] rounded-[10px] object-cover" />}
           <h2 id="short-read-title" className="text-[clamp(23px,5vw,28px)] font-medium leading-[1.2] tracking-[-0.045em] text-[var(--color-text)]" style={{ fontFamily: 'var(--font-display)' }}>{post.title}</h2>
           <div className="mt-4 flex items-center gap-3">
             {authorHandle ? <Link to={`/author/${encodeURIComponent(authorHandle)}`} onClick={onNavigateAway || onClose} aria-label={`Open writer profile for ${post.author.username}`} className="shrink-0 rounded-[4px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]"><Avatar src={post.author?.picture} name={post.author?.username} size={34} /></Link> : <Avatar src={post.author?.picture} name={post.author?.username} size={34} />}

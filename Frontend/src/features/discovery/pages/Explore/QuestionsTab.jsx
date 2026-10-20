@@ -16,18 +16,14 @@ import FilterBar from '@/shared/components/ui/FilterBar'
 import { tagFilterOptions } from '@/shared/utils/availableFilterOptions'
 import useDialogFocus from '@/shared/hooks/useDialogFocus'
 import { searchDiscovery } from '@/features/discovery/api/search'
-import QuestionResponseModal from '@/features/question/components/QuestionResponseModal'
 import TagPicker from '@/features/editor/components/TagPicker'
 import useFittingPills from '@/shared/hooks/useFittingPills'
-
-const responseButtonClass = 'inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-[10px] border px-3 py-2 text-[12px] font-normal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-offset-2'
 
 export function QuestionCard({ question, sort = 'hot' }) {
   const categoryPath = tag => `/search?${new URLSearchParams({ q: tag.trim(), type: 'questions' })}`
   const { containerRef: tagsRef, visibleCount: visibleTags } = useFittingPills(question.tags)
   const { loggedIn, signIn } = useAuth()
   const vote = useQuestionUpvote(sort)
-  const [responseOpen, setResponseOpen] = useState(false)
   const toggleVote = () => loggedIn
     ? vote.mutate({ questionId: question.id, isUpvoted: !question.isUpvoted })
     : signIn()
@@ -43,19 +39,14 @@ export function QuestionCard({ question, sort = 'hot' }) {
           <span data-button-icon aria-hidden="true" className="block text-[11px]">▲</span><span className="block text-[12px] font-semibold tabular-nums">{question.upvotesCount}</span>
         </button>
       </div>
-      <h2 className="min-w-0 line-clamp-3 break-words text-[18px] leading-[1.35] font-bold text-[var(--color-text)]" style={{ fontFamily: 'var(--font-display)' }}>
+      <h2 className="min-w-0 line-clamp-2 break-words text-[18px] leading-[1.35] font-bold text-[var(--color-text)]" style={{ fontFamily: 'var(--font-display)' }}>
         <Link to={`/explore/questions/${question.id}`} className="rounded-[4px] after:absolute after:inset-0 after:content-[''] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-offset-2">{question.text}</Link>
       </h2>
       {question.context && <p className="mt-4 break-words text-[14px] leading-6 text-[var(--color-text-secondary)] line-clamp-2">{question.context}</p>}
-      {question.tags.length > 0 && <div ref={tagsRef} className="mt-3 flex min-w-0 flex-nowrap gap-x-2 overflow-hidden">{question.tags.map((tag, index) => <Link key={tag} to={categoryPath(tag)} aria-label={`Questions about ${tag}`} aria-hidden={index >= visibleTags} className={`relative z-10 inline-flex min-h-11 shrink-0 items-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] ${index >= visibleTags ? 'invisible' : ''}`}><Tag label={`#${tag}`} /></Link>)}</div>}
-      <div className="mt-5 flex flex-col items-start gap-4 text-[13px] sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+      {question.tags.length > 0 && <div ref={tagsRef} className="mt-3 flex min-w-0 flex-nowrap gap-x-2 overflow-hidden">{question.tags.map((tag, index) => <Link key={tag} to={categoryPath(tag)} aria-label={`Questions about ${tag}`} aria-hidden={index >= visibleTags} className={`relative z-10 inline-flex min-h-11 shrink-0 items-center rounded-full hover:[&>span]:bg-[var(--color-border)] [&>span]:transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] ${index >= visibleTags ? 'invisible' : ''}`}><Tag label={`#${tag}`} /></Link>)}</div>}
+      <div className="mt-5 text-[13px]">
         <span className="text-[var(--color-text-secondary)]"><strong className="font-semibold text-[var(--color-text)]">{question.answersCount}</strong> {question.answersCount === 1 ? 'short answer' : 'short answers'} · <strong className="font-semibold text-[var(--color-text)]">{question.responsePosts.length}</strong> {question.responsePosts.length === 1 ? 'story response' : 'story responses'}</span>
-        <div className="relative z-10 flex items-center gap-2">
-          <button type="button" aria-haspopup="dialog" onClick={() => loggedIn ? setResponseOpen(true) : signIn()} className={`button-target ${responseButtonClass} border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-text-inverted)]`}><span className="text-[var(--color-text-inverted)]">Add response</span></button>
-          {question.responsePosts.length > 0 && <Link to={`/explore/questions/${question.id}#response-posts-title`} className={`${responseButtonClass} border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-alt)]`}>View responses</Link>}
-        </div>
       </div>
-      {responseOpen && <QuestionResponseModal questionId={question.id} onClose={() => setResponseOpen(false)} />}
     </article>
   )
 }

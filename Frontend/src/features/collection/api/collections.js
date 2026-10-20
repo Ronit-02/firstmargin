@@ -25,6 +25,12 @@ export async function updateCollection({ collectionId, ...input }) {
   return (await api.put(`/api/collection/${collectionId}`, input)).data.data
 }
 
+export async function uploadCollectionCover({ collectionId, file }) {
+  const formData = new FormData()
+  formData.append('coverImage', file)
+  return (await api.post(`/api/collection/${collectionId}/cover`, formData)).data.data
+}
+
 export async function deleteCollection(collectionId) {
   return (await api.delete(`/api/collection/${collectionId}`)).data.data
 }

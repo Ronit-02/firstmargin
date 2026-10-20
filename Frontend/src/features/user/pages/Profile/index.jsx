@@ -22,6 +22,7 @@ import PageHeader from '@/shared/components/ui/PageHeader'
 import PageFrame from '@/shared/components/layout/PageFrame'
 import useToast from '@/shared/hooks/useToast'
 import Avatar from '@/shared/components/ui/Avatar'
+import ProfileCover from '../../components/ProfileCover'
 import DiscoveryPostCard from '@/features/discovery/components/DiscoveryPostCard'
 import CollectionCard from '@/features/collection/components/CollectionCard'
 import SeriesCard from '@/features/discovery/components/SeriesCard'
@@ -77,6 +78,52 @@ function StatCard({ label, value, sub }) {
       {sub && <p className="text-[11px] text-[var(--color-text-muted)] mt-1">{sub}</p>}
     </div>
   )
+}
+
+function AnalyticsOverview({ posts }) {
+  const metrics = [
+    { label: 'Published stories', value: posts.length },
+    { label: 'Reader appreciations', value: posts.reduce((sum, post) => sum + (post.likesCount || 0), 0) },
+    { label: 'Comments', value: posts.reduce((sum, post) => sum + (post.commentsCount || 0), 0) },
+  ]
+
+  return <section aria-labelledby="analytics-overview-title" className="overflow-hidden rounded-[16px] border border-[var(--color-border)] bg-[var(--color-bg-alt)]">
+    <div className="px-5 pt-5 sm:px-7 sm:pt-6">
+      <h2 id="analytics-overview-title" className="text-[18px] font-semibold text-[var(--color-text)]">Overview</h2>
+      <p className="mt-1 text-[12px] text-[var(--color-text-secondary)]">Your published writing at a glance</p>
+    </div>
+    <dl className="mt-5 grid divide-y divide-[var(--color-border)] border-t border-[var(--color-border)] min-[480px]:grid-cols-3 min-[480px]:divide-x min-[480px]:divide-y-0">
+      {metrics.map(metric => <div key={metric.label} className="flex items-center justify-between gap-4 px-5 py-4 min-[480px]:flex-col-reverse min-[480px]:items-start min-[480px]:gap-2 sm:px-7 sm:py-5">
+        <dt className="text-[12px] text-[var(--color-text-secondary)]">{metric.label}</dt>
+        <dd className="text-[23px] font-semibold leading-none tabular-nums text-[var(--color-text)] sm:text-[28px]">{metric.value}</dd>
+      </div>)}
+    </dl>
+  </section>
+}
+
+function StoryPerformance({ data }) {
+  return <section aria-labelledby="writing-performance-title" className="mt-9">
+    <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
+      <div>
+        <h2 id="writing-performance-title" className="text-[18px] font-semibold text-[var(--color-text)]">Writing performance</h2>
+        <p className="mt-1 text-[12px] text-[var(--color-text-secondary)]">Opens, completed reads, and appreciations by story</p>
+      </div>
+      <p className="text-[12px] tabular-nums text-[var(--color-text-muted)]">{data.totalViews} total opens</p>
+    </div>
+    {data.posts.length ? <div className="overflow-hidden rounded-[16px] border border-[var(--color-border)]">
+      <div aria-hidden="true" className="hidden grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-5 border-b border-[var(--color-border)] bg-[var(--color-bg-alt)] px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.04em] text-[var(--color-text-muted)] min-[640px]:grid sm:px-6">
+        <span>Story</span><div className="grid grid-cols-3 gap-2"><span>Opens</span><span>Completed</span><span>Appreciations</span></div>
+      </div>
+      {data.posts.map(post => <article key={post.id} className="grid gap-4 border-b border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-5 last:border-b-0 hover:bg-[var(--color-surface-hover)] min-[640px]:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] min-[640px]:items-center min-[640px]:gap-5 sm:px-6">
+        <Link to={`/post/${post.id}`} className="line-clamp-2 min-w-0 break-words text-[14px] font-semibold leading-5 text-[var(--color-text)] hover:text-[var(--color-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]">{post.title}</Link>
+        <dl className="grid grid-cols-3 gap-2 border-t border-[var(--color-border)] pt-4 min-[640px]:border-0 min-[640px]:pt-0">
+          <div className="min-w-0"><dt className="text-[11px] text-[var(--color-text-muted)] min-[640px]:sr-only">Opens</dt><dd className="mt-1 text-[16px] font-semibold tabular-nums text-[var(--color-text)] min-[640px]:mt-0">{post.opens}</dd></div>
+          <div className="min-w-0"><dt className="text-[11px] text-[var(--color-text-muted)] min-[640px]:sr-only">Completed</dt><dd className="mt-1 text-[16px] font-semibold tabular-nums text-[var(--color-text)] min-[640px]:mt-0">{post.completions}</dd></div>
+          <div className="min-w-0"><dt className="text-[11px] text-[var(--color-text-muted)] min-[640px]:sr-only">Appreciations</dt><dd className="mt-1 text-[16px] font-semibold tabular-nums text-[var(--color-text)] min-[640px]:mt-0">{post.likes}</dd></div>
+        </dl>
+      </article>)}
+    </div> : <p className="rounded-[16px] border border-[var(--color-border)] px-5 py-8 text-[13px] text-[var(--color-text-muted)]">Story performance will appear after readers open your writing.</p>}
+  </section>
 }
 
 function PostRows({ posts = [], emptyMessage, manage = false, gridShorts = false }) {
@@ -195,7 +242,7 @@ export function MemberProfile({ writing = false }) {
 
 
   if (writing && posts.isLoading) return <PageFrame><PageHeader eyebrow="Publishing" title="Studio" /><div role="status" aria-label="Loading stories"><ListSkeleton count={4} role={undefined} /></div></PageFrame>
-  if (!writing && profile.isLoading) return <PageFrame><div role="status" aria-label="Loading profile"><div className="flex items-start gap-5"><Skeleton className="h-20 w-20 shrink-0 rounded-full" /><div className="flex-1"><Skeleton className="h-7 w-48" /><Skeleton className="mt-3 h-3 w-72" /><Skeleton className="mt-2 h-3 w-full max-w-xl" /></div></div><div className="mt-10 grid gap-[14px] sm:grid-cols-4">{Array.from({ length: 4 }, (_, index) => <div key={index} className="rounded-[14px] border border-[var(--color-border)] p-5"><Skeleton className="h-7 w-16" /><Skeleton className="mt-2 h-3 w-24" /></div>)}</div><div className="mt-10"><ListSkeleton count={4} role={undefined} /></div></div></PageFrame>
+  if (!writing && profile.isLoading) return <PageFrame><div role="status" aria-label="Loading profile"><div className="flex items-start gap-5"><Skeleton className="h-20 w-20 shrink-0 rounded-full" /><div className="flex-1"><Skeleton className="h-7 w-48" /><Skeleton className="mt-3 h-3 w-72" /><Skeleton className="mt-2 h-3 w-full max-w-xl" /></div></div><div className="mt-10 grid gap-[14px]" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 140px), 1fr))' }}>{Array.from({ length: 4 }, (_, index) => <div key={index} className="rounded-[14px] border border-[var(--color-border)] p-5"><Skeleton className="h-7 w-16" /><Skeleton className="mt-2 h-3 w-24" /></div>)}</div><div className="mt-10"><ListSkeleton count={4} role={undefined} /></div></div></PageFrame>
   if (!writing && profile.isError) return <PageFrame><div><p role="alert" className="text-[13px] text-[var(--color-danger)]">We couldn’t load your profile.</p><Button variant="secondary" className="mt-4" onClick={() => profile.refetch()} aria-busy={profile.isFetching} disabled={profile.isFetching}>Try again</Button></div></PageFrame>
   const me = profile.data || {}
 
@@ -203,20 +250,25 @@ export function MemberProfile({ writing = false }) {
     <PageFrame>
       {writing && <PageHeader eyebrow="Publishing" title="Studio" description="Manage writing, creator updates, workshops, requests, and analytics." actions={<div className="flex w-full flex-col gap-2 min-[380px]:w-auto min-[380px]:flex-row min-[380px]:flex-wrap sm:justify-end"><ButtonLink to="/opportunities" variant="secondary" className="justify-center whitespace-nowrap">Find reader demand</ButtonLink><button type="button" onClick={() => setChoosingFormat(true)} className="button-target inline-flex min-h-10 items-center justify-center rounded-full border border-[var(--color-accent)] bg-[var(--color-accent)] px-[18px] py-2 text-[13px] font-medium whitespace-nowrap text-[var(--color-text-inverted)] transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-offset-2 sm:min-h-0">Write a story</button></div>} />}
       {!writing && <PageHeader eyebrow="Your space" title="Profile" description="Manage your public identity and explore the writing you’ve shared." />}
-      {!writing && <header className="flex gap-5 mb-8 items-start flex-wrap">
-        <Avatar src={me.avatarUrl} name={me.displayName} size={80} />
-        <div className="flex-1 min-w-[240px]">
-          <>
-              <h2 className="font-bold text-[24px] text-[var(--color-text)]" style={{ fontFamily: 'var(--font-display)' }}>{me.displayName}</h2>
-              {me.handle && <p className="mt-1 text-[12px] text-[var(--color-text-muted)]">@{me.handle}</p>}
-              {roleLabel(me.role) && <span className="mt-2 inline-flex items-center rounded-full border border-[var(--color-border)] bg-[var(--color-bg-alt)] px-2.5 py-1 text-[11px] font-semibold text-[var(--color-text-secondary)]">{roleLabel(me.role)}</span>}
-              <p className="mt-3 max-w-2xl text-[13px] leading-[1.65] text-[var(--color-text-secondary)]">{me.bio || 'Add a short biography so readers know what you write about.'}</p>
-              <p className="mt-2 text-[11px] text-[var(--color-text-muted)]">Member since {new Date(me.joinedAt).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</p>
-          </>
+      {!writing && <ProfileCover src={me.coverImageUrl}>{me.handle && <span className="absolute bottom-5 right-6 text-[11px] text-[var(--color-text-muted)] tracking-[0.08em] uppercase">@{me.handle}</span>}</ProfileCover>}
+      {!writing && <header className="relative -mt-12 mb-8 border-b border-[var(--color-border)] px-2 pb-8 md:-mt-14 md:px-5">
+        <div className="flex items-end gap-5 flex-wrap">
+          <div className="rounded-full border-4 border-[var(--color-bg)] bg-[var(--color-bg)]"><Avatar src={me.avatarUrl} name={me.displayName} size={96} /></div>
+          <div className="flex-1 min-w-[220px] pb-1">
+            <h2 className="font-bold text-[28px] tracking-[-0.04em] text-[var(--color-text)] mb-1" style={{ fontFamily: 'var(--font-display)' }}>{me.displayName}</h2>
+            <div className="flex flex-wrap items-center gap-2">
+              {me.handle && <p className="text-[13px] text-[var(--color-text-muted)]">@{me.handle}</p>}
+              {roleLabel(me.role) && <span className="inline-flex items-center rounded-full border border-[var(--color-border)] bg-[var(--color-bg-alt)] px-2.5 py-1 text-[11px] font-semibold text-[var(--color-text-secondary)]">{roleLabel(me.role)}</span>}
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {canManageMembership && <Button variant="secondary" disabled={manageMembership.isPending} aria-busy={manageMembership.isPending} onClick={() => manageMembership.mutate()}>Manage membership</Button>}
+            <Button variant="secondary" className="h-11 w-11 !p-0" aria-label="Edit profile" title="Edit profile" onClick={() => navigate(`/profile/edit${params.size ? `?${params}` : ''}`)}><PenIcon /></Button>
+          </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {canManageMembership && <Button variant="secondary" disabled={manageMembership.isPending} aria-busy={manageMembership.isPending} onClick={() => manageMembership.mutate()}>Manage membership</Button>}
-          <Button variant="secondary" className="h-11 w-11 !p-0" aria-label="Edit profile" title="Edit profile" onClick={() => navigate(`/profile/edit${params.size ? `?${params}` : ''}`)}><PenIcon /></Button>
+        <p className="text-[15px] leading-[1.7] text-[var(--color-text-secondary)] max-w-[680px] mt-5">{me.bio || 'Add a short biography so readers know what you write about.'}</p>
+        <div className="flex items-center gap-6 flex-wrap mt-4 text-[13px] text-[var(--color-text-secondary)]">
+          <p>Member since {new Date(me.joinedAt).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</p>
         </div>
       </header>}
 
@@ -229,7 +281,7 @@ export function MemberProfile({ writing = false }) {
       </nav>}
 
       <div id={writing ? "writing-tabpanel" : undefined} role={writing ? "tabpanel" : undefined} aria-label={`${TABS.find(item => item.id === tab)?.label || 'Overview'} content`}>
-      {!writing && <div className="grid gap-[14px]" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(140px,1fr))' }}><StatCard label="Published writing" value={me.postCount} /><StatCard label="Followers" value={me.followersCount} /><StatCard label="Following" value={me.followingCount} /><StatCard label="Account type" value={me.writerStatus === 'writer' ? 'Writer' : 'Reader'} />{me.writerStatus === 'writer' && <StatCard label="Member requests" value={me.directRequestsEnabled ? 'On' : 'Off'} sub="Up to 3 per month" />}</div>}
+      {!writing && <div className="grid gap-[14px]" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 140px), 1fr))' }}><StatCard label="Published writing" value={me.postCount} /><StatCard label="Followers" value={me.followersCount} /><StatCard label="Following" value={me.followingCount} /><StatCard label="Account type" value={me.writerStatus === 'writer' ? 'Writer' : 'Reader'} />{me.writerStatus === 'writer' && <StatCard label="Member requests" value={me.directRequestsEnabled ? 'On' : 'Off'} sub="Up to 3 per month" />}</div>}
       {!writing && <section className="pt-10" aria-labelledby="profile-posts-heading">
         <div className="mb-7 grid grid-cols-1 items-center gap-4 sm:grid-cols-[minmax(0,1fr)_auto]"><div className="min-w-0"><p className="mb-1 text-[12px] text-[var(--color-text-muted)]">Published by {me.displayName}</p><h2 id="profile-posts-heading" className="text-[24px] font-bold text-[var(--color-text)]" style={{ fontFamily: 'var(--font-display)' }}>Your published writing</h2></div><div className="shrink-0 sm:justify-self-end"><ButtonLink to="/studio" variant="secondary">Edit in Studio</ButtonLink></div></div>
         <div className="mb-8 flex flex-wrap items-center justify-between gap-4"><PublishedWritingTabs value={publishedFormat} onChange={value => setPublishedFilter('profileFormat', value, 'article')} controlsId="profile-writing-panel" includeCollections includeSeries />{publishedFormat !== 'collections' && publishedFormat !== 'series' && visiblePublishedPosts.length > 0 && <FilterBar label="Published writing" options={[]} sortOptions={[{ id: 'latest', label: 'Newest' }, { id: 'oldest', label: 'Oldest' }, { id: 'popular', label: 'Most appreciated' }]} sortValue={publishedSort} onSortChange={value => setPublishedFilter('profileSort', value, 'latest')} onReset={() => setPublishedFilter('profileSort', 'latest', 'latest')} />}</div>
@@ -246,22 +298,12 @@ export function MemberProfile({ writing = false }) {
       {writing && tab === 'published' && <div id="studio-published-panel" role="tabpanel" aria-label={`${writingFormat === 'short' ? 'Shorts' : 'Stories'} content`}>
       {posts.isError ? <ProfileDataError message="Published stories could not be loaded." onRetry={() => posts.refetch()} /> : <PostRows posts={(posts.data || []).filter(post => (post.format || 'article') === writingFormat)} manage gridShorts={writingFormat === 'short'} emptyMessage={`You haven’t published any ${writingFormat === 'short' ? 'shorts' : 'stories'} yet.`} />}</div>}
       {writing && tab === 'drafts' && <div className="mb-6"><PublishedWritingTabs value={draftFormat} onChange={value => setWritingFormat('draftFormat', value)} controlsId="studio-drafts-panel" firstLabel="Stories" ariaLabel="Draft categories" /></div>}
-      {tab === 'drafts' && <div id={writing ? 'studio-drafts-panel' : undefined} role={writing ? 'tabpanel' : undefined} aria-label={writing ? `${draftFormat === 'short' ? 'Shorts' : 'Stories'} drafts` : undefined}>{drafts.isLoading ? <div role="status" aria-label="Loading drafts"><ListSkeleton count={4} role={undefined} /></div> : drafts.isError ? <ProfileDataError message="Drafts could not be loaded." onRetry={() => drafts.refetch()} /> : (writing ? drafts.data?.filter(draft => (draft.format || 'article') === draftFormat) : drafts.data)?.length ? <div>{(writing ? drafts.data.filter(draft => (draft.format || 'article') === draftFormat) : drafts.data).map(draft => <div key={draft._id} className="flex min-w-0 items-center gap-3 border-b border-[var(--color-border)] py-7 sm:gap-5 sm:py-8"><div className="min-w-0 flex-1"><p className="font-semibold text-[16px] leading-[1.4] text-[var(--color-text)] [overflow-wrap:anywhere] sm:text-[18px]">{draft.title || 'Untitled draft'}</p><p className="mt-2 text-[12px] leading-5 text-[var(--color-text-muted)]">{draft.format === 'short' ? 'Short' : 'Story'} · Saved {new Date(draft.updatedAt).toLocaleString()}</p></div><div className="flex shrink-0 items-center gap-1 sm:gap-2"><Link to={`/studio?draft=${draft._id}`} aria-label={`Continue writing: ${draft.title || 'Untitled draft'}`} title="Continue writing" className="flex h-11 w-11 items-center justify-center rounded-[10px] text-[var(--color-accent)] hover:bg-[var(--color-bg-alt)] focus-visible:outline-none focus-visible:ring-2 focus:ring-[var(--color-focus)]"><PenIcon /></Link><DeleteDraftButton draft={draft} /></div></div>)}</div> : <p className="py-10 text-center text-[13px] text-[var(--color-text-muted)]">{writing ? `No ${draftFormat === 'short' ? 'short' : 'story'} drafts yet.` : 'Your autosaved drafts will appear here.'}</p>}</div>}
-      {tab === 'analytics' && <div>{posts.isError ? <ProfileDataError message="Basic analytics could not be loaded." onRetry={() => posts.refetch()} /> : <div className="grid gap-[14px]" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(140px,1fr))' }}><StatCard label="Published stories" value={publishedPosts.length} /><StatCard label="Reader appreciations" value={publishedPosts.reduce((sum, post) => sum + (post.likesCount || 0), 0)} /><StatCard label="Comments" value={publishedPosts.reduce((sum, post) => sum + (post.commentsCount || 0), 0)} /></div>}
+      {tab === 'drafts' && <div id={writing ? 'studio-drafts-panel' : undefined} role={writing ? 'tabpanel' : undefined} aria-label={writing ? `${draftFormat === 'short' ? 'Shorts' : 'Stories'} drafts` : undefined}>{drafts.isLoading ? <div role="status" aria-label="Loading drafts"><ListSkeleton count={4} role={undefined} /></div> : drafts.isError ? <ProfileDataError message="Drafts could not be loaded." onRetry={() => drafts.refetch()} /> : (writing ? drafts.data?.filter(draft => (draft.format || 'article') === draftFormat) : drafts.data)?.length ? <div>{(writing ? drafts.data.filter(draft => (draft.format || 'article') === draftFormat) : drafts.data).map(draft => <div key={draft._id} className="flex min-w-0 items-center gap-3 border-b border-[var(--color-border)] py-7 sm:gap-5 sm:py-8"><div className="min-w-0 flex-1"><p className="line-clamp-2 font-semibold text-[16px] leading-[1.4] text-[var(--color-text)] [overflow-wrap:anywhere] sm:text-[18px]">{draft.title || 'Untitled draft'}</p><p className="mt-2 text-[12px] leading-5 text-[var(--color-text-muted)]">{draft.format === 'short' ? 'Short' : 'Story'} · Saved {new Date(draft.updatedAt).toLocaleString()}</p></div><div className="flex shrink-0 items-center gap-1 sm:gap-2"><Link to={`/studio?draft=${draft._id}`} aria-label={`Continue writing: ${draft.title || 'Untitled draft'}`} title="Continue writing" className="flex h-11 w-11 items-center justify-center rounded-[10px] text-[var(--color-accent)] hover:bg-[var(--color-bg-alt)] focus-visible:outline-none focus-visible:ring-2 focus:ring-[var(--color-focus)]"><PenIcon /></Link><DeleteDraftButton draft={draft} /></div></div>)}</div> : <p className="py-10 text-center text-[13px] text-[var(--color-text-muted)]">{writing ? `No ${draftFormat === 'short' ? 'short' : 'story'} drafts yet.` : 'Your autosaved drafts will appear here.'}</p>}</div>}
+      {tab === 'analytics' && <div>{posts.isError ? <ProfileDataError message="Basic analytics could not be loaded." onRetry={() => posts.refetch()} /> : <AnalyticsOverview posts={publishedPosts} />}
         {entitlements.isError && <div className="mt-6"><ProfileDataError message="Membership status could not be checked." onRetry={() => entitlements.refetch()} /></div>}
         {!canViewAnalytics && !entitlements.isFetching && !entitlements.isError && !entitlements.isPending && <div className="mt-6"><Button variant="secondary" onClick={() => setShowAdvancedAnalytics(true)}>View more analytics</Button></div>}
         {entitlements.isError && <div className="mt-4"><ProfileDataError message="Analytics access could not be loaded." onRetry={() => entitlements.refetch()} /></div>}
-        {canViewAnalytics && (analytics.isLoading ? <div role="status" aria-label="Loading writer analytics" className="mt-7"><ListSkeleton count={5} role={undefined} /></div> : analytics.isError ? <div className="mt-7"><ProfileDataError message="Analytics could not be loaded." onRetry={() => analytics.refetch()} /></div> : analytics.data && <section className="mt-7">
-          <h2 className="mb-3 text-[11px] font-bold uppercase tracking-[0.06em] text-[var(--color-text-muted)]">Writing performance</h2>
-          {analytics.data.posts.map(post => <div key={post.id} className="border-t border-[var(--color-border)] py-5 sm:py-6">
-            <Link to={`/post/${post.id}`} className="block max-w-3xl break-words text-[14px] font-semibold leading-5 text-[var(--color-text)] hover:text-[var(--color-accent)]">{post.title}</Link>
-            <dl className="mt-4 grid max-w-[480px] grid-cols-3 gap-2 sm:gap-5">
-              <div className="min-w-0"><dt className="text-[11px] text-[var(--color-text-muted)]">Opens</dt><dd className="mt-1 text-[15px] font-semibold tabular-nums text-[var(--color-text)]">{post.opens}</dd></div>
-              <div className="min-w-0"><dt className="text-[11px] text-[var(--color-text-muted)]">Completed</dt><dd className="mt-1 text-[15px] font-semibold tabular-nums text-[var(--color-text)]">{post.completions}</dd></div>
-              <div className="min-w-0"><dt className="text-[11px] text-[var(--color-text-muted)]">Appreciations</dt><dd className="mt-1 text-[15px] font-semibold tabular-nums text-[var(--color-text)]">{post.likes}</dd></div>
-            </dl>
-          </div>)}
-        </section>)}
+        {canViewAnalytics && (analytics.isLoading ? <div role="status" aria-label="Loading writer analytics" className="mt-7"><ListSkeleton count={5} role={undefined} /></div> : analytics.isError ? <div className="mt-7"><ProfileDataError message="Analytics could not be loaded." onRetry={() => analytics.refetch()} /></div> : analytics.data && <StoryPerformance data={analytics.data} />)}
       </div>}
       </div>
       {writing && tab === 'ideas' && <ReaderSuggestions />}

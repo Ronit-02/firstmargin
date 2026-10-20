@@ -209,12 +209,14 @@ const createPost = async (req, res) => {
         }).select('_id');
 
         // Extracting file path and adding to cloudinary
+        if (localImagePath && req.body.coverImageUrl) return res.status(400).json({ success: false, message: 'Choose an uploaded image or an image URL' });
+        let linkedCover = null;
+        if (req.body.coverImageUrl) { try { const url = new URL(req.body.coverImageUrl); if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.toString().length > 2000) throw new Error('Invalid URL'); linkedCover = url.toString(); } catch { return res.status(400).json({ success: false, message: 'Cover image must be a valid HTTP(S) URL' }); } }
         const result = localImagePath ? await uploadOnCloudinary(localImagePath) : null;
-        if(localImagePath && !result?.secure_url)
-            return res.status(502).json({success: false, message: 'Cover image upload failed'})
+        const coverUploadFailed = Boolean(localImagePath && !result?.secure_url);
     
         const post = new Publication({
-            coverImage: result?.secure_url || null,
+            coverImage: result?.secure_url || linkedCover,
             title: normalizedTitle,
             format,
             body: JSON.stringify(parsedBody),
@@ -253,6 +255,7 @@ const createPost = async (req, res) => {
             success: true,
             message: 'Publication created successfully', 
             publicationId: post._id,
+            coverUploadFailed,
             responseLinked,
         });
     }
@@ -643,27 +646,37 @@ const updatePost = async (req, res) => {
         const normalizedTags = [...new Set(tags.map(tag => String(tag).trim().toLowerCase()).filter(Boolean))].slice(0, 20);
         if (!title || title.length > (current.format === 'short' ? 120 : 180) || !parsedBody) return res.status(400).json({ message: 'Invalid post update' });
         let publicAt = current.publicAt;
-        if (req.body.publicAt) {
+        if (Object.prototype.hasOwnProperty.call(req.body, 'publicAt') && !req.body.publicAt) {
+            publicAt = new Date();
+        } else if (req.body.publicAt) {
             publicAt = new Date(req.body.publicAt);
             if (Number.isNaN(publicAt.getTime()) || publicAt.getTime() > Date.now() + 30 * 86400000) return res.status(400).json({ message: 'Public release must be within the next 30 days' });
             if (publicAt > new Date() && !await hasCapability(req.auth.userId, 'early_access')) return res.status(403).json({ code: 'ENTITLEMENT_REQUIRED', message: 'Early release scheduling requires membership' });
         }
         const nextRevision = expectedRevision + 1;
         const nextBody = JSON.stringify(parsedBody);
-        await PublicationRevision.create({ publicationId: current._id, revision: nextRevision, authorId: req.auth.userId, title, body: nextBody, coverImage: current.coverImage, format: current.format, tags: normalizedTags, publicAt });
+        if (req.file && req.body.coverImageUrl) return res.status(400).json({ message: 'Choose an uploaded image or an image URL' });
+        let linkedCover = null;
+        if (req.body.coverImageUrl) { try { const url = new URL(req.body.coverImageUrl); if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.toString().length > 2000) throw new Error('Invalid URL'); linkedCover = url.toString(); } catch { return res.status(400).json({ message: 'Cover image must be a valid HTTP(S) URL' }); } }
+        const uploadedCover = req.file ? await uploadOnCloudinary(req.file.path) : null;
+        const coverUploadFailed = Boolean(req.file && !uploadedCover?.secure_url);
+        const nextCover = coverUploadFailed || req.body.removeCover === 'true' ? null : uploadedCover?.secure_url || linkedCover || current.coverImage;
+        await PublicationRevision.create({ publicationId: current._id, revision: nextRevision, authorId: req.auth.userId, title, body: nextBody, coverImage: nextCover, format: current.format, tags: normalizedTags, publicAt });
         const updated = await Publication.findOneAndUpdate(
             { _id: current._id, author: req.auth.userId, currentRevision: expectedRevision },
-            { $set: { title, body: nextBody, tags: normalizedTags, publicAt, currentRevision: nextRevision } },
+            { $set: { title, body: nextBody, tags: normalizedTags, publicAt, coverImage: nextCover, currentRevision: nextRevision } },
             { returnDocument: 'after' }
         ).select('title currentRevision publicAt publicationStatus');
         if (!updated) {
             await PublicationRevision.deleteOne({ publicationId: current._id, revision: nextRevision });
             return res.status(409).json({ code: 'REVISION_CONFLICT', message: 'This post changed in another session. Reload before editing.' });
         }
-        return res.json({ data: updated });
+        return res.json({ data: updated, coverUploadFailed });
     } catch (error) {
         if (error?.code === 11000) return res.status(409).json({ code: 'REVISION_CONFLICT', message: 'This revision already exists' });
         return res.status(500).json({ message: 'Unable to update post' });
+    } finally {
+        if (req.file?.path) await fs.promises.unlink(req.file.path).catch(() => {});
     }
 };
 

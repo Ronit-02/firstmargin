@@ -5,8 +5,8 @@ const ModerationAction = require('../schemas/moderation-action.schema');
 const listReports = async (req, res) => {
   try {
     const status = req.query.status || 'pending';
-    if (!['pending', 'reviewing', 'actioned', 'dismissed'].includes(status)) return res.status(400).json({ message: 'Invalid report status' });
-    const reports = await Report.find({ status }).sort({ createdAt: 1 }).limit(100).populate('reporterId', 'username');
+    if (!['all', 'pending', 'reviewing', 'actioned', 'dismissed'].includes(status)) return res.status(400).json({ message: 'Invalid report status' });
+    const reports = await Report.find(status === 'all' ? {} : { status }).sort({ createdAt: 1 }).limit(100).populate('reporterId', 'username');
     return res.json({ data: reports });
   } catch { return res.status(500).json({ message: 'Unable to load moderation queue' }); }
 };
