@@ -1,3 +1,9 @@
+## Backend isolation check before frontend installation — 2026-10-29
+
+Fixed the CI backend-contract failure caused by importing Playwright before frontend dependencies were installed. `Frontend/playwright.config.js` now validates database ownership before dynamically importing Playwright. `Backend/tests/temporary-database.test.js` checks a temporary copy of the actual config/helper without frontend packages, so local frontend installations cannot mask CI's install order. Updated `context/test-fixtures.md` and this tracker. CI step order, test database lifecycle, application code, UI, routes, and schemas are unchanged.
+
+Verification on 2026-10-29: all 136 backend contracts/isolation checks, backend lint, and focused Playwright-config lint passed. A valid isolated configuration still loads with frontend dependencies installed. The failing case now reaches the ownership rejection without a module-resolution error. CI Linux execution and database/browser interaction were not rerun for this import-order correction.
+
 ## Temporary databases for automated tests — 2026-10-29
 
 Folder consolidation verified on 2026-10-29: moved the shared helper under `Backend/tests/support/`, updated all five importing consumers and documentation references, and removed the empty top-level helper folder. A run still seeds one shared database for all selected E2E tests and drops it after the command completes. All 136 backend tests, backend lint, and focused frontend config/runner/isolation-spec lint passed after relocation; live database/browser checks were not repeated for this path-only change.

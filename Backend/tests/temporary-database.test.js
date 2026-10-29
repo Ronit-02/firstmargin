@@ -3,6 +3,8 @@ const assert = require('node:assert/strict');
 const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
+const fs = require('node:fs');
+const os = require('node:os');
 const { createTemporaryDatabase, assertTemporaryDatabase, createTestEnvironment, prepareTemporaryDatabase, dropTemporaryDatabase } = require('./support/temporary-database');
 
 test('temporary targets are unique and never inherit the application database', () => {
@@ -76,14 +78,23 @@ test('cleanup drops only the exact owned database and rejects changed identities
   assert.throws(() => assertTemporaryDatabase({ ...target, name: 'development' }), /not generated/);
 });
 
-test('direct Playwright invocation cannot attach to an ambient development database', () => {
-  const config = path.resolve(__dirname, '../../Frontend/playwright.config.js');
+test('direct Playwright invocation rejects an ambient development database before frontend dependencies are installed', t => {
+  // Mirror CI's backend-only install without moving the local node_modules tree.
+  const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'firstmargin-config-'));
+  t.after(() => fs.rmSync(fixtureRoot, { recursive: true, force: true }));
+  fs.mkdirSync(path.join(fixtureRoot, 'Frontend'), { recursive: true });
+  fs.mkdirSync(path.join(fixtureRoot, 'Backend/tests/support'), { recursive: true });
+  const config = path.join(fixtureRoot, 'Frontend/playwright.config.js');
+  fs.copyFileSync(path.resolve(__dirname, '../../Frontend/playwright.config.js'), config);
+  fs.copyFileSync(path.join(__dirname, 'support/temporary-database.js'), path.join(fixtureRoot, 'Backend/tests/support/temporary-database.js'));
+  fs.writeFileSync(path.join(fixtureRoot, 'Frontend/package.json'), JSON.stringify({ type: 'module' }));
   const result = spawnSync(process.execPath, ['--input-type=module', '-e', 'await import(process.argv[1])', pathToFileURL(config).href], {
     env: { ...process.env, FIRSTMARGIN_TEST_RUN_ID: '', E2E_BASE_URL: '', DB_NAME: 'development', MONGO_URI: 'mongodb://127.0.0.1:27017/development' },
     encoding: 'utf8',
   });
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /not generated for this test run/);
+  assert.doesNotMatch(result.stderr, /ERR_MODULE_NOT_FOUND/);
 });
 
 test('existing-server shortcut is rejected even with a valid temporary target', () => {

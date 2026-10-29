@@ -1,4 +1,3 @@
-import { defineConfig, devices } from '@playwright/test'
 import path from 'node:path'
 import temporaryDatabase from '../Backend/tests/support/temporary-database.js'
 
@@ -8,6 +7,9 @@ temporaryDatabase.assertTemporaryDatabase({
   name: process.env.DB_NAME || '',
   uri: process.env.MONGO_URI || '',
 })
+
+// Enforce isolation before loading frontend tooling, which is installed later in CI.
+const { defineConfig, devices } = await import('@playwright/test')
 
 const frontendRoot = path.resolve(import.meta.dirname)
 const backendRoot = path.resolve(frontendRoot, '../Backend')
