@@ -1,3 +1,9 @@
+## Writer appreciation CI assertion race fixed — 2026-10-30
+
+The critical CI run reported 101 passes and a desktop writer-engagement failure because the optimistic count reached 9 before the PUT arrived in the API fixture. The writer-engagement test now waits for the exact DELETE/PUT sequence instead of asserting the request recorder synchronously. Missing, wrong-order and duplicate writes still fail. Application behavior, APIs, suite selection, timeouts and test retry/skip policies are unchanged. Changed files: `Frontend/tests/writer-post-engagement.spec.js`, [the owning audit](test-suite-audit.md#writer-appreciation-request-assertion-race--2026-10-30) and this tracker.
+
+Verification on 2026-10-30: five writer-engagement cases repeated five times passed all 25 executions in 64.2 seconds; the complete critical selection passed all 102 cases in 138.4 seconds, with zero failures/skips/flaky results in either run. Focused ESLint and whitespace checks passed. These local Chromium runs used CI settings, two workers and intercepted HTTP with no database/providers. Hosted Linux CI has not yet rerun the fix; no push was performed and no approval decision remains.
+
 ## Broad browser failures repaired — 2026-10-30
 
 Repaired stale mocked API envelopes, labels, current save/series/Library interactions, ambiguous selectors, nested dismissal, deferred-section setup and geometry/focus measurements. Fixed mobile inbox height overflow and Explore tab-row horizontal overflow using existing components. The original card breakpoint remains unchanged. No development database, provider action, API/model change, test removal or new skip is part of this repair. Independently completed CI selection edits were preserved. [The suite audit](test-suite-audit.md#broad-browser-failure-repairs--2026-10-30) owns changed-file scope and detailed evidence.

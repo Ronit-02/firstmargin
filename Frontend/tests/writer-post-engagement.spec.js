@@ -37,7 +37,8 @@ for (const width of [320, 390, 1280]) {
     await expect(unliked).toHaveText('8')
     await unliked.click()
     await expect(like).toHaveText('9')
-    expect(methods).toEqual(['DELETE', 'PUT'])
+    // The optimistic count can render before the PUT reaches the API fixture.
+    await expect.poll(() => methods).toEqual(['DELETE', 'PUT'])
     await comments.click()
     const dialog = page.getByRole('dialog', { name: 'Comments', exact: true })
     await dialog.getByLabel('Add a comment', { exact: true }).fill('A useful point.')

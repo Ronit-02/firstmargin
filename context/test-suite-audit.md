@@ -2,6 +2,14 @@
 
 Audit date: 2026-10-29. The initial review records the original baseline. Dated follow-ups distinguish test repairs, consolidation, CI selection and bounded application layout fixes.
 
+## Writer appreciation request assertion race — 2026-10-30
+
+GitHub's critical run reported 101 passes and one desktop writer-engagement failure: the counter had optimistically returned to 9 while the fixture had recorded only DELETE, before the subsequent PUT arrived. `usePostLike.onMutate` updates query caches before its asynchronous mutation request, so the visible count is not evidence that the request recorder has run.
+
+`Frontend/tests/writer-post-engagement.spec.js` now polls for the exact `['DELETE', 'PUT']` sequence after the count assertion. The test still fails if the PUT never arrives, has the wrong method/order, or adds a duplicate write. No sleeps, test retries, skips, timeout increases, application code or CI selection changes were added.
+
+Verification on 2026-10-30: all five writer-engagement cases repeated five times passed (25 executions, zero failures/skips/flaky results) in 64.2 seconds. The complete critical suite then passed all 102 cases, with zero failures/skips/flaky results, in 138.4 seconds. Both runs used CI settings, two Chromium workers, intercepted APIs and a task-owned local Vite server, without a database or live provider. Focused ESLint and whitespace validation passed. This is local verification; GitHub Linux CI must rerun the updated spec. Changed files: the writer-engagement spec, this audit and the progress tracker.
+
 ## Broad browser failure repairs — 2026-10-30
 
 The reported failure population mixed stale fixtures/selectors with real layout defects. Tests now follow the current story labels, Save story/collection flow, Stories/Shorts series chooser, edit-modal reorder controls, Library format selection, nested short-reader Comments dismissal, profile APIs and moderation envelopes. Question voting is scoped to the intended question. Keyboard category navigation waits for the detail page and its route-focus handoff. Lazy Home sections are scrolled into view before assertions. Card geometry measures the visible clamped heading and actual metadata/footer rather than overflowing descendants or transparent wrappers.
