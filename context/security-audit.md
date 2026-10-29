@@ -1,5 +1,21 @@
 # firstmargin security assurance
 
+## Backend dependency remediation — 2026-10-29
+
+Applied `npm audit fix --ignore-scripts` within the existing backend dependency ranges. Only `Backend/package-lock.json` changed in the application; no manifest, override, major upgrade, runtime source, API, schema, stored-data, or frontend change was required.
+
+| Dependency | Previous locked version | Updated locked version |
+|---|---|---|
+| body-parser | 2.3.0 | 2.4.0 |
+| multer | 2.4.0 | 2.5.0 |
+| nodemailer | 10.1.0 | 10.3.1 |
+| qs | 6.16.0 | 6.17.1 |
+| iconv-lite (required by body-parser) | 0.7.2 | 0.7.3 |
+
+Express continues to supply body-parser and qs; the existing upload middleware and email adapter retain their public interfaces. Reviewed upstream release notes and installed changelogs for compatibility. The updates address the reported [body-parser](https://github.com/advisories/GHSA-27r3-jxmh-p828), [Multer](https://github.com/advisories/GHSA-q7qp-rjg7-q26m), [Nodemailer nested-comment](https://github.com/advisories/GHSA-8c8m-p3m8-cjg8), [Nodemailer group](https://github.com/advisories/GHSA-m943-m63m-w62w), [Nodemailer angle-address](https://github.com/advisories/GHSA-85x2-q946-cp5h), and [qs](https://github.com/advisories/GHSA-6pq8-jhm2-2vcw) advisories.
+
+Verification on 2026-10-29: backend `npm audit --audit-level=low` and `npm audit --omit=dev --audit-level=low` each reported zero vulnerabilities; `npm test` passed all 129 contracts; `npm run lint` passed. Initial sandbox runs failed registry DNS and localhost HTTP access; successful audit/test runs used approved access outside the sandbox. `npm run test:integration` skipped its disabled opt-in gate. Live database, email delivery, deployed behavior, and frontend/browser checks were not exercised for this backend lockfile-only update. The earlier development-only nodemon findings below are historical and were absent from this full audit.
+
 ## Staff role changes — 2026-10-18
 
 The staff-only account directory exposes a bounded set of account fields. Role changes accept regular or member promotion to exclusive writer or moderator, plus the existing exclusive-writer/moderator demotions, and retain an audit record. Focused controller tests and a mocked-API browser check passed for the earlier transitions; a live database promotion was not exercised. Protected authorization and transaction details are in the local security and architecture companions.
