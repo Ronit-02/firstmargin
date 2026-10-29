@@ -1,6 +1,14 @@
 # Development test fixtures
 
-Last reviewed: 2026-10-21
+Last reviewed: 2026-10-29
+
+## Automated test isolation — 2026-10-29
+
+Browser tests reuse the maintained fixture catalog in a newly generated temporary database for each run. `Frontend/scripts/run-e2e.js` owns connection preflight, seeding, browser execution, and cleanup, using the shared `Backend/tests/support/temporary-database.js` helper. It overrides inherited application database configuration and supplies matching ephemeral seed/login credentials. The supported Playwright configurations require the run-owned database and their own API/Vite servers; direct invocation and the existing-server shortcut are rejected. Mocked UI tests keep their existing fixtures, while `Frontend/tests/e2e-isolation.spec.js` verifies a real authenticated API write in the run-owned database.
+
+One E2E command creates one database and seeds it once for all selected test files/cases, which run with the existing single worker. Cleanup happens after the complete command finishes, including a failed run; there is no database per test case. Separate invocations get separate databases. Backend helpers live under `Backend/tests/support/` alongside the owning test suites rather than in a separate top-level test-support folder.
+
+Opt-in database integration tests independently create and remove a unique temporary database using the same ownership rules. Both suites require a loopback MongoDB test service, reject named/remote/credential-bearing server overrides, and stop without fallback when it is unavailable. Cleanup verifies the exact run-owned database; startup or test failures cannot authorize dropping another database. Hard termination can leave an isolated database behind; subsequent runs never reuse it. CI provides a disposable MongoDB service, uses an explicitly named test database for its separate SEO seed, and no longer seeds the browser database in a separate workflow step. See the development guide for commands and the local companion for protected implementation detail. Production routes, schemas, UI, and manual development seeds are unchanged.
 
 ## Ten-story reading path (2026-10-21)
 

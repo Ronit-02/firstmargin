@@ -8,6 +8,9 @@ const integrationEnabled = process.env.RUN_DB_INTEGRATION === 'true';
 if (!integrationEnabled) {
   test('database integration suite is enabled only with RUN_DB_INTEGRATION=true', { skip: 'MongoDB integration service is not enabled' }, () => {});
 } else {
+  const { createTemporaryDatabase, createTestEnvironment, prepareTemporaryDatabase, dropTemporaryDatabase } = require('./support/temporary-database');
+  const temporaryDatabase = createTemporaryDatabase('integration');
+  Object.assign(process.env, createTestEnvironment(temporaryDatabase));
   process.env.STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || 'integration-webhook-secret';
   const app = require('../src/app');
   const User = require('../schemas/user.schema');
@@ -34,6 +37,8 @@ if (!integrationEnabled) {
   const { generateToken } = require('../utils/helper');
 
   let server;
+  let ownsDatabase = false;
+  const databaseOwner = mongoose.createConnection();
   let baseUrl;
   let owner;
   let otherUser;
@@ -98,6 +103,10 @@ if (!integrationEnabled) {
   ]);
 
   test.before(async () => {
+    // Claim the empty database before registered models auto-create collections.
+    await databaseOwner.openUri(temporaryDatabase.uri, { serverSelectionTimeoutMS: 5_000 });
+    await prepareTemporaryDatabase(databaseOwner, temporaryDatabase);
+    ownsDatabase = true;
     await mongoose.connect(process.env.MONGO_URI, { serverSelectionTimeoutMS: 5_000 });
     // Text-search routes require the schema's text index. Await model
     // initialization so a fresh CI database cannot race index creation.
@@ -176,35 +185,43 @@ if (!integrationEnabled) {
   });
 
   test.after(async () => {
-    if (server) await new Promise(resolve => server.close(resolve));
-    const userIds = [owner?._id, otherUser?._id].filter(Boolean);
-    if (userIds.length) {
-      await Promise.all([
-        Save.deleteMany({ userId: { $in: userIds } }),
-        Appreciation.deleteMany({ userId: { $in: userIds } }),
-        PublicationRevision.deleteMany({ authorId: { $in: userIds } }),
-        Publication.deleteMany({ author: { $in: userIds } }),
-        Membership.deleteMany({ userId: { $in: userIds } }),
-        User.deleteMany({ _id: { $in: userIds } }),
-        Profile.deleteMany({ userId: { $in: userIds } }),
-        Topic.deleteMany({ _id: topic?._id }),
-        Question.deleteMany({ _id: question?._id }),
-        Collection.deleteMany({ _id: collection?._id }),
-        Competition.deleteMany({ _id: competition?._id }),
-        ShortSeries.deleteMany({ _id: series?._id }),
-        Notification.deleteMany({ recipientId: { $in: userIds } }),
-        InteractionEvent.deleteMany({ actorId: { $in: userIds } }),
-        Draft.deleteMany({ authorId: { $in: userIds } }),
-        Follow.deleteMany({ followerId: { $in: userIds } }),
-        Comment.deleteMany({ userId: { $in: userIds } }),
-        CommentAppreciation.deleteMany({ userId: { $in: userIds } }),
-        Report.deleteMany({ reporterId: { $in: userIds } }),
-        ModerationAction.deleteMany({ moderatorId: { $in: userIds } }),
-        Publication.deleteMany({ author: { $in: userIds } }),
-      ]);
+    try {
+      if (!ownsDatabase) return;
+      if (server) await new Promise(resolve => server.close(resolve));
+      const userIds = [owner?._id, otherUser?._id].filter(Boolean);
+      if (userIds.length) {
+        await Promise.all([
+          Save.deleteMany({ userId: { $in: userIds } }),
+          Appreciation.deleteMany({ userId: { $in: userIds } }),
+          PublicationRevision.deleteMany({ authorId: { $in: userIds } }),
+          Publication.deleteMany({ author: { $in: userIds } }),
+          Membership.deleteMany({ userId: { $in: userIds } }),
+          User.deleteMany({ _id: { $in: userIds } }),
+          Profile.deleteMany({ userId: { $in: userIds } }),
+          Topic.deleteMany({ _id: topic?._id }),
+          Question.deleteMany({ _id: question?._id }),
+          Collection.deleteMany({ _id: collection?._id }),
+          Competition.deleteMany({ _id: competition?._id }),
+          ShortSeries.deleteMany({ _id: series?._id }),
+          Notification.deleteMany({ recipientId: { $in: userIds } }),
+          InteractionEvent.deleteMany({ actorId: { $in: userIds } }),
+          Draft.deleteMany({ authorId: { $in: userIds } }),
+          Follow.deleteMany({ followerId: { $in: userIds } }),
+          Comment.deleteMany({ userId: { $in: userIds } }),
+          CommentAppreciation.deleteMany({ userId: { $in: userIds } }),
+          Report.deleteMany({ reporterId: { $in: userIds } }),
+          ModerationAction.deleteMany({ moderatorId: { $in: userIds } }),
+          Publication.deleteMany({ author: { $in: userIds } }),
+        ]);
+      }
+      await ProviderEvent.deleteMany({ eventId: { $regex: `^${prefix}` } });
+    } finally {
+      try {
+        if (ownsDatabase) await dropTemporaryDatabase(databaseOwner, temporaryDatabase);
+      } finally {
+        await mongoose.disconnect();
+      }
     }
-    await ProviderEvent.deleteMany({ eventId: { $regex: `^${prefix}` } });
-    await mongoose.disconnect();
   });
 
   test('owner post deletion clears discussions and saves while missing references stay safe', async () => {

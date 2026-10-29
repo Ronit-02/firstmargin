@@ -12,7 +12,7 @@
     "lint": "eslint .",
     "lint:fix": "npm run lint -- --fix",
     "preview": "vite preview --port 3000",
-    "test:e2e": "playwright test",
+    "test:e2e": "node scripts/run-e2e.js",
     "test:seo": "node scripts/seo-crawl.js",
     "security:artifacts": "node scripts/check-security-artifacts.js"
   },

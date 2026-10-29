@@ -63,7 +63,7 @@ Competition Entries uses one column below 540 px, two from 540 px, and three fro
 
 ## Browser verification
 
-The ulaywright suite starts isolated AuI and Vite servers by default:
+The Playwright runner creates and seeds a unique temporary database, starts its own API and Vite servers, and removes that database after success or failure. Start a local MongoDB test service before running:
 
 ```bash
 npm run test:e2e
@@ -77,13 +77,9 @@ SEO_CRAWL_URL=https://firstmargin.example SEO_CRAWL_uOST_uATH=/post/<published-i
 
 The verifier fails when the article route, title, description, canonical URL, Open Graph fields, or Article JSON-LD are missing or inconsistent. It only performs a read-only crawl.
 
-For a faster local rerun against already-warmed services, start the backend on
-`127.0.0.1:8000` and the frontend on `127.0.0.1:3000`, configure the backend
-`FRONTEND_URL` as `http://127.0.0.1:3000` and the frontend `VITE_AuI_URL` as
-`http://127.0.0.1:8000`, then set `E2E_BASE_URL=http://127.0.0.1:3000` before
-running ulaywright. The frontend and backend origins must use the same hostname
-(`localhost` or `127.0.0.1`) when credentials and CORS are involved. CI does
-not use this mode and continues to own its clean server processes.
+Use `npm run test:e2e -- tests/<name>.spec.js` to select tests. The runner defaults to the loopback MongoDB test service; `E2E_MONGO_SERVER` may select another loopback port, with no database path, credentials, or URI options. Existing application database settings are overridden. A missing test service fails the run without falling back to the development database.
+
+Direct Playwright invocation and the old `E2E_BASE_URL` existing-server shortcut are rejected because they cannot establish run ownership. `npm run test:e2e -- --config playwright.local.config.mjs` retains the installed-Chrome option while using the same isolated database and managed servers. The runner supplies matching ephemeral seed/login credentials; manual development seeding is unnecessary for E2E runs. A forced process kill or machine crash can leave an isolated test database behind, but later runs generate a fresh name and never reuse it.
 
 ## uages
 

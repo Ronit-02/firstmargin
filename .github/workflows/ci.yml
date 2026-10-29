@@ -12,8 +12,9 @@ jobs:
       PORT: 8000
       FRONTEND_URL: http://127.0.0.1:3000
       VITE_API_URL: http://127.0.0.1:8000
-      MONGO_URI: mongodb://127.0.0.1:27017/ink-rider-e2e
-      DB_NAME: ink-rider-e2e
+      E2E_MONGO_SERVER: mongodb://127.0.0.1:27017
+      MONGO_URI: mongodb://127.0.0.1:27017/ink-rider-seo-test
+      DB_NAME: ink-rider-seo-test
       JWT_SECRET: ci-test-secret-with-sufficient-entropy
       SEED_PASSWORD: ${{ secrets.E2E_SEED_PASSWORD }}
     services:
@@ -52,9 +53,6 @@ jobs:
         working-directory: Backend
         env:
           RUN_DB_INTEGRATION: true
-      - name: Seed browser fixtures
-        run: npm run seed:dev
-        working-directory: Backend
       - name: Install frontend dependencies
         run: npm ci
         working-directory: Frontend
@@ -79,6 +77,7 @@ jobs:
       - name: Run deployed SEO crawl against seeded CI app
         working-directory: Frontend
         run: |
+          (cd ../Backend && npm run seed:dev)
           export SEO_CRAWL_URL=http://127.0.0.1:3000
           export SEO_CRAWL_POST_PATH="$(cd ../Backend && npm run seo:crawl-target --silent | tail -n 1)"
           (cd ../Backend && nohup node server.js > /tmp/ink-rider-seo-backend.log 2>&1 &)

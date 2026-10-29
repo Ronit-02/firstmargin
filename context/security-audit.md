@@ -1,5 +1,9 @@
 # firstmargin security assurance
 
+## Automated database test boundary — 2026-10-29
+
+Browser E2E and opt-in integration tests now use unique temporary databases and refuse inherited application database targets or existing-app attachment. Preflight and cleanup enforce run ownership; unavailable local test services fail without fallback. CI uses a disposable MongoDB service and an explicitly named test database for its separate SEO seed. Commands, lifecycle, and remaining hard-termination limits are owned by [test fixtures](test-fixtures.md#automated-test-isolation--2026-10-29); protected mechanics are in the local fixture companion.
+
 ## Backend dependency remediation — 2026-10-29
 
 Applied `npm audit fix --ignore-scripts` within the existing backend dependency ranges. Only `Backend/package-lock.json` changed in the application; no manifest, override, major upgrade, runtime source, API, schema, stored-data, or frontend change was required.

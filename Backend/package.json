@@ -8,7 +8,7 @@
     "dev": "nodemon server.js",
     "lint": "eslint .",
     "lint:fix": "npm run lint -- --fix",
-    "test": "node --test tests/foundation-contracts.test.js",
+    "test": "node --test tests/foundation-contracts.test.js tests/temporary-database.test.js",
     "test:integration": "node --test tests/integration.test.js",
     "recommendations:offline": "node scripts/evaluate-recommendations.js",
     "seo:crawl-target": "node scripts/seo-crawl-target.js",

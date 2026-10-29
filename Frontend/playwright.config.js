@@ -1,5 +1,13 @@
 import { defineConfig, devices } from '@playwright/test'
 import path from 'node:path'
+import temporaryDatabase from '../Backend/tests/support/temporary-database.js'
+
+if (process.env.E2E_BASE_URL) throw new Error('E2E_BASE_URL is disabled: browser tests require runner-owned servers')
+temporaryDatabase.assertTemporaryDatabase({
+  runId: process.env.FIRSTMARGIN_TEST_RUN_ID || '',
+  name: process.env.DB_NAME || '',
+  uri: process.env.MONGO_URI || '',
+})
 
 const frontendRoot = path.resolve(import.meta.dirname)
 const backendRoot = path.resolve(frontendRoot, '../Backend')
@@ -41,14 +49,12 @@ export default defineConfig({
   workers: 1,
   reporter: process.env.CI ? [['line'], ['html', { open: 'never' }]] : 'list',
   use: {
-    baseURL: process.env.E2E_BASE_URL || 'http://127.0.0.1:3000',
+    baseURL: 'http://127.0.0.1:3000',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
-  // CI owns a clean pair of servers. Local runs may point at already-warmed
-  // services with E2E_BASE_URL, avoiding duplicate Windows child processes and
-  // making browser failures distinguishable from cold Vite startup.
-  webServer: process.env.E2E_BASE_URL ? undefined : managedWebServers,
+  // Both local and CI runs must use the run-owned API and temporary database.
+  webServer: managedWebServers,
 })
