@@ -1,9 +1,9 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 const id = '507f1f77bcf86cd799439021'
 const secondId = '507f1f77bcf86cd799439022'
 const article = { id, title: 'A deeper explanation' }
-const competition = { id, title: 'Writing challenge', status: 'judging', votingMode: 'judges', canEnter: true, entries: [{ id: 'entry-one', post: article, author: { username: 'Writer' }, likesCount: 0 }] }
+const competition = { id, title: 'Writing challenge', status: 'judging', votingMode: 'judges', closeDate: '2027-01-08T12:00:00Z', canEnter: true, entries: [{ id: 'entry-one', status: 'submitted', publication: article, post: article, author: { username: 'Writer' }, votesCount: 0, judgeScores: [] }] }
 
 async function fixture(page, judging = false) {
   const writes = []
@@ -18,7 +18,10 @@ async function fixture(page, judging = false) {
         writes.push({ path, body: request.postData() })
         return route.fulfill({ status: 500, json: { message: 'Publication fixture failure' } })
       }
-      writes.push({ path, body: request.postDataJSON() })
+      const body = request.headers()['content-type']?.includes('multipart/form-data')
+        ? Object.fromEntries([...request.postData().matchAll(/name="([^"]+)"\r\n\r\n([^\r]*)/g)].map(match => [match[1], match[2]]))
+        : request.postDataJSON()
+      writes.push({ path, body })
       return route.fulfill({ status: 201, json: { data: path.startsWith('/api/drafts') ? { id: 'short-draft', version: writes.length + 1 } : {} } })
     }
     if (path === '/api/v1/me/entitlements') return route.fulfill({ json: { data: { capabilities: ['behind_scenes'] } } })
@@ -88,14 +91,14 @@ for (const width of [320, 1280]) {
     const { writes } = await fixture(page)
     await page.goto(`/explore/competitions/${id}`)
     await page.getByRole('button', { name: 'Add your entry', exact: true }).click()
-    const dialog = page.getByRole('dialog', { name: 'Submit an article' })
-    const field = dialog.getByRole('combobox', { name: 'Your published article', exact: true })
+    const dialog = page.getByRole('dialog', { name: 'Submit a story' })
+    const field = dialog.getByRole('combobox', { name: 'Your published story', exact: true })
     await expect(field).toHaveAttribute('aria-required', 'true')
     expect(await dialog.locator('form').evaluate(form => form.checkValidity())).toBe(false)
     await expect(field).toHaveAttribute('aria-invalid', 'true')
     await field.press('Escape')
     await expect(dialog).toBeVisible()
-    await checkDropdown(page, 'Your published article', article.title, dialog)
+    await checkDropdown(page, 'Your published story', article.title, dialog)
     expect(await dialog.locator('form').evaluate(form => form.checkValidity())).toBe(true)
     await dialog.getByRole('textbox', { name: /Author note/ }).fill('A useful entry')
     await dialog.getByRole('button', { name: 'Submit entry', exact: true }).click()
@@ -138,24 +141,26 @@ for (const width of [320, 1280]) {
     await page.goto('/staff')
     await page.getByRole('tab', { name: 'Competitions', exact: true }).click()
     await page.getByRole('button', { name: 'Add competition' }).click()
-    await checkDropdown(page, 'Competition type', 'Reader choice')
-    await checkDropdown(page, 'Voting mode', 'Hybrid')
+    await checkDropdown(page, 'Competition type', 'Readers’ Choice')
     await page.getByRole('textbox', { name: /^Title/ }).fill('New challenge')
     await page.getByLabel('Opens', { exact: false }).fill('2027-01-01T12:00')
-    await page.getByLabel('Closes', { exact: false }).fill('2027-01-08T12:00')
+    await page.getByLabel('Voting closes', { exact: false }).fill('2027-01-08T12:00')
     await page.getByRole('button', { name: 'Create competition', exact: true }).click()
-    await expect.poll(() => writes.find(write => write.path === '/api/competition')?.body).toMatchObject({ competitionType: 'reader_choice', votingMode: 'hybrid' })
-    await page.getByRole('button', { name: 'Judge results' }).first().click()
-    const judgingDialog = page.getByRole('dialog', { name: 'Judge and publish results' })
-    await expect(judgingDialog.getByText('Writing challenge · judging')).toBeVisible()
-    await expect(judgingDialog.getByRole('combobox', { name: 'Competition' })).toHaveCount(0)
-    await page.getByRole('checkbox', { name: `Select ${article.title} as winner` }).check()
-    await expect(page.getByRole('button', { name: 'Publish 1 winner', exact: true })).toBeEnabled()
-    await page.getByRole('button', { name: 'Close judge and publish results' }).click()
-    await page.getByRole('button', { name: 'Judge results' }).last().click()
-    await expect(judgingDialog.getByText('Second challenge · judging')).toBeVisible()
-    await expect(judgingDialog.getByRole('combobox', { name: 'Competition' })).toHaveCount(0)
-    await expect(page.getByRole('button', { name: 'Publish 0 winners', exact: true })).toBeDisabled()
-    await page.getByRole('button', { name: 'Close judge and publish results' }).click()
+    await expect.poll(() => writes.find(write => write.path === '/api/competition')?.body).toMatchObject({ competitionType: 'reader_choice' })
+    await page.getByRole('button', { name: 'Add and review scores' }).first().click()
+    await expect(page).toHaveURL(`/staff/competitions/${id}/judging`)
+    await expect(page.getByRole('heading', { name: 'Writing challenge', exact: true })).toBeVisible()
+    await page.getByRole('button', { name: 'Add score', exact: true }).click()
+    const scoreDialog = page.getByRole('dialog', { name: 'Add score for Your score' })
+    await scoreDialog.getByLabel('Craft', { exact: true }).fill('8')
+    await page.keyboard.press('Escape')
+    await page.goto('/staff?staffTab=competitions')
+    await page.getByRole('tab', { name: 'Competitions', exact: true }).click()
+    await page.getByRole('button', { name: 'Add and review scores' }).last().click()
+    await expect(page).toHaveURL(`/staff/competitions/${secondId}/judging`)
+    await expect(page.getByRole('heading', { name: 'Second challenge', exact: true })).toBeVisible()
+    await page.getByRole('button', { name: 'Add score', exact: true }).click()
+    await expect(scoreDialog.getByLabel('Craft', { exact: true })).toHaveValue('')
+    await expect(page.getByRole('combobox', { name: 'Competition', exact: true })).toHaveCount(0)
   })
 }

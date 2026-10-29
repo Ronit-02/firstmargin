@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 const fixture = {
   data: {
@@ -35,7 +35,7 @@ test('mobile search expands into a full-screen modal with topics, live results a
   await expect(input).toHaveAttribute('type', 'text')
   await expect(dialog.getByRole('button', { name: 'Close search' })).toHaveCount(1)
   await expect(dialog.getByRole('button', { name: /View all results/ })).toHaveCount(0)
-  await expect(dialog.getByRole('button', { name: 'Search', exact: true })).toBeDisabled()
+  await expect(dialog.getByRole('button', { name: 'Search', exact: true })).toBeEnabled()
   const bounds = await dialog.boundingBox()
   expect(bounds).toMatchObject({ x: 0, y: 0, width: 325, height: 735 })
   await expect.poll(async () => (await dialog.getByRole('search').boundingBox()).width).toBeCloseTo(293, 0)

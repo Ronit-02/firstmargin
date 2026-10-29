@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 const writers = Array.from({ length: 10 }, (_, index) => ({ id: `writer-${index}`, handle: `writer-${index}`, displayName: `Writer ${index + 1}`, bio: 'Stories about everyday curiosity.', followersCount: 100 - index }))
 const posts = Array.from({ length: 12 }, (_, index) => ({ id: `story-${index}`, title: `Story ${index + 1}`, excerpt: 'A story about everyday curiosity.', author: { id: 'writer-0', username: 'Writer 1', handle: 'writer-0' }, tags: [], likesCount: 2, commentsCount: 0, createdAt: '2026-10-01T10:00:00Z' }))

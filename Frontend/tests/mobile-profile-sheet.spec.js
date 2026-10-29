@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 const session = { token: 'sheet-token', username: 'Priya Mehta', email: 'reader@example.test', role: 'regular' }
 

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 const authorId = '507f1f77bcf86cd799439011'
 const series = (id, type, title) => ({ id, type, title, description: 'A reading path by this writer.', entriesCount: 2, createdAt: '2026-10-01T10:00:00Z', author: { id: authorId, username: 'Maya Sen', handle: 'maya' }, entriesPreview: [{ id: `${id}-1`, title: 'First chapter', position: 1 }, { id: `${id}-2`, title: 'Second chapter', position: 2 }] })
@@ -62,7 +62,7 @@ test('author Series category retains profile identity through failure, retry and
   const { recover } = await mockAuthor(page, { failure: true, empty: true })
   await page.goto('/author/maya?authorFormat=series')
   const panel = page.getByRole('tabpanel', { name: 'Series content' })
-  await expect(panel.getByRole('alert')).toContainText('Series could not be loaded.')
+  await expect(panel.getByRole('alert')).toContainText('Series could not be loaded.', { timeout: 10_000 })
   await expect(page.getByRole('heading', { name: 'Maya Sen', exact: true })).toBeVisible()
   recover()
   await panel.getByRole('button', { name: 'Try again' }).click()

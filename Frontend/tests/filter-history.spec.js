@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 const posts = Array.from({ length: 14 }, (_, index) => ({
   id: `507f1f77bcf86cd7994390${20 + index}`,

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 test('competition entry vote buttons align across different title lengths', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 })

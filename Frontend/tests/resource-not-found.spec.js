@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from './support/ui-test.js'
 
 const missingId = '507f1f77bcf86cd799439011'
 
@@ -32,7 +32,7 @@ for (const resource of missingResources) {
       const requestUrl = new URL(route.request().url())
       if (requestUrl.pathname === '/api/auth/refresh-token') return route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ message: 'Signed out' }) })
       if (requestUrl.pathname === resource.apiPath) return route.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ message: 'Not found' }) })
-      return route.abort('blockedbyclient')
+      return route.fulfill({ status: 404, json: { message: 'Unconfigured fixture endpoint' } })
     })
 
     await page.goto(resource.path, { waitUntil: 'domcontentloaded' })

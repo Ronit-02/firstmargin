@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 for (const width of [390, 1280]) {
   for (const isOwner of [false, true]) {

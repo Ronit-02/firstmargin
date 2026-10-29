@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 const id = '507f1f77bcf86cd799439021'
 const post = { id, title: 'How writers build trust', image: '/logo/logo-dark.png', tags: ['science', 'wellness'], readTime: '1 min read', createdAt: '2026-09-08T00:00:00Z', likesCount: 9, commentsCount: 0, isLiked: true }
@@ -62,7 +62,7 @@ for (const width of [320, 390, 1280]) {
     await card.screenshot({ path: testInfo.outputPath(`writer-card-${width}.png`) })
     await page.evaluate(() => document.documentElement.classList.add('dark'))
     await card.screenshot({ path: testInfo.outputPath(`writer-card-${width}-dark.png`) })
-    await card.getByRole('link', { name: /How writers build trust/ }).click()
+    await card.getByRole('link', { name: 'How writers build trust', exact: true }).click()
     await expect(page).toHaveURL(`/post/${id}`)
   })
 }

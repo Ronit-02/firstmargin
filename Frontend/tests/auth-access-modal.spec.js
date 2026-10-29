@@ -1,5 +1,5 @@
 import { expectModalHeader } from './helpers/modal-header'
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 const pageErrors = new WeakMap()
 test.beforeEach(({ page }) => {
@@ -100,11 +100,11 @@ for (const width of [320, 1280]) {
       const centered = await prompt.evaluate(element => {
         const text = element.querySelector('p').getBoundingClientRect()
         const button = element.querySelector('button').getBoundingClientRect()
-        const container = document.getElementById('main-content')
+        const container = element
         const bounds = container ? container.getBoundingClientRect() : { x: 0, y: 0, width: innerWidth, height: innerHeight }
-        const padding = container ? parseFloat(getComputedStyle(container).paddingBottom) : 0
+        const padding = 0
         return {
-          x: (button.x + button.width / 2) - (bounds.x + bounds.width / 2),
+          x: (button.x + button.width / 2) - (bounds.x + (container?.clientLeft || 0) + (container?.clientWidth || bounds.width) / 2),
           y: (text.y + button.bottom) / 2 - (bounds.y + (bounds.height - padding) / 2),
           overflow: document.documentElement.scrollWidth > innerWidth,
         }

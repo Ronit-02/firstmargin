@@ -80,7 +80,7 @@ export default function NotificationsPage() {
   }
   const items = notifications.data?.pages.flatMap(page => page.data) || []
   const unreadCount = notifications.data?.pages[0]?.meta?.unreadCount || 0
-  const content = <section ref={panelRef} tabIndex={-1} className={`flex w-full flex-col overflow-hidden rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface)] shadow-[var(--shadow-float)] ${anchor ? 'max-h-[inherit]' : 'max-w-[420px]'}`}>
+  const content = <section ref={panelRef} tabIndex={-1} style={anchor ? undefined : { maxHeight: 'calc(var(--overlay-height) - 70px)' }} className={`flex w-full flex-col overflow-hidden rounded-[14px] border border-[var(--color-border)] bg-[var(--color-surface)] shadow-[var(--shadow-float)] ${anchor ? 'max-h-[inherit]' : 'max-w-[420px]'}`}>
       <div className="shrink-0">
         <ModalHeader title="Inbox" titleId={titleId} onClose={onClose} closeLabel="Close notifications" closeRef={closeRef} />
         {unreadCount > 0 && <div className="flex flex-wrap items-center gap-3 border-b border-[var(--color-border)] p-4"><p className="text-[13px] text-[var(--color-text-secondary)]">{unreadCount} unread</p><Button variant="secondary" disabled={markAll.isPending || markOne.isPending || removeOne.isPending} onClick={() => markAll.mutate()} aria-busy={markAll.isPending}>Mark all read</Button></div>}

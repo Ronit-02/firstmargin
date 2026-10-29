@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 const tags = ['science', 'travel', 'history', 'technology', 'culture']
 const question = {

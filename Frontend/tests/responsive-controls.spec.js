@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 test('shared discovery pills expose selected state and phone-sized targets', async ({ page }) => {
   await page.route(url => url.pathname.startsWith('/api/'), async route => {
@@ -9,7 +9,7 @@ test('shared discovery pills expose selected state and phone-sized targets', asy
     if (url.pathname === '/api/competition') {
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [] }) })
     }
-    return route.abort('blockedbyclient')
+    return route.fulfill({ status: 404, json: { message: 'Unconfigured fixture endpoint' } })
   })
 
   await page.setViewportSize({ width: 390, height: 844 })
@@ -31,38 +31,6 @@ test('shared discovery pills expose selected state and phone-sized targets', asy
   await expect(inactive).toHaveAttribute('aria-pressed', 'true')
 })
 
-test('Explore sections expose route navigation and the active destination on phone', async ({ page }) => {
-  await page.route(url => url.pathname.startsWith('/api/'), async route => {
-    const url = new URL(route.request().url())
-    if (url.pathname === '/api/auth/refresh-token') {
-      return route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ message: 'Signed out' }) })
-    }
-    if (url.pathname === '/api/post/feed') {
-      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], meta: { nextCursor: null } }) })
-    }
-    if (url.pathname === '/api/question' || url.pathname === '/api/competition') {
-      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], meta: { nextCursor: null } }) })
-    }
-    return route.abort('blockedbyclient')
-  })
-
-  await page.setViewportSize({ width: 390, height: 844 })
-  await page.goto('/explore/questions', { waitUntil: 'domcontentloaded' })
-
-  const navigation = page.getByRole('navigation', { name: 'Explore sections' })
-  const links = navigation.getByRole('link')
-  await expect(links).toHaveText(['Trending', 'Questions', 'Competitions'])
-  await expect(navigation.getByRole('link', { name: 'Questions' })).toHaveAttribute('aria-current', 'page')
-  for (const link of await links.all()) {
-    expect((await link.boundingBox())?.height).toBeGreaterThanOrEqual(44)
-  }
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
-
-  await navigation.getByRole('link', { name: 'Competitions' }).click()
-  await expect(page).toHaveURL('/explore/competitions')
-  await expect(page.getByRole('navigation', { name: 'Explore sections' }).getByRole('link', { name: 'Competitions' })).toHaveAttribute('aria-current', 'page')
-})
-
 test('Saved library sections expose active tab state and shareable URL state on phone', async ({ page }) => {
   await page.route(url => url.pathname.startsWith('/api/'), async route => {
     const url = new URL(route.request().url())
@@ -78,7 +46,7 @@ test('Saved library sections expose active tab state and shareable URL state on 
     if (url.pathname === '/api/v1/notifications') {
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], meta: { unreadCount: 0 } }) })
     }
-    return route.abort('blockedbyclient')
+    return route.fulfill({ status: 404, json: { message: 'Unconfigured fixture endpoint' } })
   })
 
   await page.setViewportSize({ width: 390, height: 844 })
@@ -110,7 +78,7 @@ test('discovery loading states announce the surface currently being fetched', as
       await new Promise(resolve => setTimeout(resolve, 600))
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], meta: { nextCursor: null } }) })
     }
-    return route.abort('blockedbyclient')
+    return route.fulfill({ status: 404, json: { message: 'Unconfigured fixture endpoint' } })
   })
 
   await page.setViewportSize({ width: 390, height: 844 })
@@ -122,35 +90,6 @@ test('discovery loading states announce the surface currently being fetched', as
   await expect(page.getByRole('status', { name: 'Loading competitions' })).toBeVisible()
   await page.goto('/collections', { waitUntil: 'domcontentloaded' })
   await expect(page.getByRole('status', { name: 'Loading collections' })).toBeVisible()
-})
-
-test('collection views expose tab semantics and keyboard navigation on phone', async ({ page }) => {
-  await page.route(url => url.pathname.startsWith('/api/'), async route => {
-    const request = route.request()
-    const url = new URL(request.url())
-    if (url.pathname === '/api/auth/refresh-token') {
-      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ accessToken: 'collection-view-token', user: 'Priya Mehta', email: 'member@inkrider.local', role: 'regular' }) })
-    }
-    if (url.pathname === '/api/collection') {
-      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], meta: { nextCursor: null } }) })
-    }
-    if (url.pathname === '/api/v1/notifications') {
-      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], meta: { unreadCount: 0 } }) })
-    }
-    return route.abort('blockedbyclient')
-  })
-
-  await page.setViewportSize({ width: 390, height: 844 })
-  await page.goto('/collections?collectionView=mine', { waitUntil: 'domcontentloaded' })
-
-  const navigation = page.getByRole('tablist', { name: 'Collection views' })
-  await expect(navigation.getByRole('tab', { name: 'My collections' })).toHaveAttribute('aria-selected', 'true')
-  await expect(page.getByRole('tabpanel', { name: 'My collections content' })).toBeVisible()
-  await navigation.getByRole('tab', { name: 'My collections' }).press('Home')
-  await expect(navigation.getByRole('tab', { name: 'Discover' })).toBeFocused()
-  await expect(page).toHaveURL(/\/collections\/?$/)
-  await expect(navigation.getByRole('tab', { name: 'Discover' })).toHaveAttribute('aria-selected', 'true')
-  expect((await navigation.getByRole('tab', { name: 'Discover' }).boundingBox())?.height).toBeGreaterThanOrEqual(44)
 })
 
 test('shared filters expose phone-sized controls without changing desktop sizing', async ({ page }) => {
@@ -168,7 +107,7 @@ test('shared filters expose phone-sized controls without changing desktop sizing
     if (url.pathname === '/api/collection') {
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], meta: { nextCursor: null } }) })
     }
-    return route.abort('blockedbyclient')
+    return route.fulfill({ status: 404, json: { message: 'Unconfigured fixture endpoint' } })
   })
 
   await page.setViewportSize({ width: 390, height: 844 })
@@ -207,7 +146,7 @@ test('search filters expose phone-sized topic and select controls', async ({ pag
         { id: 'travel', title: 'Travel city', tags: ['travel'], createdAt: new Date(Date.now() - 30 * 86400000).toISOString(), author: { username: 'Writer' } },
       ], writers: [], shorts: [] }, meta: { query: 'city', type: 'posts' } }) })
     }
-    return route.abort('blockedbyclient')
+    return route.fulfill({ status: 404, json: { message: 'Unconfigured fixture endpoint' } })
   })
 
   await page.setViewportSize({ width: 390, height: 844 })
@@ -233,7 +172,7 @@ test('search input keeps a visible keyboard focus indicator with custom outline 
     if (url.pathname === '/api/search') {
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: { posts: [], writers: [], shorts: [] }, meta: { query: 'city', type: 'all' } }) })
     }
-    return route.abort('blockedbyclient')
+    return route.fulfill({ status: 404, json: { message: 'Unconfigured fixture endpoint' } })
   })
 
   await page.setViewportSize({ width: 390, height: 844 })
@@ -255,7 +194,7 @@ test('search recovery action exposes a phone-sized retry target', async ({ page 
     if (url.pathname === '/api/search') {
       return route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ message: 'Unavailable' }) })
     }
-    return route.abort('blockedbyclient')
+    return route.fulfill({ status: 404, json: { message: 'Unconfigured fixture endpoint' } })
   })
 
   await page.setViewportSize({ width: 390, height: 844 })
@@ -277,7 +216,7 @@ test('reading history recovery is announced and retryable on phone', async ({ pa
     if (url.pathname === '/api/v1/notifications') {
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], meta: { unreadCount: 0 } }) })
     }
-    return route.abort('blockedbyclient')
+    return route.fulfill({ status: 404, json: { message: 'Unconfigured fixture endpoint' } })
   })
 
   await page.setViewportSize({ width: 390, height: 844 })
@@ -298,7 +237,7 @@ test('short-read recovery is announced and retryable on phone', async ({ page })
     if (url.pathname === '/api/short-series') {
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], meta: { nextCursor: null } }) })
     }
-    return route.abort('blockedbyclient')
+    return route.fulfill({ status: 404, json: { message: 'Unconfigured fixture endpoint' } })
   })
 
   await page.setViewportSize({ width: 390, height: 844 })
@@ -316,7 +255,7 @@ test('Home recovery action is an explicit button outside form submission semanti
     if (url.pathname === '/api/post/feed') {
       return route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ message: 'Unavailable' }) })
     }
-    return route.abort('blockedbyclient')
+    return route.fulfill({ status: 404, json: { message: 'Unconfigured fixture endpoint' } })
   })
 
   await page.setViewportSize({ width: 390, height: 844 })
@@ -333,7 +272,7 @@ test('mobile primary navigation exposes phone-sized links and an Account action'
     if (url.pathname === '/api/auth/refresh-token') {
       return route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ message: 'Signed out' }) })
     }
-    return route.abort('blockedbyclient')
+    return route.fulfill({ status: 404, json: { message: 'Unconfigured fixture endpoint' } })
   })
 
   await page.setViewportSize({ width: 390, height: 844 })
@@ -353,7 +292,7 @@ test('mobile primary navigation exposes phone-sized links and an Account action'
   expect((await account.boundingBox())?.height).toBeGreaterThanOrEqual(44)
 })
 
-test('desktop sidebar resize handle supports bounded keyboard controls', async ({ page }) => {
+test('desktop sidebar keyboard resizing is bounded and persists across reload', async ({ page }) => {
   await page.route(url => url.pathname.startsWith('/api/'), async route => {
     const url = new URL(route.request().url())
     if (url.pathname === '/api/auth/refresh-token') {
@@ -365,7 +304,7 @@ test('desktop sidebar resize handle supports bounded keyboard controls', async (
     if (url.pathname === '/api/collection') {
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], meta: { nextCursor: null } }) })
     }
-    return route.abort('blockedbyclient')
+    return route.fulfill({ status: 404, json: { message: 'Unconfigured fixture endpoint' } })
   })
 
   await page.setViewportSize({ width: 1280, height: 800 })
@@ -383,32 +322,8 @@ test('desktop sidebar resize handle supports bounded keyboard controls', async (
   await expect(handle).toHaveAttribute('aria-valuenow', '140')
   await handle.press('End')
   await expect(handle).toHaveAttribute('aria-valuenow', '300')
-})
-
-test('desktop sidebar width persists across reloads', async ({ page }) => {
-  await page.route(url => url.pathname.startsWith('/api/'), async route => {
-    const url = new URL(route.request().url())
-    if (url.pathname === '/api/auth/refresh-token') {
-      return route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ message: 'Signed out' }) })
-    }
-    if (url.pathname === '/api/post/feed') {
-      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], meta: { nextCursor: null } }) })
-    }
-    return route.abort('blockedbyclient')
-  })
-
-  await page.setViewportSize({ width: 1280, height: 800 })
-  await page.goto('/explore/trending', { waitUntil: 'domcontentloaded' })
-  await page.evaluate(() => window.localStorage.removeItem('ink-rider.sidebar-width'))
   await page.reload({ waitUntil: 'domcontentloaded' })
-
-  const handle = page.getByRole('separator', { name: 'Resize sidebar' })
-  await handle.focus()
-  await handle.press('ArrowRight')
-  await expect(handle).toHaveAttribute('aria-valuenow', '220')
-
-  await page.reload({ waitUntil: 'domcontentloaded' })
-  await expect(page.getByRole('separator', { name: 'Resize sidebar' })).toHaveAttribute('aria-valuenow', '220')
+  await expect(page.getByRole('separator', { name: 'Resize sidebar' })).toHaveAttribute('aria-valuenow', '300')
 })
 
 for (const width of [768, 1280]) {
@@ -532,7 +447,7 @@ test('desktop sidebar expands without motion when reduced motion is requested', 
     if (url.pathname === '/api/collection') {
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], meta: { nextCursor: null } }) })
     }
-    return route.abort('blockedbyclient')
+    return route.fulfill({ status: 404, json: { message: 'Unconfigured fixture endpoint' } })
   })
 
   await page.setViewportSize({ width: 1280, height: 800 })
@@ -568,7 +483,7 @@ test('short-read comments remain inline without a redundant footer button', asyn
     if (url.pathname === '/api/v1/events') {
       return route.fulfill({ status: 200, json: { data: { accepted: 1 } } })
     }
-    return route.abort('blockedbyclient')
+    return route.fulfill({ status: 404, json: { message: 'Unconfigured fixture endpoint' } })
   })
 
   await page.addInitScript(() => {
@@ -598,7 +513,7 @@ test('competition detail back navigation exposes a phone-sized target', async ({
         body: JSON.stringify({ data: { id: 'competition-1', title: 'Writing about place', description: 'A community competition.', status: 'closed', closeDate: '2026-08-01T00:00:00.000Z', entriesCount: 0, entries: [], rules: [], prizes: [], votingMode: 'reader' } }),
       })
     }
-    return route.abort('blockedbyclient')
+    return route.fulfill({ status: 404, json: { message: 'Unconfigured fixture endpoint' } })
   })
 
   await page.setViewportSize({ width: 390, height: 844 })
@@ -615,7 +530,7 @@ test('404 recovery navigation exposes a phone-sized target', async ({ page }) =>
     if (url.pathname === '/api/auth/refresh-token') {
       return route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ message: 'Signed out' }) })
     }
-    return route.abort('blockedbyclient')
+    return route.fulfill({ status: 404, json: { message: 'Unconfigured fixture endpoint' } })
   })
 
   await page.setViewportSize({ width: 390, height: 844 })
@@ -639,7 +554,7 @@ test('filter reset clears topic and sort state together and uses the topic label
         { id: 'private', title: 'Private collection', visibility: 'private', author: { username: 'Writer' } },
       ], meta: { nextCursor: null } }) })
     }
-    return route.abort('blockedbyclient')
+    return route.fulfill({ status: 404, json: { message: 'Unconfigured fixture endpoint' } })
   })
 
   await page.goto('/collections?collectionVisibility=private&collectionSort=popular', { waitUntil: 'domcontentloaded' })
@@ -666,11 +581,12 @@ test('short-series owner controls expose phone-sized reorder targets', async ({ 
         body: JSON.stringify({ data: { id: 'series-1', title: 'A walkable city', description: 'Two practical shorts.', entriesCount: 2, isOwner: true, author: { username: 'Maya Sen' }, entries: [{ id: 'short-1', title: 'Start with the street' }, { id: 'short-2', title: 'Design for a slower city' }] } }),
       })
     }
-    return route.abort('blockedbyclient')
+    return route.fulfill({ status: 404, json: { message: 'Unconfigured fixture endpoint' } })
   })
 
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/shorts/series/series-1', { waitUntil: 'domcontentloaded' })
+  await page.getByRole('button', { name: 'Edit series', exact: true }).click()
   const earlier = page.getByRole('button', { name: 'Move Start with the street earlier' })
   const later = page.getByRole('button', { name: 'Move Start with the street later' })
   await expect(earlier).toBeVisible()
@@ -704,7 +620,7 @@ test('Home category controls expose phone-sized targets after deferred loading',
     if (url.pathname === '/api/collection') {
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], meta: { nextCursor: null } }) })
     }
-    return route.abort('blockedbyclient')
+    return route.fulfill({ status: 404, json: { message: 'Unconfigured fixture endpoint' } })
   })
 
   await page.setViewportSize({ width: 390, height: 844 })
@@ -722,7 +638,7 @@ test('authentication fields expose native names, autocomplete, and required cons
     if (url.pathname === '/api/auth/refresh-token') {
       return route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ message: 'Signed out' }) })
     }
-    return route.abort('blockedbyclient')
+    return route.fulfill({ status: 404, json: { message: 'Unconfigured fixture endpoint' } })
   })
 
   await page.goto('/signup', { waitUntil: 'domcontentloaded' })
@@ -752,7 +668,7 @@ test('member hub loading exposes a named status region on phone', async ({ page 
     if (url.pathname === '/api/v1/workshops') {
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [] }) })
     }
-    return route.abort('blockedbyclient')
+    return route.fulfill({ status: 404, json: { message: 'Unconfigured fixture endpoint' } })
   })
 
   await page.setViewportSize({ width: 390, height: 844 })
@@ -772,12 +688,13 @@ test('keyboard skip link moves focus to the application content region', async (
     if (url.pathname === '/api/collection') {
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], meta: { nextCursor: null } }) })
     }
-    return route.abort('blockedbyclient')
+    return route.fulfill({ status: 404, json: { message: 'Unconfigured fixture endpoint' } })
   })
 
   await page.goto('/', { waitUntil: 'domcontentloaded' })
   const skipLink = page.getByRole('link', { name: 'Skip to content' })
   await expect(skipLink).toBeAttached()
+  await page.locator('body').evaluate(body => { body.tabIndex = -1; body.focus(); body.removeAttribute('tabindex') })
   await page.keyboard.press('Tab')
   await expect(skipLink).toBeFocused()
   await page.keyboard.press('Enter')

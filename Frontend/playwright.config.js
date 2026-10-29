@@ -13,26 +13,29 @@ const { defineConfig, devices } = await import('@playwright/test')
 
 const frontendRoot = path.resolve(import.meta.dirname)
 const backendRoot = path.resolve(frontendRoot, '../Backend')
+const apiOrigin = process.env.VITE_API_URL
+const frontendOrigin = process.env.FRONTEND_URL
+if (![apiOrigin, frontendOrigin].every(origin => /^http:\/\/127\.0\.0\.1:\d+$/.test(origin || ''))) throw new Error('E2E servers must use runner-owned loopback origins')
 const e2eEnv = {
   ...process.env,
   NODE_ENV: 'test',
-  FRONTEND_URL: 'http://127.0.0.1:3000',
-  VITE_API_URL: 'http://127.0.0.1:8000',
+  FRONTEND_URL: frontendOrigin,
+  VITE_API_URL: apiOrigin,
 }
 
 const managedWebServers = [
   {
     command: 'node server.js',
     cwd: backendRoot,
-    url: 'http://127.0.0.1:8000/api/post/feed?limit=1',
+    url: `${apiOrigin}/api/post/feed?limit=1`,
     timeout: 120_000,
     env: e2eEnv,
     reuseExistingServer: false,
   },
   {
-    command: 'node node_modules/vite/bin/vite.js --host 127.0.0.1 --port 3000',
+    command: `node node_modules/vite/bin/vite.js --host 127.0.0.1 --port ${new URL(frontendOrigin).port} --strictPort`,
     cwd: frontendRoot,
-    url: 'http://127.0.0.1:3000/',
+    url: frontendOrigin,
     timeout: 120_000,
     env: e2eEnv,
     reuseExistingServer: false,
@@ -41,7 +44,8 @@ const managedWebServers = [
 
 export default defineConfig({
   testDir: './tests',
-  testMatch: '**/*.spec.js',
+  outputDir: './test-results/e2e',
+  testMatch: ['**/critical-flow.spec.js', '**/e2e-isolation.spec.js', '**/notifications-recovery.spec.js'],
   timeout: 45_000,
   expect: { timeout: 10_000 },
   fullyParallel: false,
@@ -49,9 +53,11 @@ export default defineConfig({
   // account. Keep browser verification deterministic instead of interleaving
   // mutations from multiple workers against that fixture.
   workers: 1,
-  reporter: process.env.CI ? [['line'], ['html', { open: 'never' }]] : 'list',
+  maxFailures: 3,
+  forbidOnly: Boolean(process.env.CI),
+  reporter: process.env.CI ? [['line'], ['html', { open: 'never', outputFolder: 'playwright-report/e2e' }]] : 'list',
   use: {
-    baseURL: 'http://127.0.0.1:3000',
+    baseURL: frontendOrigin,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',

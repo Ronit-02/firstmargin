@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 async function mockEditor(page, { capabilities = [], saveStatus = 200, guest = false, loadedTitle = 'Existing draft', loadedFormat = 'short', loadedBlocks = [{ id: 'paragraph', type: 'text', content: 'Existing draft content.' }] } = {}) {
   let authenticated = !guest
@@ -16,7 +16,7 @@ async function mockEditor(page, { capabilities = [], saveStatus = 200, guest = f
       saves.push(request.postDataJSON())
       return route.fulfill({ status: saveStatus, json: saveStatus === 200 ? { data: { id: 'draft-layout', version: saves.length } } : { message: 'Save unavailable' } })
     }
-    if (path === '/api/drafts/draft-layout' && request.method() === 'GET') return route.fulfill({ json: { data: { title: loadedTitle, blocks: loadedBlocks, tags: ['writing'], format: loadedFormat, version: 1 } } })
+    if (path === '/api/drafts/draft-layout' && request.method() === 'GET') return route.fulfill({ json: { data: { title: loadedTitle, blocks: loadedBlocks, tags: ['writing'], format: loadedFormat, ...(saveStatus === 200 ? saves.at(-1) : {}), version: Math.max(1, saves.length) } } })
     if (path === '/api/post/' && request.method() === 'POST') {
       publications.push(request.postData())
       return route.fulfill({ status: 400, json: { message: 'Publication test: draft preserved.' } })
@@ -282,7 +282,7 @@ test('optional cover removal keeps article ready to publish', async ({ page }) =
   await mockEditor(page)
   await page.goto('/studio?new=article')
   await page.getByRole('textbox', { name: 'Story title', exact: true }).fill('An article')
-  await page.getByRole('textbox', { name: 'Paragraph block', exact: true }).fill('Article body.')
+  await page.getByRole('textbox', { name: 'Paragraph block', exact: true }).fill('Story body.')
   await page.getByRole('button', { name: 'Publish', exact: true }).click()
   const dialog = page.getByRole('dialog', { name: 'Publish story' })
   await dialog.getByLabel('Add a tag', { exact: true }).fill('writing')
@@ -430,9 +430,12 @@ for (const width of [320, 1280]) {
     await fields.first().press('ArrowDown')
     await expect(fields.first()).toBeFocused()
     await fields.first().press('ControlOrMeta+End')
+    const caretX = await fields.first().evaluate(() => window.getSelection().getRangeAt(0).getBoundingClientRect().left)
     await fields.first().press('ArrowDown')
     await expect(fields.last()).toBeFocused()
-    await expect.poll(() => fields.last().evaluate(() => window.getSelection().anchorOffset)).toBe('third line'.length)
+    // Arrow navigation preserves a visual column with proportional fonts.
+    await expect.poll(() => fields.last().evaluate(() => window.getSelection().getRangeAt(0).getBoundingClientRect().left)).toBeGreaterThan(caretX - 8)
+    expect(await fields.last().evaluate(() => window.getSelection().getRangeAt(0).getBoundingClientRect().left)).toBeLessThan(caretX + 8)
     await fields.last().press('ControlOrMeta+Home')
     await fields.last().press('ArrowUp')
     await expect(fields.first()).toBeFocused()
@@ -445,18 +448,19 @@ for (const width of [320, 1280]) {
     })).toBe('first line\nsecond line\nthird line'.length - 'third line'.length)
     await fields.first().evaluate(field => {
       const range = document.createRange()
-      range.setStart(field.lastChild, 4)
+      range.setStart(field.lastChild, field.lastChild.textContent.lastIndexOf('\n') + 1 + 4)
       range.collapse(true)
       const selection = window.getSelection()
       selection.removeAllRanges()
       selection.addRange(range)
     })
+    const middleX = await fields.first().evaluate(() => window.getSelection().getRangeAt(0).getBoundingClientRect().left)
     await fields.first().press('ArrowDown')
     await expect(fields.last()).toBeFocused()
-    await expect.poll(() => fields.last().evaluate(() => window.getSelection().anchorOffset)).toBe(4)
+    expect(Math.abs(await fields.last().evaluate(() => window.getSelection().getRangeAt(0).getBoundingClientRect().left) - middleX)).toBeLessThan(8)
     await fields.last().press('ArrowUp')
     await expect(fields.first()).toBeFocused()
-    await expect.poll(() => fields.first().evaluate(() => window.getSelection().anchorOffset)).toBe(4)
+    expect(Math.abs(await fields.first().evaluate(() => window.getSelection().getRangeAt(0).getBoundingClientRect().left) - middleX)).toBeLessThan(8)
   })
 
   test(`rich text arrows keep the nearest visual line across wrapped blocks at ${width}px`, async ({ page }) => {

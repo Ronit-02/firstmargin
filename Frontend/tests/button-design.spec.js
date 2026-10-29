@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 async function mountControls(page, theme) {
   await page.addInitScript(value => localStorage.setItem('ink-theme', value), theme)
@@ -8,41 +8,7 @@ async function mountControls(page, theme) {
   })
   await page.goto('/help')
   await page.locator('main').waitFor()
-  await page.evaluate(async () => {
-    // Match the optimized query module used by AIPanel, including Vite's version.
-    const source = await (await fetch('/src/features/post/pages/AIPanel.jsx')).text()
-    const queryUrl = source.match(/from "([^"]+@tanstack_react-query[^"]+)"/)[1]
-    const linkSource = await (await fetch('/src/shared/components/ui/ButtonLink.tsx')).text()
-    const routerUrl = linkSource.match(/from "([^"]+react-router-dom[^"]+)"/)[1]
-    const [{ default: React }, { default: ReactDOM }, { default: Button }, { default: Pill }, { default: IconButton }, { default: ButtonLink }, interests, tools, query, router] = await Promise.all([
-      import('/node_modules/.vite/deps/react.js'), import('/node_modules/.vite/deps/react-dom_client.js'),
-      import('/src/shared/components/ui/Button.jsx'), import('/src/shared/components/ui/Pill.jsx'),
-      import('/src/shared/components/ui/IconButton.tsx'), import('/src/shared/components/ui/ButtonLink.tsx'),
-      import('/src/features/onboarding/pages/StepInterests.jsx'), import('/src/features/post/pages/AIPanel.jsx'),
-      import(queryUrl), import(routerUrl),
-    ])
-    const e = React.createElement
-    const host = document.createElement('section')
-    host.setAttribute('aria-label', 'Button design verification')
-    document.querySelector('main').replaceChildren(host)
-    window.auditActivations = 0
-    const icon = e('svg', { width: 15, height: 15, viewBox: '0 0 24 24', fill: 'currentColor' }, e('circle', { cx: 12, cy: 12, r: 8 }))
-    ReactDOM.createRoot(host).render(e(query.QueryClientProvider, { client: new query.QueryClient() }, e(router.MemoryRouter, null,
-      ...['sm', 'md', 'lg'].map(size => e('div', { key: size, className: 'flex flex-wrap gap-2 my-2' },
-        e(Button, { size }, `${size} primary`),
-        e(ButtonLink, { size, to: '/saved' }, `${size} link`),
-        e(IconButton, { size, label: `${size} icon`, icon }),
-      )),
-      ...['secondary', 'ghost', 'action', 'menu', 'disclosure', 'danger'].map(variant => e(Button, { key: variant, variant, 'aria-expanded': variant === 'disclosure' ? false : undefined }, `${variant} sample`)),
-      e(Button, { ref: node => { window.auditButtonRef = node }, onClick: () => { window.auditActivations++; return new Promise(resolve => { window.releaseAuditAction = resolve }) } }, 'Pending action'),
-      e(ButtonLink, { href: 'https://example.test/reading', variant: 'secondary' }, 'External reading'),
-      e(Pill, { label: 'Shared selector', active: true, onClick: () => {} }),
-      e(interests.default, { topics: [{ slug: 'audit', displayName: 'Interest chip' }], selected: [], onToggle: () => {} }),
-      e(tools.AIStickyButtons, { showSummary: true, readAloud: true, onSummary: () => {}, onAudio: () => {} }),
-      e(tools.AccessPanel, { capability: 'article_summary' }),
-      e(tools.ReadAloudPanel, { text: 'A shorting sample.' }),
-    )))
-  })
+  await page.evaluate(async () => { const fixture = await import('/tests/fixtures/controls.js'); fixture.mountControls() })
   await page.getByRole('button', { name: 'md primary', exact: true }).waitFor()
   await page.evaluate(() => document.fonts.ready)
 }
@@ -59,9 +25,13 @@ for (const theme of ['light', 'dark']) {
     await page.goto('/help')
     const trigger = page.getByRole('link', { name: '3 unread notifications' })
     await expect(trigger).toBeVisible()
-    const bounds = await trigger.boundingBox()
-    expect(bounds.height).toBeGreaterThanOrEqual(44)
-    expect(bounds.width).toBeGreaterThanOrEqual(44)
+    const hitTarget = await trigger.evaluate(node => {
+      const bounds = node.getBoundingClientRect()
+      const hit = getComputedStyle(node, '::before')
+      return { height: bounds.height - parseFloat(hit.top) - parseFloat(hit.bottom), width: bounds.width - parseFloat(hit.left) - parseFloat(hit.right) }
+    })
+    expect(hitTarget.height).toBeGreaterThanOrEqual(44)
+    expect(hitTarget.width).toBeGreaterThanOrEqual(44)
     const colors = await trigger.getByText('3', { exact: true }).evaluate(node => {
       const probe = document.createElement('span')
       probe.style.color = 'var(--color-text-inverted)'
@@ -89,10 +59,10 @@ for (const theme of ['light', 'dark']) {
         const appearance = async locator => locator.evaluate(node => { const s = getComputedStyle(node); return [s.color, s.backgroundColor, s.fontSize, s.paddingLeft] })
         expect(await appearance(link)).toEqual(await appearance(primary))
       }
-      for (const name of ['Interest chip', 'Shared selector', 'Article overview', 'Read aloud', 'Become a member', 'Read article aloud']) {
+      for (const name of ['Interest chip', 'Shared selector', 'Story overview', 'Read aloud', 'Read story aloud']) {
         expect((await page.getByRole('button', { name, exact: true }).boundingBox()).height).toBeGreaterThanOrEqual(44)
       }
-      for (const name of ['Article overview', 'Read aloud', 'Read article aloud']) {
+      for (const name of ['Story overview', 'Read aloud', 'Read story aloud']) {
         const control = page.getByRole('button', { name, exact: true })
         const colors = await control.evaluate(node => {
           const probe = document.createElement('span')
@@ -106,6 +76,10 @@ for (const theme of ['light', 'dark']) {
         expect(colors.actual).toBe(colors.expected)
       }
       await expect(page.getByRole('link', { name: 'External reading' })).toHaveAttribute('href', 'https://example.test/reading')
+      await page.evaluate(async () => { const fixture = await import('/tests/fixtures/controls.js'); fixture.mountAccessPanel() })
+      const membership = page.getByRole('dialog', { name: 'Member feature', exact: true })
+      await expect(membership).toBeVisible()
+      expect((await membership.getByRole('button', { name: 'Become a member' }).boundingBox()).height).toBeGreaterThanOrEqual(44)
       await page.screenshot({ path: `node_modules/.cache/button-design-fix/${width}-${theme}.png`, fullPage: true })
     })
   }

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 test('Member Hub links creator extras and workshop organizers by profile handle', async ({ page }) => {
   await page.route(url => url.pathname.startsWith('/api/'), route => {
@@ -7,16 +7,16 @@ test('Member Hub links creator extras and workshop organizers by profile handle'
     if (path === '/api/v1/me/entitlements') return route.fulfill({ json: { data: { capabilities: ['behind_scenes', 'workshops'], membership: { status: 'active' } } } })
     if (path === '/api/v1/creator-updates') return route.fulfill({ json: { data: [{ _id: 'extra-1', title: 'Writing notes', body: 'A note.', creatorId: { username: 'Jane Writer', handle: 'jane-ink', picture: null } }] } })
     if (path === '/api/v1/workshops') return route.fulfill({ json: { data: [{ _id: 'workshop-1', title: 'Making a scene', description: 'A guided session.', startsAt: '2026-11-01T10:00:00Z', hostId: { username: 'Jane Writer', handle: 'jane-ink' } }] } })
-    return route.fulfill({ json: { data: [] } })
+    return route.fulfill({ json: { data: [], meta: { unreadCount: 0, nextCursor: null } } })
   })
   await page.goto('/members?memberTab=updates')
   await expect(page.getByRole('link', { name: "View Jane Writer's profile" })).toHaveAttribute('href', '/author/jane-ink')
   await page.getByRole('button', { name: 'Read Writing notes' }).click()
-  await expect(page.getByRole('link', { name: 'Jane Writer' })).toHaveAttribute('href', '/author/jane-ink')
+  await expect(page.getByRole('link', { name: 'Jane Writer', exact: true })).toHaveAttribute('href', '/author/jane-ink')
   await page.getByRole('button', { name: 'Close creator extra' }).click()
   await page.getByRole('tab', { name: 'Workshops' }).click()
   await expect(page.getByText('Organized by')).toBeVisible()
-  await expect(page.getByRole('link', { name: 'Jane Writer' })).toHaveAttribute('href', '/author/jane-ink')
+  await expect(page.getByRole('link', { name: 'Jane Writer', exact: true })).toHaveAttribute('href', '/author/jane-ink')
 })
 
 for (const width of [320, 1280]) {

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 test('question detail exposes answers, published responses, and follow controls on phone', async ({ page }) => {
   const questionId = '507f1f77bcf86cd799439040'
@@ -15,7 +15,7 @@ test('question detail exposes answers, published responses, and follow controls 
       } })
       return route.fulfill({ status: 200, contentType: 'application/json', body })
     }
-    return route.abort('blockedbyclient')
+    return route.fulfill({ status: 404, json: { message: 'Unconfigured fixture endpoint' } })
   })
 
   await page.setViewportSize({ width: 390, height: 844 })
@@ -61,7 +61,7 @@ test('question detail announces its contextual loading state', async ({ page }) 
       await new Promise(resolve => setTimeout(resolve, 600))
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: { id: questionId } }) })
     }
-    return route.abort('blockedbyclient')
+    return route.fulfill({ status: 404, json: { message: 'Unconfigured fixture endpoint' } })
   })
 
   await page.goto(`/explore/questions/${questionId}`, { waitUntil: 'domcontentloaded' })
@@ -75,7 +75,7 @@ test('question detail content uses the shared page width on desktop', async ({ p
     const path = new URL(route.request().url()).pathname
     if (path === '/api/auth/refresh-token') return route.fulfill({ status: 401, json: { message: 'Signed out' } })
     if (path === `/api/question/${questionId}`) return route.fulfill({ json: { data: { id: questionId, text: 'How can a city improve a difficult crossing?', context: 'We need a practical explanation that takes different readers into account.', author: { username: 'Noah Williams' }, tags: [], createdAt: '2026-08-24T00:00:00.000Z', upvotesCount: 0, followersCount: 0, answers: [], responsePosts: [] } } })
-    return route.fulfill({ json: { data: [] } })
+    return route.fulfill({ json: { data: [], meta: { unreadCount: 0, nextCursor: null } } })
   })
   await page.goto(`/explore/questions/${questionId}`)
   await expect(page.getByRole('heading', { name: 'How can a city improve a difficult crossing?' })).toBeVisible()
@@ -101,7 +101,7 @@ test('response dialog offers short answers and story responses', async ({ page }
     if (path === `/api/question/${questionId}` && route.request().method() === 'GET') return route.fulfill({ json: { data: { id: questionId, text: 'What makes a safer crossing?', tags: [], author: { username: 'Noah Williams' }, createdAt: '2026-08-24T00:00:00.000Z', upvotesCount: 0, followersCount: 0, answers: postedAnswer ? [{ id: 'answer-1', text: postedAnswer, author: { username: 'Reader' }, upvotesCount: 0 }] : [], responsePosts: [] } } })
     if (path === `/api/question/${questionId}/answers` && route.request().method() === 'POST') { postedAnswer = route.request().postDataJSON().text; return route.fulfill({ status: 201, json: { data: { answer: { id: 'answer-1', text: postedAnswer } } } }) }
     if (path === '/api/user/me/posts') return route.fulfill({ json: { data: [{ id: 'post-1', title: 'A published story', publicationStatus: 'published' }] } })
-    return route.fulfill({ json: { data: [] } })
+    return route.fulfill({ json: { data: [], meta: { unreadCount: 0, nextCursor: null } } })
   })
   await page.goto(`/explore/questions/${questionId}`)
   await page.getByRole('button', { name: 'Add a response' }).click()

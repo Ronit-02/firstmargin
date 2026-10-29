@@ -1,5 +1,5 @@
 import { expectModalHeader } from './helpers/modal-header'
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 const notice = (id, readAt = null) => ({ _id: id, title: `Update ${id}`, body: 'An answer is ready to read.', href: '/settings', readAt, createdAt: '2026-10-08T10:00:00Z' })
 
@@ -97,8 +97,9 @@ for (const width of [320, 1280]) {
       expect(await dialog.evaluate(element => element.contains(document.activeElement))).toBe(true)
       if (width < 768) {
         const trigger = await page.locator('#notification-trigger-mobile').boundingBox()
-        expect(bounds.y).toBeCloseTo(trigger.y + trigger.height + 8, 0)
-        expect(bounds.right).toBeCloseTo(trigger.x + trigger.width, 0)
+        expect(bounds.y).toBe(54)
+        expect(bounds.y).toBeGreaterThanOrEqual(trigger.y + trigger.height)
+        expect(bounds.right).toBe(width - 16)
         await page.locator('#main-content').evaluate(element => element.focus())
         expect(await dialog.evaluate(element => element.contains(document.activeElement))).toBe(true)
       } else {
@@ -158,7 +159,8 @@ test('mobile navbar opens notifications and closing restores trigger focus', asy
   await expect(dialog).toBeVisible()
   await expectModalHeader(dialog)
   const inboxBounds = await dialog.locator('section').boundingBox()
-  expect(inboxBounds.y).toBeCloseTo(openerBounds.y + openerBounds.height + 8, 0)
+  expect(inboxBounds.y).toBe(54)
+  expect(inboxBounds.y).toBeGreaterThanOrEqual(openerBounds.y + openerBounds.height)
   expect(inboxBounds.x + inboxBounds.width).toBeCloseTo(openerBounds.x + openerBounds.width, 0)
   await page.screenshot({ path: 'node_modules/.cache/notifications-audit/mobile-inbox.png' })
   await dialog.getByRole('button', { name: 'Close notifications' }).click()

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 async function mockMembership(page, { signedIn = false, status = 'inactive', role = 'regular', entitlementFailure = false, billingFailure = false, billingStatus = 500, billingCode } = {}) {
   let authenticated = signedIn

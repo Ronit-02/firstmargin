@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 const items = Array.from({ length: 4 }, (_, index) => ({
   id: `507f1f77bcf86cd79943909${index}`, format: 'short', title: `Reading card ${index + 1}`,

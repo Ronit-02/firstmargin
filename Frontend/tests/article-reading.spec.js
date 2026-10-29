@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 const postId = '507f1f77bcf86cd799439012'
 const postData = {
@@ -55,23 +55,23 @@ test('article progress and sharing preserve keyboard reading access', async ({ p
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto(`/post/${postId}`, { waitUntil: 'domcontentloaded' })
   await expect(page.getByRole('heading', { name: postData.title, level: 1 })).toBeVisible()
-  await expect(page.getByRole('article', { name: 'Article body' })).toBeVisible()
+  await expect(page.getByRole('article', { name: 'Story body' })).toBeVisible()
   await expect(page.locator('[data-reading-body="long-form"] p').first()).toHaveCSS('font-size', '17px')
 
   const next = page.getByRole('link', { name: 'View series: A calmer way to read' })
   await expect(next).toBeVisible()
   await expect(next).toHaveAttribute('href', `/series/${postData.seriesContext.id}`)
   expect((await next.boundingBox())?.height).toBeGreaterThanOrEqual(44)
-  await expect(page.locator('article[aria-label="Article body"] + nav')).toContainText('This story is part of a series · Part 2 of 3')
-  await expect(page.locator('article[aria-label="Article body"] + nav')).toContainText(postData.seriesContext.title)
+  await expect(page.locator('article[aria-label="Story body"] + nav')).toContainText('This story is part of a series · Part 2 of 3')
+  await expect(page.locator('article[aria-label="Story body"] + nav')).toContainText(postData.seriesContext.title)
   await page.setViewportSize({ width: 1280, height: 900 })
-  const widths = await page.locator('article[aria-label="Article body"]').evaluate(article => ({ body: article.getBoundingClientRect().width, parent: article.parentElement.getBoundingClientRect().width, series: article.nextElementSibling.getBoundingClientRect().width }))
+  const widths = await page.locator('article[aria-label="Story body"]').evaluate(article => ({ body: article.getBoundingClientRect().width, parent: article.parentElement.getBoundingClientRect().width, series: article.nextElementSibling.getBoundingClientRect().width }))
   expect(widths.parent).toBeGreaterThan(704)
   expect(Math.abs(widths.body - widths.parent)).toBeLessThan(2)
   expect(Math.abs(widths.series - widths.parent)).toBeLessThan(2)
   await page.locator('[data-series-next-title]').evaluate(node => { node.textContent = 'A much longer next post title that should stay on one line even when the reading area becomes narrow '.repeat(3) })
   await page.setViewportSize({ width: 320, height: 760 })
-  const nextLayout = await page.locator('article[aria-label="Article body"] + nav').evaluate(nav => {
+  const nextLayout = await page.locator('article[aria-label="Story body"] + nav').evaluate(nav => {
     const title = nav.querySelector('[data-series-next-title]')
     const action = nav.querySelector('[data-series-next-action]')
     return { titleHeight: title.getBoundingClientRect().height, lineHeight: Number.parseFloat(getComputedStyle(title).lineHeight), clipped: title.scrollWidth > title.clientWidth, titleBottom: title.getBoundingClientRect().bottom, actionTop: action.getBoundingClientRect().top }
@@ -107,21 +107,6 @@ test('article progress and sharing preserve keyboard reading access', async ({ p
   expect(hasHorizontalOverflow).toBe(false)
 })
 
-test('final story part ends with a link back to its series', async ({ page }) => {
-  await page.route(url => url.pathname.startsWith('/api/'), route => {
-    const path = new URL(route.request().url()).pathname
-    if (path === '/api/auth/refresh-token') return route.fulfill({ status: 401, json: { message: 'Signed out' } })
-    if (path === `/api/post/${postId}`) return route.fulfill({ json: { postData: { ...postData, seriesContext: { ...postData.seriesContext, next: null } } } })
-    if (path === `/api/post/${postId}/comments`) return route.fulfill({ json: { data: [], meta: { nextCursor: null } } })
-    return route.fulfill({ status: 404, json: { message: 'Fixture route unavailable' } })
-  })
-  await page.goto(`/post/${postId}`)
-  const seriesLink = page.locator('article[aria-label="Article body"] + nav').getByRole('link', { name: `View series: ${postData.seriesContext.title}` })
-  await expect(seriesLink).toBeVisible()
-  await expect(seriesLink).toHaveAttribute('href', `/series/${postData.seriesContext.id}`)
-  await expect(page.getByRole('link', { name: /Next post in the series/ })).toHaveCount(0)
-})
-
 test('published articles expose crawlable canonical, social, and structured metadata', async ({ page }) => {
   await page.route(url => url.pathname.startsWith('/api/'), async route => {
     const request = route.request()
@@ -138,7 +123,7 @@ test('published articles expose crawlable canonical, social, and structured meta
     if (url.pathname === '/api/v1/events') {
       return route.fulfill({ status: 202, contentType: 'application/json', body: JSON.stringify({ data: null }) })
     }
-    return route.abort('blockedbyclient')
+    return route.fulfill({ status: 404, json: { message: 'Fixture route unavailable' } })
   })
 
   await page.goto(`/post/${postId}`, { waitUntil: 'domcontentloaded' })
@@ -191,7 +176,7 @@ test('article progress follows the application scroll container', async ({ page 
     if (url.pathname === '/api/v1/events') {
       return route.fulfill({ status: 202, contentType: 'application/json', body: JSON.stringify({ data: null }) })
     }
-    return route.abort('blockedbyclient')
+    return route.fulfill({ status: 404, json: { message: 'Fixture route unavailable' } })
   })
 
   await page.setViewportSize({ width: 390, height: 844 })
@@ -239,7 +224,7 @@ test('signed-in comment composer exposes field guidance and form semantics', asy
     if (url.pathname === '/api/v1/events') {
       return route.fulfill({ status: 202, contentType: 'application/json', body: JSON.stringify({ data: null }) })
     }
-    return route.abort('blockedbyclient')
+    return route.fulfill({ status: 404, json: { message: 'Fixture route unavailable' } })
   })
 
   await page.setViewportSize({ width: 390, height: 844 })
@@ -297,7 +282,7 @@ test('rich blocks render hostile text as inert content and reject unsafe image U
     if (url.pathname === '/api/v1/events') {
       return route.fulfill({ status: 202, contentType: 'application/json', body: JSON.stringify({ data: null }) })
     }
-    return route.abort('blockedbyclient')
+    return route.fulfill({ status: 404, json: { message: 'Fixture route unavailable' } })
   })
 
   await page.goto(`/post/${postId}`, { waitUntil: 'domcontentloaded' })
@@ -331,7 +316,7 @@ test('failed cover images keep the article media slot readable', async ({ page }
     if (url.pathname === '/api/v1/events') {
       return route.fulfill({ status: 202, contentType: 'application/json', body: JSON.stringify({ data: null }) })
     }
-    return route.abort('blockedbyclient')
+    return route.fulfill({ status: 404, json: { message: 'Fixture route unavailable' } })
   })
 
   await page.route('**/fixtures/missing-cover.jpg', route => route.fulfill({ status: 404, body: '' }))

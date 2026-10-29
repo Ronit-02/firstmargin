@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 async function mockJudging(page, role, { legacy = false } = {}) {
   const moderatorId = '000000000000000000000001'

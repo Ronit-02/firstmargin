@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 const id = '507f1f77bcf86cd799439021'
 const story = { id, _id: id, title: 'A story near the bottom edge', excerpt: 'Stories for curious readers.', abstract: 'Stories for curious readers.', author: { username: 'Leila Noor', handle: 'leila-noor' }, createdAt: '2026-09-08', tags: ['science'], readTime: '1 min read', likesCount: 1, commentsCount: 0, body: JSON.stringify([{ id: 'text', type: 'text', content: 'A thoughtful short. '.repeat(60) }]) }
@@ -48,8 +48,8 @@ for (const width of [320, 390, 1280]) {
       expect(await menu.evaluate(element => element.parentElement === document.body)).toBe(true)
       if (source === 'story') {
         await menu.getByRole('menuitem', { name: 'Why you’re seeing this' }).click()
-        await menu.getByRole('menuitem', { name: 'Report this post' }).click()
-        const dialog = page.getByRole('dialog', { name: 'Report this post' })
+        await menu.getByRole('menuitem', { name: 'Report this story' }).click()
+        const dialog = page.getByRole('dialog', { name: 'Report this story' })
         await expect(menu).toHaveCount(0)
         await dialog.getByRole('button', { name: 'Submit report' }).scrollIntoViewIfNeeded()
         await expect(dialog.getByRole('button', { name: 'Submit report' })).toBeInViewport()
@@ -83,7 +83,7 @@ for (const [path, button, name] of [
   ['/collections', 'Create collection', 'Create a collection'],
   ['/series?type=short', 'Create a series', 'Create a short series'],
   ['/explore/questions', 'Ask a question', 'Ask the community'],
-  [`/explore/competitions/${id}`, 'Add your entry', 'Submit an article'],
+  [`/explore/competitions/${id}`, 'Add your entry', 'Submit a story'],
 ]) {
   test(`${name} modal remains above navigation on a short phone screen`, async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 360 })
@@ -91,6 +91,7 @@ for (const [path, button, name] of [
     await page.goto(path)
     const trigger = page.getByRole('button', { name: button, exact: true })
     await trigger.click()
+    if (name === 'Create a short series') await page.getByRole('dialog', { name: 'Create a series', exact: true }).getByRole('button', { name: /Shorts Create/ }).click()
     const dialog = page.getByRole('dialog', { name, exact: true })
     await expect(dialog).toBeVisible()
     expect(await dialog.evaluate(element => element.matches(':modal'))).toBe(true)

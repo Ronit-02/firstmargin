@@ -1,5 +1,9 @@
 # Notifications audit
 
+## Mobile viewport height correction — 2026-10-30
+
+The native mobile inbox starts 54 px below the viewport top. Its panel now caps height at the overlay viewport height minus 70 px, retaining 16 px bottom clearance instead of inheriting the generic centered modal's larger limit. Desktop placement, component structure, fonts/colors, focus/dismissal behaviour and notification APIs are unchanged. `Frontend/src/features/notification/pages/NotificationsPage.jsx` owns the fix; `Frontend/tests/notifications-modal.spec.js` checks mobile placement, viewport bounds, internal scrolling and focus. Those checks passed in the complete mocked audit; frontend lint/build also passed. [The suite audit](test-suite-audit.md#broad-browser-failure-repairs--2026-10-30) records scoped results and limitations.
+
 ## Reserved workshop state — 2026-10-21
 
 The workshop list previously omitted viewer attendance, and Member Hub never retained a reserved button state. The existing optional-auth GET `/api/v1/workshops` now adds `isRegistered` from one batched, viewer-scoped attendance read for the returned workshops. Registered and attended records are reserved; canceled attendance and guest/other-account views are not. Private meeting URLs remain excluded. Member Hub waits for restored authentication and partitions workshop cache entries by viewer. Confirmed reservation immediately updates that workshop in the cache and refreshes the list; registered cards show a disabled Place reserved button, including after tab changes, reload, and return visits. Unregistered cards retain Reserve a place or Members only and existing pending/error recovery. Inbox joining-link delivery remains unchanged.

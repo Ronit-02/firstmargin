@@ -63,7 +63,11 @@ Competition Entries uses one column below 540 px, two from 540 px, and three fro
 
 ## Browser verification
 
-The Playwright runner creates and seeds a unique temporary database, starts its own API and Vite servers, and removes that database after success or failure. Start a local MongoDB test service before running:
+Use `npm run test:ui:critical` for the 102-case deterministic mocked UI selection required on push/PR. It starts its own Vite server and needs no API or MongoDB. `npm run test:ui:audit` runs all 841 mocked functional/responsive cases without an early failure cap. Run the CI workflow manually in GitHub Actions to run that full audit plus SEO alongside the core checks.
+
+`npm run test:ui` retains the 103-case smoke selection, including the optional Google-client-ID scenario kept out of the critical gate. `npm run test:ui:features`, `npm run test:responsive`, and `npm run test:browser:all` remain available for focused diagnostic runs. `npm run test:unit` runs the pure cache contract without a browser. Suite ownership and verification limits are documented in [test fixtures](../context/test-fixtures.md).
+
+The persisted E2E runner selects three backend-dependent journeys, creates and seeds one unique temporary database, starts its own API and Vite servers, and removes that database after success or failure. Start a local MongoDB test service before running:
 
 ```bash
 npm run test:e2e
@@ -77,7 +81,7 @@ SEO_CRAWL_URL=https://firstmargin.example SEO_CRAWL_uOST_uATH=/post/<published-i
 
 The verifier fails when the article route, title, description, canonical URL, Open Graph fields, or Article JSON-LD are missing or inconsistent. It only performs a read-only crawl.
 
-Use `npm run test:e2e -- tests/<name>.spec.js` to select tests. The runner defaults to the loopback MongoDB test service; `E2E_MONGO_SERVER` may select another loopback port, with no database path, credentials, or URI options. Existing application database settings are overridden. A missing test service fails the run without falling back to the development database.
+Use `npm run test:e2e -- tests/critical-flow.spec.js` to select a persisted journey, or `npm run test:browser:all -- tests/<name>.spec.js` for a mocked spec. The E2E runner defaults to the loopback MongoDB test service; `E2E_MONGO_SERVER` may select another loopback port, with no database path, credentials, or URI options. Existing application database settings are overridden. A missing test service fails the run without falling back to the development database.
 
 Direct Playwright invocation and the old `E2E_BASE_URL` existing-server shortcut are rejected because they cannot establish run ownership. `npm run test:e2e -- --config playwright.local.config.mjs` retains the installed-Chrome option while using the same isolated database and managed servers. The runner supplies matching ephemeral seed/login credentials; manual development seeding is unnecessary for E2E runs. A forced process kill or machine crash can leave an isolated test database behind, but later runs generate a fresh name and never reuse it.
 

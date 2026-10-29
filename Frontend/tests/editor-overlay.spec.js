@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 test('phone block types appear in a horizontal strip and convert the focused block', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 375, height: 640 })
@@ -44,7 +44,9 @@ test('phone block types appear in a horizontal strip and convert the focused blo
   await expect(choices.getByRole('button', { name: 'Image URL' })).toBeInViewport()
   await page.screenshot({ path: testInfo.outputPath('phone-editor-menu-scrolled.png') })
   await page.getByRole('textbox', { name: 'Story title' }).focus()
-  await expect(choices).toHaveCount(0)
+  await expect(choices).toBeVisible()
+  await expect(choices.getByRole('button')).toHaveCount(4)
+  await expect(choices.getByRole('button', { name: 'Bold selected text' })).toBeDisabled()
 })
 
 for (const width of [767, 768, 1024]) {
@@ -349,11 +351,11 @@ test('cleared public release stays empty when the story is edited again', async 
   await page.goto(`/studio?edit=${postId}`)
   await page.getByRole('button', { name: 'Update', exact: true }).first().click()
   const dialog = page.getByRole('dialog')
-  await expect(dialog.getByLabel('Public release')).not.toHaveValue('')
+  await expect(dialog.getByRole('textbox', { name: 'Public release (optional)', exact: true })).not.toHaveValue('')
   await dialog.getByRole('button', { name: 'Remove public release date' }).click()
   await dialog.getByRole('button', { name: 'Update', exact: true }).click()
   await expect.poll(() => sentPublicAt).toBeNull()
   await page.goto(`/studio?edit=${postId}`)
   await page.getByRole('button', { name: 'Update', exact: true }).first().click()
-  await expect(page.getByRole('dialog').getByLabel('Public release')).toHaveValue('')
+  await expect(page.getByRole('dialog').getByRole('textbox', { name: 'Public release (optional)', exact: true })).toHaveValue('')
 })

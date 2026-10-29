@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 async function mockProfile(page, { guest = false, failRead = false, writer = false } = {}) {
   let profile = { displayName: 'Maya Sen', bio: 'Writing about cities.', handle: 'maya-sen', joinedAt: '2025-01-01T00:00:00Z', writerStatus: writer ? 'writer' : 'reader', directRequestsEnabled: false, postCount: 0 }

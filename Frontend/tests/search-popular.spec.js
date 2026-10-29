@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 const story = { id: 'popular-story', title: 'A popular story', excerpt: 'A useful story to discover.', format: 'article', author: { id: 'writer', username: 'Maya Sen', handle: 'maya' }, tags: ['science'], likesCount: 8, commentsCount: 0, createdAt: '2026-10-01T10:00:00Z' }
 const short = { ...story, id: 'popular-short', title: 'A popular short', format: 'short' }

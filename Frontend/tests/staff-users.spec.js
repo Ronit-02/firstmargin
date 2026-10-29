@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 test('staff role editor saves a permitted change and keeps removal unavailable', async ({ page }) => {
   const accounts = [
@@ -29,7 +29,7 @@ test('staff role editor saves a permitted change and keeps removal unavailable',
       accounts.find(account => account.id === id).role = role
       return json({ data: { id, role } })
     }
-    return route.abort('blockedbyclient')
+    return route.fulfill({ status: 404, json: { message: 'Unconfigured fixture endpoint' } })
   })
 
   await page.goto('/staff', { waitUntil: 'domcontentloaded' })

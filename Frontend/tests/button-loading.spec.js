@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 const postId = '507f1f77bcf86cd799439012'
 const writerId = '507f1f77bcf86cd799439011'
@@ -125,8 +125,8 @@ for (const { theme, width } of [{ theme: 'light', width: 320 }, { theme: 'dark',
 test('login preserves its label and dimensions through a delayed failure', async ({ page }) => {
   const held = await holdAction(page, '/api/auth/login', false)
   await page.goto('/login')
-  await page.getByPlaceholder('Email', { exact: true }).fill('reader@example.test')
-  await page.getByPlaceholder('Password', { exact: true }).fill('Example-password-123')
+  await page.getByLabel('Email', { exact: true }).fill('reader@example.test')
+  await page.getByLabel('Password', { exact: true }).fill('Example-password-123')
   const button = page.locator('#auth-form button[type="submit"]')
   const before = await button.boundingBox()
   await button.click()
@@ -183,8 +183,8 @@ test('verification and resend use the same fill and prevent overlapping requests
     return route.fulfill({ status: 401, json: { message: 'Signed out' } })
   })
   await page.goto('/login')
-  await page.getByPlaceholder('Email', { exact: true }).fill('reader@example.test')
-  await page.getByPlaceholder('Password', { exact: true }).fill('Example-password-123')
+  await page.getByLabel('Email', { exact: true }).fill('reader@example.test')
+  await page.getByLabel('Password', { exact: true }).fill('Example-password-123')
   await page.locator('#auth-form button[type="submit"]').click()
   const resend = page.getByRole('button', { name: 'Resend OTP' })
   const verify = page.getByRole('button', { name: 'Verify Email' })

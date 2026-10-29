@@ -1,13 +1,13 @@
 import { expectModalHeader } from './helpers/modal-header'
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 const id = '507f1f77bcf86cd799439021'
 const answerId = '507f1f77bcf86cd799439022'
-const post = { id, _id: id, title: 'Report fixture', excerpt: 'A story.', tags: [], author: { username: 'Writer', handle: 'writer' }, createdAt: '2026-10-08T00:00:00Z', likesCount: 0, commentsCount: 0, body: JSON.stringify([{ id: 'text', type: 'text', content: 'Article body.' }]) }
+const post = { id, _id: id, title: 'Report fixture', excerpt: 'A story.', tags: [], author: { username: 'Writer', handle: 'writer' }, createdAt: '2026-10-08T00:00:00Z', likesCount: 0, commentsCount: 0, body: JSON.stringify([{ id: 'text', type: 'text', content: 'Story body.' }]) }
 const entries = [
-  ['article', `/post/${id}`, 'Report this post', `/api/post/${id}/reports`],
-  ['short detail', `/post/${id}`, 'Report this short', `/api/post/${id}/reports`],
-  ['card', '/search?q=report', 'Report this post', `/api/post/${id}/reports`],
+  ['article', `/post/${id}`, 'Report this story', `/api/post/${id}/reports`],
+  ['short detail via discovery', `/post/${id}`, 'Report this short', `/api/post/${id}/reports`],
+  ['card', '/search?q=report', 'Report this story', `/api/post/${id}/reports`],
   ['short card', '/shorts', 'Report this short', `/api/post/${id}/reports`],
   ['question', `/explore/questions/${id}`, 'Report this question', `/api/question/${id}/reports`],
   ['answer', `/explore/questions/${id}`, 'Report this answer', `/api/question/${id}/answers/${answerId}/reports`],
@@ -33,9 +33,13 @@ async function mockApi(page, signedIn = true, isShort = false) {
 for (const width of [320, 1280]) for (const [kind, path, label, endpoint] of entries) {
   test(`${kind} report is modal and retryable at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 600 })
-    const reports = await mockApi(page, true, kind === 'short detail')
+    const reports = await mockApi(page, true, kind.startsWith('short detail'))
     await page.goto(path)
-    const isCard = kind.includes('card')
+    if (kind.startsWith('short detail')) {
+      await page.getByRole('dialog', { name: post.title, exact: true }).getByRole('button', { name: 'Close short' }).click()
+      await page.goto('/shorts')
+    }
+    const isCard = kind.includes('card') || kind.startsWith('short detail')
     const options = page.getByRole('button', { name: `More options for ${post.title}` })
     const trigger = page.getByRole(isCard ? 'menuitem' : 'button', { name: label, exact: true })
     const open = async () => { if (isCard) await options.click(); await trigger.click() }
@@ -86,10 +90,15 @@ for (const width of [320, 1280]) for (const [kind, path, label, endpoint] of ent
 }
 
 for (const [kind, path, label] of entries) test(`guest ${kind} report requires sign-in`, async ({ page }) => {
-  const reports = await mockApi(page, false, kind === 'short detail')
+  const reports = await mockApi(page, false, kind.startsWith('short detail'))
   await page.goto(path)
-  if (kind.includes('card')) await page.getByRole('button', { name: `More options for ${post.title}` }).click()
-  await page.getByRole(kind.includes('card') ? 'menuitem' : 'button', { name: label, exact: true }).click()
+  if (kind.startsWith('short detail')) {
+    await page.getByRole('dialog', { name: post.title, exact: true }).getByRole('button', { name: 'Close short' }).click()
+    await page.goto('/shorts')
+  }
+  const isCard = kind.includes('card') || kind.startsWith('short detail')
+  if (isCard) await page.getByRole('button', { name: `More options for ${post.title}` }).click()
+  await page.getByRole(isCard ? 'menuitem' : 'button', { name: label, exact: true }).click()
   await expect(page.getByRole('dialog', { name: 'Sign in to firstmargin' })).toBeVisible()
   await expect(page).not.toHaveURL(/\/login/)
   await expect(page.getByRole('dialog', { name: /^Report this/ })).toHaveCount(0)

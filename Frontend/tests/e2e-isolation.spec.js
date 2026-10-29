@@ -11,13 +11,13 @@ test('seeded API writes reach only the database owned by this E2E run', async ({
   const connection = await mongoose.createConnection(target.uri, { serverSelectionTimeoutMS: 5000 }).asPromise()
   try {
     expect(await connection.db.collection('_test_run').findOne({ _id: target.runId })).toBeTruthy()
-    const login = await request.post('http://127.0.0.1:8000/api/auth/login', {
+    const login = await request.post(`${process.env.VITE_API_URL}/api/auth/login`, {
       data: { email: process.env.E2E_EMAIL, password: process.env.E2E_PASSWORD },
     })
     expect(login.status()).toBe(200)
     const { token } = await login.json()
     const title = `Isolated E2E draft ${target.runId}`
-    const created = await request.post('http://127.0.0.1:8000/api/drafts', {
+    const created = await request.post(`${process.env.VITE_API_URL}/api/drafts`, {
       headers: { authorization: `Bearer ${token}` },
       data: { title, blocks: [{ id: 'isolated-block', type: 'text', content: 'Temporary test content.' }], tags: [] },
     })

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 for (const loggedIn of [false, true]) {
   test(`bottom navigation opens Shorts and the ${loggedIn ? 'member' : 'guest'} profile sheet`, async ({ page }) => {
@@ -23,9 +23,11 @@ for (const loggedIn of [false, true]) {
     await expect(page.getByRole('heading', { name: 'Collections', exact: true })).toBeVisible()
     const browse = page.getByRole('navigation', { name: 'Browse sections' })
     await expect(browse.getByRole('link')).toHaveText(['Collections', 'Series'])
+    await expect(browse.getByRole('link', { name: 'Collections' })).toHaveAttribute('aria-current', 'page')
     await expect(nav.getByRole('link', { name: 'Browse' })).toHaveAttribute('aria-current', 'page')
     await browse.getByRole('link', { name: 'Series' }).click()
     await expect(page).toHaveURL(/\/series$/)
+    await expect(page.getByRole('dialog', { name: 'Browse', exact: true })).toHaveCount(0)
     await expect(page.getByRole('heading', { name: 'Series', exact: true })).toBeVisible()
     await expect(page.getByRole('navigation', { name: 'Browse sections' }).getByRole('link', { name: 'Series' })).toHaveAttribute('aria-current', 'page')
     await expect(nav.getByRole('link', { name: 'Write', exact: true })).toHaveCount(0)
@@ -59,20 +61,6 @@ for (const loggedIn of [false, true]) {
   })
 }
 
-test('Browse is a page link with Collections and Series navigation', async ({ page }) => {
-  await page.setViewportSize({ width: 320, height: 640 })
-  await page.route(url => url.pathname.startsWith('/api/'), route => route.fulfill({ status: new URL(route.request().url()).pathname === '/api/auth/refresh-token' ? 401 : 200, json: { data: [], meta: { nextCursor: null } } }))
-  await page.goto('/')
-  const trigger = page.getByRole('navigation', { name: 'Mobile primary navigation' }).getByRole('link', { name: 'Browse' })
-  await trigger.click()
-  await expect(page).toHaveURL(/\/collections$/)
-  const tabs = page.getByRole('navigation', { name: 'Browse sections' })
-  await expect(tabs.getByRole('link', { name: 'Collections' })).toHaveAttribute('aria-current', 'page')
-  await tabs.getByRole('link', { name: 'Series' }).click()
-  await expect(page).toHaveURL(/\/series$/)
-  await expect(page.getByRole('dialog', { name: 'Browse', exact: true })).toHaveCount(0)
-})
-
 test('search results has no page search form and modal arrow submits the query', async ({ page }) => {
   await page.setViewportSize({ width: 325, height: 735 })
   await page.route(url => url.pathname.startsWith('/api/'), route => {
@@ -92,9 +80,8 @@ test('search results has no page search form and modal arrow submits the query',
   const dialog = page.getByRole('dialog', { name: 'Search firstmargin' })
   await dialog.getByRole('combobox').fill('Travel')
   await expect(dialog.getByRole('button', { name: /View all results/ })).toHaveCount(0)
-  const actions = dialog.getByRole('search').getByRole('button')
-  await expect(actions.nth(0)).toHaveAttribute('aria-label', 'Close search')
-  await expect(actions.nth(1)).toHaveAttribute('aria-label', 'Search')
+  await expect(dialog.getByRole('button', { name: 'Close search', exact: true })).toBeVisible()
+  await expect(dialog.getByRole('search').getByRole('button', { name: 'Search', exact: true })).toBeVisible()
   await dialog.getByRole('button', { name: 'Search', exact: true }).click()
   await expect(page).toHaveURL(/\/search\?q=Travel$/)
   await expect(dialog).toHaveCount(0)

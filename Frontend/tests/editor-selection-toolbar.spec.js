@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 test('selection toolbar closes when the selection is cleared or focus moves away', async ({ page }) => {
   await page.route(url => url.pathname.startsWith('/api/'), route => {

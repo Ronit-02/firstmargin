@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 const readerQuestion = {
   id: '507f1f77bcf86cd799439011', text: 'How can coastal cities adapt to rising seas?',
@@ -62,7 +62,7 @@ for (const width of [320, 1280]) {
     expect(searches.at(-1)).toMatchObject({ q: 'coastal resilience', type: 'questions' })
     await questionsTab.focus()
     await page.keyboard.press('ArrowRight')
-    await expect(page.getByRole('tab', { name: 'Posts', exact: true })).toBeFocused()
+    await expect(page.getByRole('tab', { name: 'Stories', exact: true })).toBeFocused()
     await page.keyboard.press('End')
     await expect(questionsTab).toBeFocused()
     await expect(page).toHaveURL(/type=questions/)
@@ -77,7 +77,7 @@ for (const width of [320, 1280]) {
     await filters.getByRole('button', { name: 'Reset filters' }).click()
     await expect(page).toHaveURL(url => url.pathname === '/search' && url.searchParams.get('q') === 'coastal resilience' && url.searchParams.get('type') === 'questions' && url.searchParams.get('keep') === 'reader' && !url.searchParams.has('topic') && !url.searchParams.has('time') && !url.searchParams.has('sort'))
     await filters.getByRole('button', { name: 'Close filters' }).press('Escape')
-    await panel.getByRole('button', { name: 'Upvote question', exact: true }).click()
+    await panel.getByRole('article').filter({ hasText: readerQuestion.text }).getByRole('button', { name: 'Upvote question', exact: true }).click()
     await expect(page.getByRole('dialog', { name: 'Sign in to firstmargin' })).toBeVisible()
     await page.keyboard.press('Escape')
     await panel.getByRole('link', { name: 'Questions about science', exact: true }).click()
@@ -87,9 +87,10 @@ for (const width of [320, 1280]) {
     await page.screenshot({ path: testInfo.outputPath('questions-search.png'), fullPage: true })
     await panel.getByRole('heading', { name: readerQuestion.text }).getByRole('link').click()
     await expect(page).toHaveURL(`/explore/questions/${readerQuestion.id}`)
+    await expect(page.getByRole('heading', { name: readerQuestion.text, level: 1 })).toBeVisible()
+    await expect(page.locator('#main-content')).toBeFocused()
     const detailCategory = page.getByRole('link', { name: 'Questions about coastal resilience' })
-    await detailCategory.focus()
-    await page.keyboard.press('Enter')
+    await detailCategory.press('Enter')
     await expect(page).toHaveURL('/search?q=coastal+resilience&type=questions')
     await page.reload()
     await expect(questionsTab).toHaveAttribute('aria-selected', 'true')
@@ -105,10 +106,11 @@ test('question search shows empty/error recovery and refreshes votes after confi
   await page.goto('/search?q=unavailable&type=questions')
   await expect(page.getByRole('alert')).toContainText('Search is unavailable')
   await page.getByRole('button', { name: 'Try again', exact: true }).click()
-  const vote = page.getByRole('button', { name: 'Upvote question', exact: true })
+  const question = page.getByRole('article').filter({ hasText: readerQuestion.text })
+  const vote = question.getByRole('button', { name: 'Upvote question', exact: true })
   await expect(vote).toBeVisible()
   await vote.click()
-  const removeVote = page.getByRole('button', { name: 'Remove upvote from question', exact: true })
+  const removeVote = question.getByRole('button', { name: 'Remove upvote from question', exact: true })
   await expect(removeVote).toHaveAttribute('aria-pressed', 'true')
   await expect(removeVote).toContainText('5')
   await removeVote.click()
@@ -183,7 +185,7 @@ for (const width of [320, 369, 390, 1280]) {
     }
     await assertPinned()
     await dialog.getByRole('button', { name: 'AI', exact: true }).click()
-    await expect(page.getByText('No posts found', { exact: true })).toBeVisible()
+    await expect(page.getByText('No stories found', { exact: true })).toBeVisible()
     await assertPinned()
     await dialog.getByRole('button', { name: 'Science', exact: true }).click()
     await expect(page.getByRole('heading', { name: 'Practical curiosity 1' })).toBeVisible()

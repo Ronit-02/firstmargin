@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 async function mockCompetition(page, { owner = true, status = 'open', fail = false, delayed = false, role = 'regular' } = {}) {
   let removed = false

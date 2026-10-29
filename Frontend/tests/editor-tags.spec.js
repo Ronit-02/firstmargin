@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 test('existing draft tags remain removable at the twenty-tag limit', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 820 })

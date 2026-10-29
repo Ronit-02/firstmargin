@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 const posts = Array.from({ length: 20 }, (_, index) => ({
   id: `post-${index}`, title: `Loading story ${index}`, excerpt: 'A discovery fixture.',
@@ -75,7 +75,7 @@ for (const width of [390, 1280]) {
       api.release(result)
       if (result === 'success') await expect(page.getByRole('link', { name: /^View series short series 0$/i })).toBeVisible()
       else if (result === 'empty') await expect(page.getByText('No short series yet.', { exact: true })).toBeVisible()
-      else await expect(page.getByRole('alert')).toContainText('Series could not be loaded.')
+      else await expect(page.getByRole('alert')).toContainText('Series could not be loaded.', { timeout: 10_000 })
       const count = await page.evaluate(() => window.filterScrollFrames.length)
       await page.waitForFunction(value => window.filterScrollFrames.length > value + 10, count)
       await expectStableFrames(page, top)

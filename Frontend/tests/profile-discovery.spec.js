@@ -1,5 +1,5 @@
 import { expectModalHeader } from './helpers/modal-header'
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 const memberEmail = process.env.E2E_MEMBER_EMAIL || 'member@inkrider.local'
 const password = process.env.E2E_PASSWORD || 'InkRiderDemo123!'
@@ -55,7 +55,7 @@ const mockMemberProfileApi = async page => {
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], meta: { unreadCount: 0 } }) })
     }
 
-    return route.abort('blockedbyclient')
+    return route.fulfill({ status: 404, json: { message: 'Unconfigured fixture endpoint' } })
   })
 }
 
@@ -99,7 +99,7 @@ test.describe('public writer profile discovery', () => {
         await new Promise(resolve => setTimeout(resolve, 600))
         return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: { username: 'Maya Sen', posts: [] } }) })
       }
-      return route.abort('blockedbyclient')
+      return route.fulfill({ status: 404, json: { message: 'Unconfigured fixture endpoint' } })
     })
 
     await page.setViewportSize({ width: 390, height: 844 })
@@ -108,6 +108,7 @@ test.describe('public writer profile discovery', () => {
   })
 
   test('writer recovery navigates through a real search link', async ({ page }) => {
+    await mockMemberProfileApi(page)
     await page.goto('/author', { waitUntil: 'domcontentloaded' })
 
     const searchWritersLink = page.getByRole('link', { name: 'Search writers' })
@@ -135,7 +136,7 @@ test.describe('public writer profile discovery', () => {
     await expect(page.getByRole('heading', { name: 'Maya Sen', level: 1 })).toBeVisible()
     await expect(page.locator('main')).toHaveCount(1)
 
-    const requestButton = page.getByRole('button', { name: 'Request an article' })
+    const requestButton = page.getByRole('button', { name: 'Request a story' })
     await requestButton.click()
     await expect(requestButton).toHaveAttribute('aria-expanded', 'true')
     const dialog = page.getByRole('dialog', { name: 'Direct request to Maya Sen' })
@@ -186,7 +187,7 @@ test.describe('public writer profile discovery', () => {
         })
         await page.setViewportSize({ width, height: 600 })
         await page.goto('/author/maya-sen')
-        const trigger = page.getByRole('button', { name: 'Request an article' })
+        const trigger = page.getByRole('button', { name: 'Request a story' })
         await trigger.click()
         const dialog = page.getByRole('dialog', { name: 'Direct request to Maya Sen' })
         await expectModalHeader(dialog)
@@ -215,7 +216,7 @@ test.describe('public writer profile discovery', () => {
           await join.click()
           await expect(page).toHaveURL(/\/membership$/)
         } else {
-          await dialog.getByRole('button', { name: 'Close article request' }).click()
+          await dialog.getByRole('button', { name: 'Close story request' }).click()
           await expect(trigger).toBeFocused()
           await trigger.click()
           await expect(dialog.getByLabel('Request subject')).toHaveValue('')
@@ -245,7 +246,7 @@ test.describe('public writer profile discovery', () => {
           postCount: 0, followersCount: 0, followingCount: 0,
         } }) })
       }
-      if (url.pathname === '/api/user/me/posts') {
+      if (url.pathname === '/api/writer/priya-mehta') {
         return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [] }) })
       }
       if (url.pathname === '/api/v1/me/entitlements') {
@@ -259,7 +260,7 @@ test.describe('public writer profile discovery', () => {
       }
       if (url.pathname === '/api/user/bookmarks') return route.fulfill({ json: [] })
       if (url.pathname === '/api/collection') return route.fulfill({ json: { data: [], meta: { nextCursor: null } } })
-      return route.abort('blockedbyclient')
+      return route.fulfill({ status: 404, json: { message: 'Unconfigured fixture endpoint' } })
     })
 
     await page.setViewportSize({ width: 390, height: 844 })
@@ -284,7 +285,7 @@ test.describe('public writer profile discovery', () => {
       if (url.pathname === '/api/user/me') {
         return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: { displayName: 'Priya Mehta', handle: 'priya-mehta', bio: 'Reader', avatarUrl: null, joinedAt: '2025-01-15T00:00:00.000Z', writerStatus: 'reader', role: 'regular', postCount: 0, followersCount: 0, followingCount: 0 } }) })
       }
-      if (url.pathname === '/api/user/me/posts') {
+      if (url.pathname === '/api/writer/priya-mehta') {
         return route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ message: 'Unavailable' }) })
       }
       if (url.pathname === '/api/v1/me/entitlements') {
@@ -296,7 +297,7 @@ test.describe('public writer profile discovery', () => {
       if (url.pathname === '/api/v1/reading-history') {
         return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: { continueReading: [], history: [] } }) })
       }
-      return route.abort('blockedbyclient')
+      return route.fulfill({ status: 404, json: { message: 'Unconfigured fixture endpoint' } })
     })
 
     await page.setViewportSize({ width: 390, height: 844 })
@@ -315,7 +316,7 @@ test.describe('public writer profile discovery', () => {
       if (url.pathname === '/api/user/me') {
         return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: { displayName: 'Priya Mehta', handle: 'priya-mehta', bio: 'Reader', avatarUrl: null, joinedAt: '2025-01-15T00:00:00.000Z', writerStatus: 'reader', role: 'regular', postCount: 0, followersCount: 0, followingCount: 0 } }) })
       }
-      if (url.pathname === '/api/user/me/posts') {
+      if (url.pathname === '/api/writer/priya-mehta') {
         return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [] }) })
       }
       if (url.pathname === '/api/drafts') {
@@ -330,7 +331,7 @@ test.describe('public writer profile discovery', () => {
       if (url.pathname === '/api/v1/reading-history') {
         return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: { continueReading: [], history: [] } }) })
       }
-      return route.abort('blockedbyclient')
+      return route.fulfill({ status: 404, json: { message: 'Unconfigured fixture endpoint' } })
     })
 
     await page.setViewportSize({ width: 390, height: 844 })
@@ -350,7 +351,7 @@ test.describe('public writer profile discovery', () => {
       if (url.pathname === '/api/user/me') {
         return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: { displayName: 'Priya Mehta', handle: 'priya-mehta', bio: 'Reader', avatarUrl: null, joinedAt: '2025-01-15T00:00:00.000Z', writerStatus: 'reader', role: 'regular', postCount: 0, followersCount: 0, followingCount: 0 } }) })
       }
-      if (url.pathname === '/api/user/me/posts') {
+      if (url.pathname === '/api/writer/priya-mehta') {
         return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [] }) })
       }
       if (url.pathname === '/api/drafts') {
@@ -366,7 +367,7 @@ test.describe('public writer profile discovery', () => {
       if (url.pathname === '/api/v1/reading-history') {
         return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: { continueReading: [], history: [] } }) })
       }
-      return route.abort('blockedbyclient')
+      return route.fulfill({ status: 404, json: { message: 'Unconfigured fixture endpoint' } })
     })
 
     await page.setViewportSize({ width: 390, height: 844 })

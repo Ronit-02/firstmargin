@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 async function mockApi(page, signedIn = false) {
   await page.route(url => url.pathname.startsWith('/api/'), route => {

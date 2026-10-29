@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 const collection = {
   id: '507f1f77bcf86cd799439030',
@@ -7,7 +7,7 @@ const collection = {
   postsCount: 3,
   visibility: 'public',
   coverImage: null,
-  author: { username: 'Priya Mehta With A Very Long Curator Name' },
+  author: { username: 'Priya Mehta With A Very Long Curator Name', handle: 'priya-mehta' },
 }
 
 async function mockCollections(page, loggedIn = true, owned = false) {
@@ -219,6 +219,10 @@ for (const width of [320, 1280]) {
       if (target === 'curator') await clickCardArea(card.getByText(`by ${collection.author.username}`))
       if (target === 'padding') await card.click({ position: { x: 5, y: 5 } })
       if (target === 'keyboard') await card.getByRole('link', { name: collection.title, exact: true }).press('Enter')
+      if (target === 'curator') {
+        await expect(page, 'Curator navigation stays independent of the card').toHaveURL(`/author/${collection.author.handle}`)
+        continue
+      }
       await expect(page, `Detail navigation from ${target}`).toHaveURL(`/collections/${collection.id}`)
       await expect(page.getByRole('heading', { level: 1, name: collection.title, exact: true })).toBeVisible()
     }

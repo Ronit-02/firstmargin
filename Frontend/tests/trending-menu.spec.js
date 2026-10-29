@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 const article = {
   id: '507f1f77bcf86cd799439020',
@@ -88,7 +88,7 @@ test('article-of-the-day menu supports keyboard navigation and focus return', as
         body: JSON.stringify({ data: [article, story], meta: { nextCursor: null } }),
       })
     }
-    return route.abort('blockedbyclient')
+    return route.fulfill({ status: 404, json: { message: 'Unconfigured fixture endpoint' } })
   })
 
   await page.setViewportSize({ width: 390, height: 844 })
@@ -98,7 +98,7 @@ test('article-of-the-day menu supports keyboard navigation and focus return', as
   await trigger.click()
 
   const menu = page.getByRole('menu', { name: `Options for ${article.title}` })
-  const report = menu.getByRole('menuitem', { name: 'Report this post' })
+  const report = menu.getByRole('menuitem', { name: 'Report this story' })
   const save = menu.getByRole('menuitem', { name: 'Save story' })
   const share = menu.getByRole('menuitem', { name: 'Share link' })
   await expect(menu).toBeVisible()
@@ -151,14 +151,14 @@ test('discovery-card menu opens the report modal and restores keyboard navigatio
   const save = menu.getByRole('menuitem', { name: 'Save story' })
   const why = menu.getByRole('menuitem', { name: 'Why you’re seeing this' })
   const hide = menu.getByRole('menuitem', { name: 'Not interested' })
-  const report = menu.getByRole('menuitem', { name: 'Report this post' })
+  const report = menu.getByRole('menuitem', { name: 'Report this story' })
   await expect(save).toBeFocused()
 
   await save.press('End')
   await expect(report).toBeFocused()
   await report.press('Enter')
 
-  const dialog = page.getByRole('dialog', { name: 'Report this post' })
+  const dialog = page.getByRole('dialog', { name: 'Report this story' })
   await expect(menu).toHaveCount(0)
   const reason = dialog.getByRole('combobox', { name: 'Reason', exact: true })
   await expect(reason).toBeVisible()

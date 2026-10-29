@@ -43,7 +43,7 @@ test('avatar upload saves both identity records, deletes only the prior managed 
   t.after(async () => { await fs.rm(directory, { recursive: true, force: true }); });
   let status;
   let body;
-  await updateProfileAvatar({ auth: { userId }, file: { path: filePath }, requestId: 'avatar-test' }, {
+  await updateProfileAvatar({ auth: { userId }, body: {}, file: { path: filePath }, requestId: 'avatar-test' }, {
     status(code) { status = code; return this; },
     json(value) { body = value; return this; },
   });
@@ -68,7 +68,7 @@ test('replacing a provider image never deletes it', async t => {
   await fs.writeFile(filePath, 'test');
   t.after(async () => { await fs.rm(directory, { recursive: true, force: true }); });
   let status;
-  await updateProfileAvatar({ auth: { userId }, file: { path: filePath }, requestId: 'avatar-test' }, {
+  await updateProfileAvatar({ auth: { userId }, body: {}, file: { path: filePath }, requestId: 'avatar-test' }, {
     status(code) { status = code; return this; }, json() { return this; },
   });
   assert.equal(status, 200);
@@ -89,7 +89,7 @@ test('a failed profile save restores the old picture and deletes the new upload'
   await fs.writeFile(filePath, 'test');
   t.after(async () => { await fs.rm(directory, { recursive: true, force: true }); });
   let status;
-  await updateProfileAvatar({ auth: { userId }, file: { path: filePath }, requestId: 'avatar-test' }, {
+  await updateProfileAvatar({ auth: { userId }, body: {}, file: { path: filePath }, requestId: 'avatar-test' }, {
     status(code) { status = code; return this; }, json() { return this; },
   });
   assert.equal(status, 500);

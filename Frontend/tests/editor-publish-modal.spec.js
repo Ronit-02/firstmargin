@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 for (const width of [320, 1280]) {
   test(`publishing details and writing controls at ${width}px`, async ({ page }) => {

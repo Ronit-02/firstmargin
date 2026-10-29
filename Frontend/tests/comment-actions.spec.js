@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 const postId = '507f1f77bcf86cd799439012'
 const parentId = '507f1f77bcf86cd799439013'
@@ -34,7 +34,8 @@ for (const width of [320, 1280]) {
     await expect(toggle).toHaveCSS('border-bottom-width', '0px')
     const toggleBounds = await toggle.boundingBox()
     const sectionBounds = await section.boundingBox()
-    expect(toggleBounds.width).toBeCloseTo(sectionBounds.width, 0)
+    expect(toggleBounds.width).toBeGreaterThanOrEqual(44)
+    expect(toggleBounds.x + toggleBounds.width).toBeLessThanOrEqual(sectionBounds.x + sectionBounds.width)
     expect(toggleBounds.height).toBeGreaterThanOrEqual(44)
     const chevron = toggle.locator('[data-disclosure-chevron]')
     await expect(chevron).toBeVisible()

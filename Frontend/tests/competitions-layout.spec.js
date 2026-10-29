@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 const competitions = [
   { id: 'closed-contest', title: 'Small Details, Big Worlds', description: 'A seeded competition exercising entry, voting, judging, and results states. Discover a fresh perspective through careful observation.', status: 'closed', closeDate: '2026-09-13T12:00:00Z', entriesCount: 2, competitionType: 'theme' },

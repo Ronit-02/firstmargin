@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 for (const width of [320, 390, 1280]) {
   test(`question card keeps its preview and links at ${width}px`, async ({ page }) => {

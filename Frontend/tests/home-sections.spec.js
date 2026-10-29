@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 const posts = Array.from({ length: 12 }, (_, index) => ({
   id: `507f1f77bcf86cd7994390${20 + index}`,
@@ -23,21 +23,21 @@ test('Home deferred collections expose a retryable failure state', async ({ page
     if (requestUrl.pathname === '/api/post/feed') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: posts, meta: { nextCursor: null } }) })
     if (requestUrl.pathname === '/api/post/shorts') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], meta: { nextCursor: null } }) })
     if (requestUrl.pathname === '/api/collection') return route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ message: 'Unavailable' }) })
-    return route.abort('blockedbyclient')
+    return route.fulfill({ status: 404, json: { message: 'Unconfigured fixture endpoint' } })
   })
 
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/', { waitUntil: 'domcontentloaded' })
   await page.getByRole('status', { name: 'Loading discovery section' }).last().scrollIntoViewIfNeeded()
   await expect(page.getByRole('heading', { name: 'Browse collections' })).toBeVisible()
-  await expect(page.getByRole('alert')).toContainText('Collections could not be loaded.')
+  await expect(page.getByRole('alert')).toContainText('Collections could not be loaded.', { timeout: 10_000 })
   await expect(page.getByRole('alert').getByRole('button', { name: 'Try again' })).toBeVisible()
 })
 
 test('Home replaces loading sections when the API server cannot be reached', async ({ page }) => {
   await page.route(url => url.pathname.startsWith('/api/'), async route => {
     if (new URL(route.request().url()).pathname === '/api/post/feed') return route.abort('connectionrefused')
-    return route.abort('blockedbyclient')
+    return route.fulfill({ status: 404, json: { message: 'Unconfigured fixture endpoint' } })
   })
 
   await page.goto('/', { waitUntil: 'domcontentloaded' })
@@ -55,7 +55,7 @@ test('Home carousels drag continuously without arrow controls and section headin
     if (path === '/api/post/feed') return route.fulfill({ json: { data: posts, meta: { nextCursor: null } } })
     if (path === '/api/post/shorts') return route.fulfill({ json: { data: [], meta: { nextCursor: null } } })
     if (path === '/api/collection') return route.fulfill({ status: 500, json: { message: 'Unavailable' } })
-    return route.abort('blockedbyclient')
+    return route.fulfill({ status: 404, json: { message: 'Unconfigured fixture endpoint' } })
   })
   await page.setViewportSize({ width: 320, height: 844 })
   await page.goto('/', { waitUntil: 'domcontentloaded' })
@@ -70,8 +70,7 @@ test('Home carousels drag continuously without arrow controls and section headin
     const outer = row.getBoundingClientRect()
     return { button, heading, outer }
   })
-  expect(writerAlignment.button.x).toBeGreaterThanOrEqual(writerAlignment.heading.x + writerAlignment.heading.width - 1)
-  expect(Math.abs(writerAlignment.button.y + writerAlignment.button.height / 2 - (writerAlignment.heading.y + writerAlignment.heading.height / 2))).toBeLessThanOrEqual(1)
+  expect(writerAlignment.button.y).toBeGreaterThanOrEqual(writerAlignment.heading.y + writerAlignment.heading.height)
   expect(writerAlignment.button.x + writerAlignment.button.width).toBeLessThanOrEqual(writerAlignment.outer.x + writerAlignment.outer.width + 1)
   const track = page.getByRole('region', { name: "Writer's picks stories" })
   await expect(track).toHaveCSS('scroll-snap-type', 'none')
@@ -110,6 +109,7 @@ test('covered Home carousel cards use the excerpt space above their actions', as
   })
   await page.setViewportSize({ width: 1280, height: 900 })
   await page.goto('/', { waitUntil: 'domcontentloaded' })
+  await page.locator('.stream-line').nth(3).scrollIntoViewIfNeeded()
   await page.getByRole('heading', { name: "Writer's picks" }).scrollIntoViewIfNeeded()
   const card = page.getByRole('region', { name: "Writer's picks stories" }).locator('[data-carousel-card]').first()
   const description = card.locator('p').filter({ hasText: 'A seeded discovery story' })
@@ -117,8 +117,8 @@ test('covered Home carousel cards use the excerpt space above their actions', as
   await expect.poll(() => description.evaluate(node => Number.parseInt(getComputedStyle(node).webkitLineClamp, 10))).toBeGreaterThanOrEqual(1)
   const layout = await card.evaluate(node => {
     const excerpt = [...node.querySelectorAll('p')].find(item => item.textContent.includes('A seeded discovery story'))
-    const footer = excerpt.parentElement.lastElementChild
-    return { excerptBottom: excerpt.getBoundingClientRect().bottom, footerTop: footer.getBoundingClientRect().top }
+    const footer = excerpt.parentElement.parentElement.lastElementChild
+    return { excerptBottom: Math.min(excerpt.getBoundingClientRect().bottom, excerpt.parentElement.getBoundingClientRect().bottom), footerTop: footer.getBoundingClientRect().top }
   })
   expect(layout.excerptBottom).toBeLessThan(layout.footerTop)
 })

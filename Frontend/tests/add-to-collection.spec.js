@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, setCheckbox } from './support/ui-test.js'
 
 const post = { id: '507f1f77bcf86cd799439021', title: 'A focused idea', excerpt: 'A useful explanation.', author: { username: 'Other Writer', handle: 'other-writer' }, tags: ['science'], readTime: '1 min read', createdAt: '2026-09-08T00:00:00Z', likesCount: 0, commentsCount: 0 }
 const collection = { id: '507f1f77bcf86cd799439030', title: 'Useful ideas', visibility: 'private', isOwner: true, postsCount: 0, posts: [] }
@@ -39,28 +39,20 @@ async function mockApi(page, { guest = false, short = false, alreadyAdded = fals
   return state
 }
 
-test('save dialog shows when the story already belongs to a collection', async ({ page }) => {
-  await mockApi(page, { alreadyAdded: true })
+test('save dialog identifies existing membership and prevents duplicate addition', async ({ page }) => {
+  const state = await mockApi(page, { alreadyAdded: true })
   await page.goto(`/post/${post.id}`)
-  await page.getByRole('button', { name: 'Save this article' }).click()
-  const dialog = page.getByRole('dialog', { name: 'Save story', exact: true })
-  await dialog.getByRole('checkbox', { name: 'Add to a collection' }).check()
-  const choice = dialog.getByRole('combobox', { name: 'Choose one of your collections' })
-  await choice.click()
-  await expect(dialog.getByRole('option', { name: 'Useful ideas Private · Already added', exact: true })).toBeVisible()
-})
-
-test('save dialog disables adding the story again to the selected collection', async ({ page }) => {
-  await mockApi(page, { alreadyAdded: true })
-  await page.goto(`/post/${post.id}`)
-  await page.getByRole('button', { name: 'Save this article' }).click()
+  await page.getByRole('button', { name: 'Save this story' }).click()
   const dialog = page.getByRole('dialog', { name: 'Save story', exact: true })
   const addToCollection = dialog.getByRole('checkbox', { name: 'Add to a collection' })
   await expect(addToCollection).toBeEnabled()
-  await addToCollection.check()
+  await setCheckbox(addToCollection, true)
   await dialog.getByRole('combobox', { name: 'Choose one of your collections' }).click()
-  await dialog.getByRole('option', { name: 'Useful ideas Private · Already added', exact: true }).click()
+  const option = dialog.getByRole('option', { name: 'Useful ideas Private · Already added', exact: true })
+  await expect(option).toBeVisible()
+  await option.click()
   await expect(dialog.getByRole('button', { name: 'Already in collection', exact: true })).toBeDisabled()
+  expect(state.writes).toEqual([])
 })
 
 for (const width of [320, 1280]) {
@@ -154,8 +146,8 @@ test('save dialog supports Library only and collection only', async ({ page }) =
   await trigger.click()
   await page.getByRole('menuitem', { name: 'Saved', exact: true }).click()
   dialog = page.getByRole('dialog', { name: 'Save story', exact: true })
-  await dialog.getByRole('checkbox', { name: 'Save in your Library' }).uncheck()
-  await dialog.getByRole('checkbox', { name: 'Add to a collection' }).check()
+  await setCheckbox(dialog.getByRole('checkbox', { name: 'Save in your Library' }), false)
+  await setCheckbox(dialog.getByRole('checkbox', { name: 'Add to a collection' }), true)
   await dialog.getByRole('combobox', { name: 'Choose one of your collections' }).click()
   await dialog.getByRole('option', { name: 'Useful ideas Private', exact: true }).click()
   await dialog.getByRole('button', { name: 'Save story', exact: true }).click()
@@ -169,7 +161,7 @@ for (const theme of ['light', 'dark']) {
     await page.addInitScript(value => localStorage.setItem('ink-theme', value), theme)
     await mockApi(page)
     await page.goto(`/post/${post.id}`)
-    await page.getByRole('button', { name: 'Save this article' }).click()
+    await page.getByRole('button', { name: 'Save this story' }).click()
     const dialog = page.getByRole('dialog', { name: 'Save story', exact: true })
     const library = dialog.getByRole('checkbox', { name: 'Save in your Library' })
     const collectionChoice = dialog.getByRole('checkbox', { name: 'Add to a collection' })
@@ -201,7 +193,7 @@ test('pending Library save keeps the dialog open and blocks repeat submission', 
   const state = await mockApi(page)
   state.holdBookmark = true
   await page.goto(`/post/${post.id}`)
-  await page.getByRole('button', { name: 'Save this article' }).click()
+  await page.getByRole('button', { name: 'Save this story' }).click()
   const dialog = page.getByRole('dialog', { name: 'Save story', exact: true })
   const save = dialog.getByRole('button', { name: 'Save story', exact: true })
   await save.click()
@@ -219,7 +211,7 @@ test(`${surface} opens the same save picker and restores focus`, async ({ page }
     await page.setViewportSize({ width: 320, height: 844 })
     const state = await mockApi(page, { short: surface === 'short' })
     await page.goto(surface === 'writing' ? '/studio' : `/post/${post.id}`)
-    const opener = page.getByRole('button', { name: surface === 'short' ? 'Save this short' : 'Save this article' })
+    const opener = page.getByRole('button', { name: surface === 'short' ? 'Save this short' : 'Save this story' })
     const trigger = opener
     await trigger.click()
     const dialog = page.getByRole('dialog', { name: 'Save story', exact: true })
@@ -245,10 +237,10 @@ test('save dialog closes on outside click and restores focus', async ({ page }) 
   await page.setViewportSize({ width: 1280, height: 800 })
   await mockApi(page)
   await page.goto(`/post/${post.id}`)
-  const opener = page.getByRole('button', { name: 'Save this article' })
+  const opener = page.getByRole('button', { name: 'Save this story' })
   await opener.click()
   let dialog = page.getByRole('dialog', { name: 'Save story', exact: true })
-  await dialog.getByRole('checkbox', { name: 'Add to a collection' }).check()
+  await setCheckbox(dialog.getByRole('checkbox', { name: 'Add to a collection' }), true)
   await dialog.getByRole('button', { name: 'Create new collection' }).click()
   await dialog.getByLabel('Title (required)', { exact: true }).fill('Unsaved list')
   await dialog.click({ position: { x: 2, y: 2 } })
@@ -274,10 +266,10 @@ test('failed collection listing has retry and still permits creation', async ({ 
   const state = await mockApi(page)
   state.failList = true
   await page.goto(`/post/${post.id}`)
-  await page.getByRole('button', { name: 'Save this article' }).click()
+  await page.getByRole('button', { name: 'Save this story' }).click()
   const dialog = page.getByRole('dialog', { name: 'Save story', exact: true })
-  await dialog.getByRole('checkbox', { name: 'Add to a collection' }).check()
-  await expect(dialog.getByRole('alert')).toContainText('could not be loaded')
+  await setCheckbox(dialog.getByRole('checkbox', { name: 'Add to a collection' }), true)
+  await expect(dialog.getByRole('alert')).toContainText('could not be loaded', { timeout: 10_000 })
   state.failList = false
   await dialog.getByRole('button', { name: 'Try again' }).click()
   await expect(dialog.getByRole('combobox', { name: 'Choose one of your collections' })).toBeVisible()
@@ -287,9 +279,9 @@ test('a user without collections can create one directly from a picked story', a
   const state = await mockApi(page)
   state.empty = true
   await page.goto(`/post/${post.id}`)
-  await page.getByRole('button', { name: 'Save this article' }).click()
+  await page.getByRole('button', { name: 'Save this story' }).click()
   const dialog = page.getByRole('dialog', { name: 'Save story', exact: true })
-  await dialog.getByRole('checkbox', { name: 'Add to a collection' }).check()
+  await setCheckbox(dialog.getByRole('checkbox', { name: 'Add to a collection' }), true)
   await expect(dialog.getByText('You have no collections yet.')).toBeVisible()
   await dialog.getByRole('button', { name: 'Create new collection' }).click()
   await dialog.getByLabel('Title (required)', { exact: true }).fill('First collection')

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 for (const width of [320, 1280]) {
   test(`staff status filters default and reset to All at ${width}px`, async ({ page }) => {
@@ -39,7 +39,7 @@ for (const width of [320, 1280]) {
     await expect(panel.getByRole('article')).toHaveCount(3)
     await filter.getByRole('button', { name: 'Past', exact: true }).click()
     await expect(panel.getByRole('article')).toHaveCount(1)
-    await expect(panel.getByRole('heading', { name: 'closed contest', exact: true })).toBeVisible()
+    await expect(panel.getByRole('heading', { name: 'Closed contest', exact: true })).toBeVisible()
     await filter.getByRole('button', { name: 'Reset filters' }).click()
     await expect(panel.getByRole('article')).toHaveCount(4)
     await expect(filter.getByRole('button', { name: 'All', exact: true })).toHaveAttribute('aria-pressed', 'true')
@@ -60,7 +60,7 @@ for (const role of ['regular', 'moderator', 'admin']) {
         if (path === '/api/user/me') return route.fulfill({ json: { data: { role, displayName: 'Test Member', joinedAt: '2025-01-01', postCount: 0, followersCount: 0, followingCount: 0 } } })
         if (path === '/api/v1/me/entitlements') return route.fulfill({ json: { data: { capabilities: [], membership: { plan: 'free', status: 'inactive' } } } })
         if (path === '/api/v1/notifications') return route.fulfill({ json: { data: [], meta: { unreadCount: 0 } } })
-        if (path === '/api/staff/reports') return route.fulfill({ json: { data: [] } })
+        if (path === '/api/staff/reports') return route.fulfill({ json: { data: [], meta: { unreadCount: 0, nextCursor: null } } })
         return route.fulfill({ json: { data: [], meta: { nextCursor: null } } })
       })
 
@@ -125,7 +125,7 @@ test('canceling a competition cover selection keeps create and edit dialogs open
     await page.getByRole('button', { name: trigger, exact: true }).click()
     const dialog = page.getByRole('dialog', { name: title })
     await dialog.locator('input[type="file"]').evaluate(input => { input.click = () => {} })
-    await dialog.getByRole('button', { name: 'Choose image' }).click()
+    await dialog.getByRole('button', { name: '+ Add image', exact: true }).click()
     await page.keyboard.press('Escape')
     await dialog.locator('input[type="file"]').evaluate(input => input.dispatchEvent(new Event('cancel', { bubbles: true })))
     await expect(dialog).toBeVisible()

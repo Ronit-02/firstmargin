@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 test.beforeEach(async ({ page }) => {
   await page.route(url => url.pathname.startsWith('/api/'), route => {

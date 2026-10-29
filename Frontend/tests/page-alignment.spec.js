@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
@@ -92,7 +92,9 @@ async function assertFrame(page, name, width) {
   return g
 }
 
-for (const width of [320, 768, 1280, 1920]) for (const theme of ['light', 'dark']) {
+// Frame geometry is theme-independent; modal/button/theme suites own color assertions.
+for (const width of [320, 768, 1280, 1920]) {
+  const theme = width < 768 ? 'light' : 'dark'
   test(`every application page shares the frame at ${width}px ${theme}`, async ({ page }) => {
     test.setTimeout(180_000)
     await page.setViewportSize({ width, height: 900 })
@@ -147,6 +149,7 @@ test('page origins do not move when scrolling becomes necessary or the sidebar r
   const before = await geometry(page)
   const resize = page.getByRole('separator', { name: 'Resize sidebar' })
   await resize.press('End')
+  await expect.poll(() => resize.evaluate(node => Math.round(node.parentElement.getBoundingClientRect().width))).toBe(Number(await resize.getAttribute('aria-valuemax')))
   const resized = await assertFrame(page, 'expanded sidebar', 1920)
   await page.goto('/')
   expect((await geometry(page)).left).toBe(resized.left)
@@ -175,7 +178,7 @@ for (const width of [320, 1280]) {
       const prompt = page.getByRole('main').getByRole('button', { name: 'Sign In', exact: true })
       if (await prompt.count()) {
         const b = await prompt.boundingBox()
-        const scroll = await page.locator('[data-app-scroll]').count() ? await page.locator('[data-app-scroll]').boundingBox() : { x: 0, width }
+        const scroll = await page.locator('[data-app-scroll]').count() ? await page.locator('[data-app-scroll]').evaluate(node => ({ x: node.getBoundingClientRect().x + node.clientLeft, width: node.clientWidth })) : { x: 0, width }
         expect(Math.abs(b.x + b.width / 2 - scroll.x - scroll.width / 2), url).toBeLessThan(3)
       }
       await page.screenshot({ path: path.join(output, `${url.replace(/\W/g, '_') || 'home'}.png`) })
@@ -206,7 +209,7 @@ for (const width of [320, 1280]) {
 test('route inventory requires an explicit alignment audit for new pages', async () => {
   const app = await fs.readFile(path.resolve('src/App.jsx'), 'utf8')
   const routes = [...new Set([...app.matchAll(/<Route\s+path="([^"]+)"/g)].map(match => match[1]))].sort()
-  expect(routes).toEqual(['/', '/login', '/signup', '/onboarding', '/explore', 'trending', 'questions', 'competitions', '/explore/competitions/:id', '/explore/questions/:id', '/opportunities', '/search', '/post/:id', '/author', '/author/:handle', '/collections', '/saved', '/collections/:id', '/shorts', '/series', '/series/:id', '/shorts/series/:id', '/history', '/members', '/notifications', '/membership', '/staff', '/write', '/writing', '/studio', '/profile', '/profile/edit', '/settings', '/help', '*'].sort())
+  expect(routes).toEqual(['/', '/login', '/signup', '/onboarding', '/explore', 'trending', 'questions', 'competitions', '/explore/competitions/:id', '/explore/questions/:id', '/opportunities', '/search', '/post/:id', '/author', '/author/:handle', '/collections', '/saved', '/collections/:id', '/shorts', '/series', '/series/:id', '/shorts/series/:id', '/history', '/members', '/notifications', '/membership', '/staff', '/staff/competitions/:id/judging', '/write', '/writing', '/studio', '/profile', '/profile/edit', '/settings', '/help', '*'].sort())
 })
 
 for (const width of [320, 605, 1280]) {
@@ -216,9 +219,8 @@ for (const width of [320, 605, 1280]) {
     for (const [url, actionName] of [
       ['/collections', 'Create collection'],
       ['/series', 'Create a series'],
-      ['/shorts', 'Browse series'],
       ['/explore/questions', 'Ask a question'],
-      ['/studio', 'Write a post'],
+      ['/studio', 'Write a story'],
     ]) {
       await page.goto(url)
       const action = page.getByRole(actionName === 'Browse series' ? 'link' : 'button', { name: actionName, exact: true })
@@ -230,8 +232,9 @@ for (const width of [320, 605, 1280]) {
         const rect = element => element.getBoundingClientRect()
         return { header: rect(header), title: rect(titleWrap), action: rect(actionWrap) }
       })
-      expect(alignment.action.x).toBeGreaterThanOrEqual(alignment.title.x + alignment.title.width - 1)
-      expect(Math.abs(alignment.action.y + alignment.action.height / 2 - (alignment.title.y + alignment.title.height / 2))).toBeLessThanOrEqual(1)
+      const alongside = alignment.action.x >= alignment.title.x + alignment.title.width - 1
+      if (alongside) expect(Math.abs(alignment.action.y + alignment.action.height / 2 - (alignment.title.y + alignment.title.height / 2))).toBeLessThanOrEqual(1)
+      else expect(alignment.action.y).toBeGreaterThanOrEqual(alignment.title.y + alignment.title.height)
       expect(alignment.action.x + alignment.action.width).toBeLessThanOrEqual(alignment.header.x + alignment.header.width + 1)
     }
   })

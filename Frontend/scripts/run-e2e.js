@@ -13,6 +13,12 @@ if (process.env.E2E_BASE_URL) throw new Error('E2E_BASE_URL is disabled: E2E tes
 
 const target = createTemporaryDatabase()
 const env = createTestEnvironment(target)
+const apiPort = Number(process.env.E2E_API_PORT || 8096)
+const frontendPort = Number(process.env.E2E_FRONTEND_PORT || 3096)
+if (![apiPort, frontendPort].every(port => Number.isInteger(port) && port >= 1024 && port <= 65535) || apiPort === frontendPort) throw new Error('E2E ports must be distinct unprivileged local ports')
+env.PORT = String(apiPort)
+env.VITE_API_URL = `http://127.0.0.1:${apiPort}`
+env.FRONTEND_URL = `http://127.0.0.1:${frontendPort}`
 let child
 let interrupted = false
 const stop = () => {

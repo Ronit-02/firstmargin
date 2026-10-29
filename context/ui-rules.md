@@ -1,5 +1,9 @@
 # firstmargin UI rules
 
+## Narrow-screen overflow guards — 2026-10-30
+
+Explore's section row scrolls horizontally within its page width; individual links do not shrink, and their combined width must not widen the page. The mobile inbox retains its 54 px top offset and at least 16 px bottom clearance within the current overlay viewport height, with scrolling inside the panel. Existing components, typography, theme colors and desktop placement remain in use. The broad browser repair evidence is recorded in `test-suite-audit.md`.
+
 ## Page filter persistence — 2026-10-22
 
 Page filters are derived from URL search parameters so refresh, direct links, and browser Back/Forward restore the selection. Applying or resetting Search filters creates a history entry rather than replacing the preceding selection. Existing topic/time/sort keys and defaults remain in use. A repeated selection does not add a duplicate entry on the updated surfaces; unrelated query parameters and anchors are preserved.

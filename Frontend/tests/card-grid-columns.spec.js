@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 const stylesheet = readFileSync(new URL('../src/styles/global.css', import.meta.url), 'utf8')
 const cardGridRules = stylesheet.slice(stylesheet.indexOf('.card-grid {'), stylesheet.indexOf('/* ─── Animation utilities'))
@@ -28,7 +28,8 @@ for (const width of [390, 768, 1200]) {
   })
 }
 
-for (const width of [359, 360, 375, 398, 400, 407, 408]) {
+// Adjacent widths protect both ends of the compact two-column media-query band.
+for (const width of [359, 360, 407, 408]) {
   test(`short grids keep the expected columns at ${width}px with both gap sizes`, async ({ page }) => {
     await page.setViewportSize({ width, height: 800 })
     await page.setContent(`<style>body{margin:0}${cardGridRules}</style><main style="width:calc(100% - 44px);margin:auto"></main>`)
