@@ -9,13 +9,15 @@ import Select from '@/shared/components/ui/Select'
 import ModalLayer from '@/shared/components/ui/ModalLayer'
 import ModalHeader from '@/shared/components/ui/ModalHeader'
 import useDialogFocus from '@/shared/hooks/useDialogFocus'
+import useFilePickerDismissGuard from '@/shared/hooks/useFilePickerDismissGuard'
+import isValidImageUrl from '@/shared/utils/isValidImageUrl'
 import ShareMenu from '@/shared/components/ui/ShareMenu'
 import { PenIcon, ShareIcon } from '@/shared/icons'
 import { ListSkeleton } from '@/shared/components/ui/Skeleton'
 import MissingResourceState from '@/shared/components/ui/MissingResourceState'
 import isMissingResourceError from '@/shared/errors/isMissingResourceError'
 import PageFrame from '@/shared/components/layout/PageFrame'
-import { useDeleteShortSeries, useEligibleSeriesPosts, useShortSeriesDetail, useUpdateShortSeries } from '../hooks/useShortSeries'
+import { useDeleteShortSeries, useEligibleSeriesPosts, useShortSeriesDetail, useUpdateShortSeries, useUploadSeriesCover } from '../hooks/useShortSeries'
 
 function DeleteSeriesConfirmation({ series, deletion, triggerRef, onClose, onDeleted }) {
   const closeRef = useRef(null)
@@ -35,12 +37,25 @@ function SeriesContent({ series, id }) {
   const navigate = useNavigate()
   const location = useLocation()
   const update = useUpdateShortSeries(id)
+  const uploadCover = useUploadSeriesCover(id)
   const deletion = useDeleteShortSeries(id)
   const type = series.type || 'short'
   const eligible = useEligibleSeriesPosts(type, id, series.isOwner)
   const [draftEntries, setDraftEntries] = useState(null)
   const [draftTitle, setDraftTitle] = useState(null)
   const [draftDescription, setDraftDescription] = useState(null)
+  const [coverImage, setCoverImage] = useState(series.coverImage || '')
+  const [coverFile, setCoverFile] = useState(null)
+  const [coverPreview, setCoverPreview] = useState(null)
+  const [coverSource, setCoverSource] = useState('upload')
+  const [coverUrl, setCoverUrl] = useState('')
+  const [removeCover, setRemoveCover] = useState(false)
+  useEffect(() => {
+    if (!coverPreview) return undefined
+    return () => URL.revokeObjectURL(coverPreview)
+  }, [coverPreview])
+  const coverInputRef = useRef(null)
+  const { pickerActiveRef, openPicker, releasePicker } = useFilePickerDismissGuard()
   const [editOpen, setEditOpen] = useState(() => Boolean(series.isOwner && location.state?.openEditSeries))
   useEffect(() => {
     if (location.state?.openEditSeries) navigate(location.pathname + location.search + location.hash, { replace: true, state: null })
@@ -54,7 +69,7 @@ function SeriesContent({ series, id }) {
   const title = draftTitle ?? series.title
   const description = draftDescription ?? series.description ?? ''
   const validTitle = title.trim().length >= 2 && title.trim().length <= 100
-  const hasChanges = Boolean(draftEntries) || title.trim() !== series.title || description.trim() !== (series.description || '')
+  const hasChanges = Boolean(coverFile || removeCover || (coverSource === 'url' && coverUrl.trim()) || draftEntries) || title.trim() !== series.title || description.trim() !== (series.description || '')
   const move = (index, direction) => setDraftEntries(current => {
     const next = [...(current || series.entries)]
     const target = index + direction
@@ -64,9 +79,15 @@ function SeriesContent({ series, id }) {
   })
   const remove = postId => setDraftEntries(current => (current || series.entries).filter(entry => entry.id !== postId))
   const add = post => setDraftEntries(current => [...(current || series.entries), { ...post, format: type, author: series.author }])
-  const save = () => {
-    if (!validTitle || description.trim().length > 500 || entries.length < 2 || !hasChanges) return
-    update.mutate({ title: title.trim(), description: description.trim(), visibility: series.visibility, type, postIds: entries.map(entry => entry.id) }, { onSuccess: () => { setDraftEntries(null); setDraftTitle(null); setDraftDescription(null); setEditOpen(false) } })
+  const save = async () => {
+    if (!validTitle || description.trim().length > 500 || entries.length < 2 || !hasChanges || (coverUrl.trim() && !isValidImageUrl(coverUrl))) return
+    try {
+      await update.mutateAsync({ title: title.trim(), description: description.trim(), visibility: series.visibility, type, publicationIds: entries.map(entry => entry.id), ...(coverFile || removeCover ? { coverImage: '' } : coverSource === 'url' && coverUrl.trim() ? { coverImage: coverUrl.trim() } : {}) })
+      if (coverFile) { try { const result = await uploadCover.mutateAsync(coverFile); setCoverImage(result.coverImage) } catch { setCoverImage('') } }
+      else if (coverSource === 'url' && coverUrl.trim()) setCoverImage(coverUrl.trim())
+      else if (removeCover) setCoverImage('')
+      setDraftEntries(null); setDraftTitle(null); setDraftDescription(null); setCoverFile(null); setCoverPreview(null); setCoverUrl(''); setRemoveCover(false); setEditOpen(false)
+    } catch { /* Keep the dialog open for a failed details save. */ }
   }
   const available = (eligible.data || []).filter(post => !entries.some(entry => entry.id === post.id))
   const editButton = className => <button type="button" onClick={() => setEditOpen(true)} aria-label="Edit series" title="Edit series" aria-haspopup="dialog" className={`${className} h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]`}><PenIcon /></button>
@@ -84,19 +105,26 @@ function SeriesContent({ series, id }) {
       <span className="pt-1 text-[12px] font-semibold text-[var(--color-text-muted)] sm:text-[13px]">{String(index + 1).padStart(2, '0')}</span>
       <div className={`min-w-0 ${type === 'article' && entry.image ? 'flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6' : ''}`}>
         <div className="min-w-0 flex-1">
-          <h2 className="break-words text-[19px] font-bold leading-[1.25] tracking-[-0.035em] text-[var(--color-text)] sm:text-[22px]" style={{ fontFamily: 'var(--font-display)' }}><Link to={`/post/${entry.id}`} onClick={event => { if (type !== 'short' || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); setShortReadId(entry.id) }} className="rounded-[4px] hover:text-[var(--color-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]">{entry.title}</Link></h2>
+          <h2 className="break-words text-[19px] font-bold leading-[1.25] tracking-[-0.035em] text-[var(--color-text)] sm:text-[22px]" style={{ fontFamily: 'var(--font-display)' }}><Link to={`/post/${entry.id}${type !== 'short' ? `?series=${encodeURIComponent(id)}` : ''}`} onClick={event => { if (type !== 'short' || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); setShortReadId(entry.id) }} className="rounded-[4px] hover:text-[var(--color-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)]">{entry.title}</Link></h2>
           {entry.excerpt && <p className="mt-2 line-clamp-2 break-words text-[13px] leading-[1.6] text-[var(--color-text-secondary)]">{entry.excerpt}</p>}
           <p className="mt-3 text-[12px] text-[var(--color-text-muted)]">{entry.readTime || (type === 'short' ? 'Short' : 'Story')}</p>
         </div>
-        {type === 'article' && entry.image && <Link to={`/post/${entry.id}`} aria-label={`Read ${entry.title}`} className="order-first block w-full shrink-0 rounded-[8px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] sm:order-last sm:w-40 lg:w-48"><ImageBox src={entry.image} alt="" height="auto" aspectRatio="16 / 9" radius="8px" /></Link>}
+        {type === 'article' && entry.image && <Link to={`/post/${entry.id}?series=${encodeURIComponent(id)}`} aria-label={`Read ${entry.title}`} className="order-first block w-full shrink-0 rounded-[8px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] sm:order-last sm:w-40 lg:w-48"><ImageBox src={entry.image} alt="" height="auto" aspectRatio="16 / 9" radius="8px" /></Link>}
       </div>
       <PostCardMenu post={{ ...entry, format: type, author: entry.author || series.author }} variant={type} />
     </li>)}</ol>
     {type === 'short' && shortReadId && <ShortReadModal postId={shortReadId} onClose={() => setShortReadId(null)} listIds={series.entries.map(entry => entry.id)} inSeriesView />}
-    {editOpen && <ModalLayer onDismiss={() => { if (!deletion.isPending && !deleteOpen) setEditOpen(false) }} aria-labelledby="series-edit-title" className="grid place-items-center p-4">
+    {editOpen && <ModalLayer onDismiss={() => { if (!pickerActiveRef.current && !update.isPending && !uploadCover.isPending && !deletion.isPending && !deleteOpen) { setCoverFile(null); setCoverPreview(null); setCoverUrl(''); setEditOpen(false) } }} aria-labelledby="series-edit-title" className="grid place-items-center p-4">
       <section className="w-full max-w-[640px] max-h-[calc(var(--overlay-height)-2rem)] overflow-y-auto rounded-[20px] border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
-        <ModalHeader title="Edit series" titleId="series-edit-title" subtitle="Update the series details and reading order." onClose={() => { if (!deletion.isPending && !deleteOpen) setEditOpen(false) }} closeLabel="Close edit series" className="-mx-6 -mt-6" />
+        <ModalHeader title="Edit series" titleId="series-edit-title" subtitle="Update the series details and reading order." onClose={() => { if (!pickerActiveRef.current && !update.isPending && !uploadCover.isPending && !deletion.isPending && !deleteOpen) { setCoverFile(null); setCoverPreview(null); setCoverUrl(''); setEditOpen(false) } }} closeLabel="Close edit series" className="-mx-6 -mt-6" />
         <div className="mt-6">
+          <div className="mb-5">
+            <p className="mb-3 text-[12px] font-semibold text-[var(--color-text)]">Series image <span className="font-normal text-[var(--color-text-secondary)]">(optional)</span></p>
+            <Select id="series-cover-source" label="Image source" value={coverSource} options={[{ value: 'upload', label: 'Upload file' }, { value: 'url', label: 'Paste URL' }]} onChange={value => { setCoverSource(value); setCoverFile(null); setCoverPreview(null); setCoverUrl('') }} className="mb-3 max-w-none" />
+            {coverSource === 'url' && <label className="mb-3 block text-[12px]" htmlFor="series-cover-url">Image URL<input id="series-cover-url" type="url" value={coverUrl} onChange={event => { setCoverUrl(event.target.value); if (event.target.value) setRemoveCover(false) }} placeholder="https://..." className="mt-1 w-full rounded-[10px] border border-[var(--color-border)] bg-[var(--color-surface)] p-3 text-[13px]" /></label>}
+            {(coverSource === 'url' ? coverUrl || (removeCover ? '' : coverImage) : coverPreview || (removeCover ? '' : coverImage)) ? <div className="relative"><img src={coverSource === 'url' ? coverUrl || (removeCover ? '' : coverImage) : coverPreview || (removeCover ? '' : coverImage)} alt="Series cover preview" className="block h-40 w-full rounded-[14px] object-cover" /><button type="button" aria-label="Remove series image" disabled={update.isPending || uploadCover.isPending} onClick={() => { setCoverFile(null); setCoverPreview(null); setCoverUrl(''); setRemoveCover(true) }} className="absolute right-2 top-2 flex h-11 w-11 items-center justify-center rounded-full border-none bg-black/60 text-[18px] text-white disabled:opacity-60">×</button></div> : coverSource === 'upload' ? <button type="button" onClick={() => openPicker(coverInputRef.current)} disabled={update.isPending || uploadCover.isPending} className="flex min-h-40 w-full items-center justify-center rounded-[14px] border-2 border-dashed border-[var(--color-border)] bg-transparent px-3 py-3 text-[13px] font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-bg-alt)] disabled:opacity-60">+ Add image</button> : null}
+            <input ref={coverInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="sr-only" onCancel={releasePicker} onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; releasePicker(); if (file) { setCoverFile(file); setCoverPreview(URL.createObjectURL(file)); setRemoveCover(false) } }} />
+          </div>
           <label htmlFor="edit-series-title" className="mb-2 block text-[12px] font-semibold text-[var(--color-text)]">Title <span aria-hidden="true">(required)</span></label>
           <input id="edit-series-title" required minLength={2} maxLength={100} value={title} onChange={event => setDraftTitle(event.target.value)} className="w-full rounded-[10px] border border-[var(--color-border)] bg-[var(--color-bg-alt)] px-3 py-2.5 text-[13px] text-[var(--color-text)]" />
           <p className="mt-1 text-right text-[11px] text-[var(--color-text-muted)]">At least 2 characters · {title.length}/100</p>
@@ -108,7 +136,7 @@ function SeriesContent({ series, id }) {
           {eligible.isPending && <p role="status" className="mt-3 text-[12px] text-[var(--color-text-muted)]">Loading your writing…</p>}
           {eligible.isError && <div className="mt-3"><p role="alert" className="text-[12px] text-[var(--color-danger)]">Your writing could not be loaded.</p><Button variant="secondary" className="mt-2" onClick={() => eligible.refetch()}>Try again</Button></div>}
           {!eligible.isPending && !eligible.isError && (available.length > 0 ? <div className="mt-3"><Select id="series-add-writing" label={`Choose a ${type === 'short' ? 'short' : 'story'} to add`} value="" options={available.map(post => ({ value: post.id, label: post.title }))} onChange={postId => { const post = available.find(item => item.id === postId); if (post && entries.length < 50) add(post) }} disabled={entries.length >= 50 || update.isPending || deletion.isPending} className="max-w-none" /></div> : <p className="mt-3 text-[12px] text-[var(--color-text-muted)]">No other published {type === 'short' ? 'shorts' : 'stories'} are available to add.</p>)}
-          <div className="mt-5 flex flex-wrap items-center justify-between gap-3"><Button ref={deleteTriggerRef} variant="secondary" onClick={() => setDeleteOpen(true)} disabled={update.isPending || deletion.isPending} className="!text-[var(--color-danger)]">Delete series</Button><Button onClick={save} disabled={!hasChanges || !validTitle || description.trim().length > 500 || entries.length < 2 || update.isPending || deletion.isPending} aria-busy={update.isPending} className="ml-auto">Save series</Button></div>
+          <div className="mt-5 flex flex-wrap items-center justify-end gap-3"><Button ref={deleteTriggerRef} variant="secondary" onClick={() => setDeleteOpen(true)} disabled={update.isPending || uploadCover.isPending || deletion.isPending} className="!text-[var(--color-danger)]">Delete series</Button><Button onClick={save} disabled={!hasChanges || !validTitle || description.trim().length > 500 || entries.length < 2 || update.isPending || uploadCover.isPending || deletion.isPending || Boolean(coverUrl.trim() && !isValidImageUrl(coverUrl))} aria-busy={update.isPending || uploadCover.isPending}>Save series</Button></div>
           {draftEntries && entries.length < 2 && <p className="mt-3 text-[12px] text-[var(--color-text-secondary)]">A series needs at least two parts.</p>}{update.isError && <p role="alert" className="mt-3 text-[12px] text-[var(--color-danger)]">Could not save series</p>}
         </div>
       </section>

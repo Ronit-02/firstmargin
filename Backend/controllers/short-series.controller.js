@@ -4,6 +4,8 @@ const Profile = require('../schemas/profile.schema');
 const ShortSeries = require('../schemas/short-series.schema');
 const { encodeCursor, decodeCursor } = require('../utils/cursor');
 const { presentDiscoveryPosts } = require('../services/publication-presenter.service');
+const { uploadOnCloudinary } = require('../utils/cloudinary');
+const fs = require('fs');
 
 const isValidId = value => mongoose.isValidObjectId(value);
 const orderedItems = series => [...series.items].sort((left, right) => left.position - right.position);
@@ -26,15 +28,15 @@ const present = async (seriesDocuments, actorId, includeItems = false) => {
       id: series._id,
       title: series.title,
       description: series.description,
+      coverImage: series.coverImage || items.find(item => item.publication?.coverImage)?.publication.coverImage || null,
       visibility: series.visibility,
       type: series.type || 'short',
       entriesCount: items.length,
-      entriesPreview: !includeItems ? items.slice(0, 3).map((item, index) => ({
+      entriesPreview: !includeItems ? items.map((item, index) => ({
         id: item.publication._id,
         title: item.publication.title,
         position: index + 1,
       })) : undefined,
-      coverImage: items.find(item => item.publication?.coverImage)?.publication.coverImage || null,
       isOwner: actorId === series.author?._id?.toString(),
       isSaved: Boolean(actorId && series.savedBy?.some(id => id.toString() === actorId)),
       savedCount: series.savedCount || series.savedBy?.length || 0,
@@ -79,7 +81,14 @@ const validateInput = async (body, authorId, existingType = null) => {
     $or: [{ publicAt: { $lte: now } }, { publicAt: null }, { publicAt: { $exists: false } }],
   }).select('_id');
   if (posts.length !== publicationIds.length) return { error: `Series entries must be your published ${type === 'short' ? 'shorts' : 'stories'}` };
-  return { value: { title, description, visibility, type, items: publicationIds.map((post, position) => ({ publication: post, position })) } };
+  const value = { title, description, visibility, type, items: publicationIds.map((post, position) => ({ publication: post, position })) };
+  if (existingType && body.coverImage !== undefined) {
+    const coverImage = String(body.coverImage || '').trim();
+    if (coverImage.length > 2000) return { error: 'Series cover URL is too long' };
+    if (coverImage) { try { const url = new URL(coverImage); if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) return { error: 'Series cover must be a valid HTTP(S) URL' }; } catch { return { error: 'Series cover must be a valid HTTP(S) URL' }; } }
+    value.coverImage = coverImage;
+  }
+  return { value };
 };
 
 const listSeries = async (req, res) => {
@@ -171,6 +180,21 @@ const updateSeries = async (req, res) => {
   return res.status(200).json({ data: { updated: true } });
 };
 
+const uploadSeriesCover = async (req, res) => {
+  try {
+    if (!isValidId(req.params.id)) return res.status(400).json({ message: 'Invalid series id' });
+    if (!req.file) return res.status(400).json({ message: 'Choose an image to upload' });
+    const series = await ShortSeries.findOne({ _id: req.params.id, author: req.auth.userId }).select('_id');
+    if (!series) return res.status(404).json({ message: 'Owned series not found' });
+    const upload = await uploadOnCloudinary(req.file.path);
+    if (!upload?.secure_url) return res.status(502).json({ message: 'Cover image upload failed' });
+    await ShortSeries.updateOne({ _id: series._id, author: req.auth.userId }, { $set: { coverImage: upload.secure_url } });
+    return res.status(200).json({ data: { coverImage: upload.secure_url } });
+  } finally {
+    if (req.file?.path) await fs.promises.unlink(req.file.path).catch(() => {});
+  }
+};
+
 const deleteSeries = async (req, res) => {
   if (!isValidId(req.params.id)) return res.status(400).json({ message: 'Invalid series id' });
   const deleted = await ShortSeries.findOneAndDelete({ _id: req.params.id, author: req.auth.userId });
@@ -233,4 +257,4 @@ const unsaveSeries = async (req, res) => {
   return res.status(200).json({ data: { isSaved: false, savedCount: series.savedCount || series.savedBy.length } });
 };
 
-module.exports = { listSeries, getSeries, getEligibleShorts, getEligiblePosts, createSeries, updateSeries, deleteSeries, addSeriesItem, saveSeries, unsaveSeries };
+module.exports = { listSeries, getSeries, getEligibleShorts, getEligiblePosts, createSeries, updateSeries, uploadSeriesCover, deleteSeries, addSeriesItem, saveSeries, unsaveSeries };

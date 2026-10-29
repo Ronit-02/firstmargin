@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 const competitions = [
   { id: 'closed-contest', title: 'Small Details, Big Worlds', description: 'A seeded competition exercising entry, voting, judging, and results states. Discover a fresh perspective through careful observation.', status: 'closed', closeDate: '2026-09-13T12:00:00Z', entriesCount: 2, competitionType: 'theme' },
@@ -36,11 +36,14 @@ for (const width of [320, 390, 600, 640, 1280]) {
     })
     expect(layout.statusHeight).toBeLessThanOrEqual(layout.statusLineHeight + 8)
     if (width < 640) {
-      expect(layout.heading.y).toBeGreaterThanOrEqual(layout.image.bottom + 15)
+      expect(layout.image.width).toBeCloseTo(layout.card.width, 0)
+      expect(layout.image.height / layout.image.width).toBeCloseTo(9 / 16, 1)
+      expect(layout.heading.y).toBeGreaterThan(layout.image.bottom)
       expect(layout.heading.width).toBeCloseTo(layout.card.width, 0)
       expect(layout.fontSize).toBe(14)
     } else {
-      expect(layout.image.width).toBe(120)
+      expect(layout.image.width).toBe(width >= 1024 ? 220 : 180)
+      expect(layout.image.height / layout.image.width).toBeCloseTo(9 / 16, 1)
       expect(layout.heading.x).toBeGreaterThan(layout.image.right)
       expect(layout.fontSize).toBe(12)
     }

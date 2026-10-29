@@ -8,16 +8,20 @@ import Pill from '@/shared/components/ui/Pill'
 import ModalHeader from '@/shared/components/ui/ModalHeader'
 import ModalLayer from '@/shared/components/ui/ModalLayer'
 import useDialogFocus from '@/shared/hooks/useDialogFocus'
+import useFilePickerDismissGuard from '@/shared/hooks/useFilePickerDismissGuard'
+import useFilterSearchParams from '@/shared/hooks/useFilterSearchParams'
 import { BookmarkIcon, PenIcon, ShareIcon } from '@/shared/icons'
 import DiscoveryPostCard from '@/features/discovery/components/DiscoveryPostCard'
 import ShortCard from '@/features/discovery/components/ShortCard'
 import useAuth from '@/features/auth/hooks/useAuth'
-import { useCollection, useCollectionSave, useDeleteCollection, useUpdateCollection } from '../hooks/useCollections'
+import { useCollection, useCollectionSave, useDeleteCollection, useUpdateCollection, useUploadCollectionCover } from '../hooks/useCollections'
 import { ListSkeleton, Skeleton } from '@/shared/components/ui/Skeleton'
 import MissingResourceState from '@/shared/components/ui/MissingResourceState'
 import isMissingResourceError from '@/shared/errors/isMissingResourceError'
 import PageFrame from '@/shared/components/layout/PageFrame'
 import ImageBox from '@/shared/components/ui/ImageBox'
+import Select from '@/shared/components/ui/Select'
+import isValidImageUrl from '@/shared/utils/isValidImageUrl'
 
 function DeleteCollectionConfirmation({ collection, deletion, triggerRef, onClose, onDeleted }) {
   const closeRef = useRef(null)
@@ -39,24 +43,43 @@ function EditCollectionDialog({ collection, posts, onClose, returnFocusRef }) {
   const deleteTriggerRef = useRef(null)
   const [title, setTitle] = useState(collection.title)
   const [description, setDescription] = useState(collection.description || '')
-  const [coverImage, setCoverImage] = useState(collection.coverImage || '')
+  const [coverImage] = useState(collection.coverImage || '')
+  const [coverFile, setCoverFile] = useState(null)
+  const [coverPreview, setCoverPreview] = useState(null)
+  const [coverSource, setCoverSource] = useState('upload')
+  const [coverUrl, setCoverUrl] = useState('')
+  const [removeCover, setRemoveCover] = useState(false)
+  const coverInputRef = useRef(null)
+  const { pickerActiveRef, openPicker, releasePicker } = useFilePickerDismissGuard()
+  const uploadCover = useUploadCollectionCover(collection.id)
   const [editedPosts, setEditedPosts] = useState(posts)
   const update = useUpdateCollection(collection.id)
   const deletion = useDeleteCollection(collection.id)
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const close = () => { if (!update.isPending && !deletion.isPending && !confirmDelete) onClose() }
+  useEffect(() => {
+    if (!coverPreview) return undefined
+    return () => URL.revokeObjectURL(coverPreview)
+  }, [coverPreview])
+  const close = () => { if (!pickerActiveRef.current && !update.isPending && !uploadCover.isPending && !deletion.isPending && !confirmDelete) onClose() }
   const dialogRef = useDialogFocus(close, closeRef)
-  const submit = event => { event.preventDefault(); if (title.trim().length < 2 || update.isPending || deletion.isPending || confirmDelete) return; update.mutate({ title: title.trim(), description: description.trim(), coverImage: coverImage.trim(), postIds: editedPosts.map(post => post.id) }, { onSuccess: onClose }) }
+  const submit = async event => { event.preventDefault(); if (title.trim().length < 2 || update.isPending || uploadCover.isPending || deletion.isPending || confirmDelete) return; try { await update.mutateAsync({ title: title.trim(), description: description.trim(), publicationIds: editedPosts.map(post => post.id), ...(coverFile || removeCover ? { coverImage: '' } : coverSource === 'url' && coverUrl.trim() ? { coverImage: coverUrl.trim() } : {}) }); if (coverFile) { try { await uploadCover.mutateAsync(coverFile) } catch { /* The collection details were saved with the standard cover. */ } } onClose() } catch { /* Keep the dialog open for a failed details save. */ } }
+  const chooseCover = event => { const file = event.target.files?.[0]; event.target.value = ''; releasePicker(); if (file) { setCoverFile(file); setCoverPreview(URL.createObjectURL(file)); setRemoveCover(false) } }
   return <ModalLayer onDismiss={close} returnFocusRef={returnFocusRef} aria-labelledby="collection-edit-title" className="grid place-items-center p-4">
     <section ref={dialogRef} tabIndex={-1} className="w-full max-w-[620px] max-h-[calc(100vh-2rem)] overflow-y-auto rounded-[20px] border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
       <ModalHeader title="Edit collection" titleId="collection-edit-title" subtitle={collection.title} onClose={close} closeRef={closeRef} closeLabel="Close edit collection" className="-mx-6 -mt-6" />
       <form className="mt-6" onSubmit={submit}>
+        <div className="mb-5">
+          <p className="mb-3 text-[12px] font-semibold text-[var(--color-text)]">Collection image <span className="font-normal text-[var(--color-text-secondary)]">(optional)</span></p>
+          <Select id="collection-cover-source" label="Image source" value={coverSource} options={[{ value: 'upload', label: 'Upload file' }, { value: 'url', label: 'Paste URL' }]} onChange={value => { setCoverSource(value); setCoverFile(null); setCoverPreview(null); setCoverUrl('') }} className="mb-3 max-w-none" />
+          {coverSource === 'url' && <label className="mb-3 block text-[12px]" htmlFor="collection-cover-url">Image URL<input id="collection-cover-url" type="url" value={coverUrl} onChange={event => { setCoverUrl(event.target.value); if (event.target.value) setRemoveCover(false) }} placeholder="https://..." className="mt-1 w-full rounded-[10px] border border-[var(--color-border)] bg-[var(--color-surface)] p-3 text-[13px]" /></label>}
+          {(coverSource === 'url' ? coverUrl || (removeCover ? '' : coverImage) : coverPreview || (removeCover ? '' : coverImage)) ? <div className="relative"><img src={coverSource === 'url' ? coverUrl || (removeCover ? '' : coverImage) : coverPreview || (removeCover ? '' : coverImage)} alt="Collection cover preview" className="block h-40 w-full rounded-[14px] object-cover" /><button type="button" aria-label="Remove collection image" disabled={update.isPending || uploadCover.isPending} onClick={() => { setCoverFile(null); setCoverPreview(null); setCoverUrl(''); setRemoveCover(true) }} className="absolute right-2 top-2 flex h-11 w-11 items-center justify-center rounded-full border-none bg-black/60 text-[18px] text-white disabled:opacity-60">×</button></div> : coverSource === 'upload' ? <button type="button" onClick={() => openPicker(coverInputRef.current)} disabled={update.isPending || uploadCover.isPending} className="flex min-h-40 w-full items-center justify-center rounded-[14px] border-2 border-dashed border-[var(--color-border)] bg-transparent px-3 py-3 text-[13px] font-medium text-[var(--color-text-muted)] hover:bg-[var(--color-bg-alt)] disabled:opacity-60">+ Add image</button> : null}
+          <input ref={coverInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="sr-only" onCancel={releasePicker} onChange={chooseCover} />
+        </div>
         <label htmlFor="collection-edit-name" className="mb-2 block text-[12px] font-semibold">Name</label><input id="collection-edit-name" value={title} maxLength={100} disabled={update.isPending} onChange={event => setTitle(event.target.value)} className="w-full rounded-[10px] border border-[var(--color-border)] bg-[var(--color-bg-alt)] px-3 py-2.5 text-[13px] text-[var(--color-text)]" />
         <label htmlFor="collection-edit-description" className="mt-4 mb-2 block text-[12px] font-semibold">Description</label><textarea id="collection-edit-description" value={description} maxLength={500} disabled={update.isPending} onChange={event => setDescription(event.target.value)} className="min-h-20 w-full rounded-[10px] border border-[var(--color-border)] bg-[var(--color-bg-alt)] px-3 py-2.5 text-[13px] text-[var(--color-text)]" />
-        <label htmlFor="collection-edit-cover" className="mt-4 mb-2 block text-[12px] font-semibold">Cover image URL</label><input id="collection-edit-cover" type="url" value={coverImage} disabled={update.isPending} onChange={event => setCoverImage(event.target.value)} placeholder="https://…" className="w-full rounded-[10px] border border-[var(--color-border)] bg-[var(--color-bg-alt)] px-3 py-2.5 text-[13px] text-[var(--color-text)]" />
         <fieldset className="mt-5"><legend className="mb-2 text-[12px] font-semibold">Stories in this collection</legend>{['article', 'short'].map(format => { const items = editedPosts.filter(post => (post.format === 'short') === (format === 'short')); return <section key={format} className="mb-4 last:mb-0"><h3 className="mb-2 text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--color-text-muted)]">{format === 'short' ? 'Shorts' : 'Full stories'}</h3><div className="space-y-2">{items.length ? items.map(post => <div key={post.id} className="flex items-center gap-2 rounded-[10px] border border-[var(--color-border)] bg-[var(--color-bg-alt)] p-2"><span className="min-w-0 flex-1 truncate text-[13px] text-[var(--color-text)]">{post.title}</span><button type="button" onClick={() => setEditedPosts(current => current.filter(item => item.id !== post.id))} disabled={update.isPending} aria-label={`Remove ${post.title} from collection`} className="button-target min-h-9 rounded-full border border-[var(--color-border)] px-3 text-[12px] text-[var(--color-danger)]">Remove</button></div>) : <p className="text-[13px] text-[var(--color-text-secondary)]">No {format === 'short' ? 'shorts' : 'full stories'} in this collection.</p>}</div></section> })}</fieldset>
         {update.isError && <p role="alert" className="mt-3 text-[13px] text-[var(--color-danger)]">The collection could not be updated. Try again.</p>}
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-3"><Button ref={deleteTriggerRef} type="button" variant="secondary" onClick={() => setConfirmDelete(true)} disabled={update.isPending || deletion.isPending || confirmDelete} className="!text-[var(--color-danger)]">Delete collection</Button><Button type="submit" disabled={update.isPending || deletion.isPending || confirmDelete || title.trim().length < 2} aria-busy={update.isPending} className="ml-auto">Save changes</Button></div>
+        <div className="mt-5 flex flex-wrap items-center justify-end gap-3"><Button ref={deleteTriggerRef} type="button" variant="secondary" onClick={() => setConfirmDelete(true)} disabled={update.isPending || uploadCover.isPending || deletion.isPending || confirmDelete} className="!text-[var(--color-danger)]">Delete collection</Button><Button type="submit" disabled={update.isPending || uploadCover.isPending || deletion.isPending || confirmDelete || title.trim().length < 2 || Boolean(coverUrl.trim() && !isValidImageUrl(coverUrl))} aria-busy={update.isPending || uploadCover.isPending}>Save changes</Button></div>
       </form>
     </section>
     {confirmDelete && <DeleteCollectionConfirmation collection={collection} deletion={deletion} triggerRef={deleteTriggerRef} onClose={() => setConfirmDelete(false)} onDeleted={() => navigate('/collections', { replace: true })} />}
@@ -73,7 +96,13 @@ export default function CollectionDetail() {
   useEffect(() => {
     if (location.state?.openEditCollection) navigate(location.pathname + location.search + location.hash, { replace: true, state: null })
   }, [location.hash, location.pathname, location.search, location.state, navigate])
-  const [formatFilter, setFormatFilter] = useState('stories')
+  const [params, setParams] = useFilterSearchParams()
+  const formatFilter = params.get('collectionFormat') === 'shorts' ? 'shorts' : 'stories'
+  const setFormatFilter = value => setParams(current => {
+    if (value === 'stories') current.delete('collectionFormat')
+    else current.set('collectionFormat', value)
+    return current
+  })
   const editTriggerRef = useRef(null)
   const shareTriggerRef = useRef(null)
   const closeShareMenu = ({ restoreFocus = false } = {}) => {

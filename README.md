@@ -44,7 +44,7 @@ Readers discover articles and short reads, follow writers, save stories, create 
 
 ### Writers
 
-Writers use the same account. There is no application process or progressive role system. Any signed-in member can draft, publish, respond to questions, build a public profile, enter competitions, create story or short series, host eligible member experiences, and view writing analytics.
+Writers use the same account. There is no application process or progressive role system. Any signed-in member can draft, publish, respond to questions, build a public profile, create story or short series, host eligible member experiences, and view writing analytics. Competition entry is available to eligible non-staff writers; moderators and admins cannot enter.
 
 ### Community participants
 

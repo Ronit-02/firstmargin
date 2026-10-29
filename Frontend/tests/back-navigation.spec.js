@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 const postId = '507f1f77bcf86cd799439012'
 const post = { id: postId, title: 'A story about memory', excerpt: 'Read and remember.', tags: ['science'], author: { username: 'Maya Sen', handle: 'maya-sen' }, createdAt: '2026-09-08T00:00:00Z', readTime: '2 mins' }
@@ -32,7 +32,8 @@ for (const width of [320, 1280]) {
     await main.evaluate(element => { element.scrollTop = 640 })
     await expect.poll(() => main.evaluate(element => element.scrollTop)).toBe(640)
 
-    await page.getByRole('link', { name: "View Maya Sen's profile" }).click()
+    // Isolate route restoration from Playwright scrolling an offscreen link into view.
+    await page.getByRole('link', { name: "View Maya Sen's profile" }).evaluate(link => link.click())
     await expect(page).toHaveURL('/author/maya-sen')
     await expect.poll(() => main.evaluate(element => element.scrollTop)).toBe(0)
     await main.evaluate(element => { element.scrollTop = 320 })
@@ -103,7 +104,7 @@ for (const [path, parent] of [[`/post/${postId}`, '/'], ['/author/maya-sen', '/'
   })
 }
 
-test('auth and verification omit Back and retain the home logo link', async ({ page }) => {
+test('auth retains the home link and verification omits Back', async ({ page }) => {
   await mockApi(page, { member: false })
   await page.setViewportSize({ width: 320, height: 560 })
   for (const path of ['/login', '/signup']) {
@@ -120,8 +121,7 @@ test('auth and verification omit Back and retain the home logo link', async ({ p
   await page.getByRole('button', { name: 'Login', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Enter Verification Code' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Back', exact: true })).toHaveCount(0)
-  await page.getByRole('link', { name: 'Return to firstmargin home' }).click()
-  await expect(page).toHaveURL('/')
+  await expect(page.getByRole('button', { name: 'Verify Email', exact: true })).toBeVisible()
 })
 
 test('onboarding has only its previous-step Back control', async ({ page }) => {

@@ -223,4 +223,79 @@ const additionalStoryFixtures = [
   ] },
 ];
 
-module.exports = { discoveryStoryBodies, shortFixtures, additionalStoryFixtures };
+const richContent = require('./development-rich-content.json');
+
+// Pull quotes are original editorial copy, not attributed interviews. These
+// photographs illustrate a subject; they do not document the narrated events.
+const inlinePhotos = {
+  'walkable-city': ['photo-1449824913935-59a10b8d2000', 'A city street with buildings and traffic, illustrating the routes between destinations.'],
+  'restoring-reefs': ['photo-1546026423-cc4642628d2b', 'An underwater reef, illustrating the habitat discussed in this essay.'],
+  'early-city': ['photo-1507842217343-583bb7270b66', 'Shelves of books in a library.'],
+  'night-train': ['photo-1474487548417-781cb71495f3', 'Railway tracks and a train, illustrating travel by rail.'],
+  'recipe-margin': ['photo-1547592180-85f173990554', 'A prepared dish, illustrating the essay about cooking and handwritten recipes.'],
+  'rain-notebook': ['photo-1441974231531-c6227db76b6e', 'Light among forest trees, illustrating a nature notebook.'],
+  'library-light': ['photo-1507842217343-583bb7270b66', 'A library interior with rows of books.'],
+  'shade-map': ['photo-1518005020951-eccb494ad742', 'Buildings seen from below, illustrating the changing light between city structures.'],
+  'discovery-story-03': ['photo-1507525428034-b723cf961d3e', 'Water meeting a sandy coast, illustrating the setting for a listening exercise.'],
+  'discovery-story-07': ['photo-1449824913935-59a10b8d2000', 'An urban street, illustrating a map of personal landmarks.'],
+  'discovery-story-09': ['photo-1507842217343-583bb7270b66', 'Library bookshelves, illustrating a shared public reading space.'],
+  'discovery-story-12': ['photo-1500534623283-312aade485b7', 'An open green landscape beneath the sky, illustrating field observation.'],
+  'discovery-story-18': ['photo-1519681393784-d120267933ba', 'A mountain landscape, illustrating the larger setting of a site observation.'],
+  'discovery-story-24': ['photo-1455390582262-044cdead277a', 'Writing materials, illustrating a field notebook.'],
+  'tide-pool': ['photo-1507525428034-b723cf961d3e', 'A shoreline, illustrating the context for a coastal observation.'],
+};
+const codeExamples = {
+  'recommendation-systems': ['A scoring sketch, not a complete ranking system', "const score = story =>\n  0.4 * story.affinity +\n  0.3 * story.quality +\n  0.2 * story.freshness +\n  0.1 * story.exploration;\n\nconst next = candidates\n  .filter(story => !seenIds.has(story.id))\n  .filter(story => (authorCounts.get(story.authorId) || 0) < 2)\n  .sort((a, b) => score(b) - score(a))[0];"],
+  'decision-log': ['A small decision note', 'Question: How do we improve the slow reading-list query?\nConstraint: Keep the current release small and reversible.\nOptions: Add an index; rewrite the query; change the model.\nChoice: Add the index for the observed query.\nRevisit when: The query shape or write volume changes.'],
+  'offline-app': ['Describe both copies', 'Local copy: saved on this device at 14:32\nServer copy: last confirmed at 14:28\nNext step: reconnect, then confirm the pending save\nConflict: ask before replacing another version'],
+  'data-denominator': ['One ratio, two different rates', 'Before: 10 complaints / 100 customers = 10%\nAfter:  20 complaints / 400 customers =  5%\n\nThe count doubled; the complaint rate halved.'],
+  'retry-copy': ['Only promise states the product implements', 'Saved on this device.\nServer confirmation is still pending.\nReconnect to check the result before submitting again.'],
+  'discovery-story-22': ['Keep the denominator visible', 'completionRate = completedAttempts / totalAttempts\n\nAlways retain:\n- the time window\n- the population counted\n- the definition of a completed attempt'],
+};
+
+function enrichPublicationBody(fixture) {
+  const addition = richContent[fixture.key];
+  if (!addition) {
+    // These are complete micro-fiction and an intentionally near-limit short.
+    if (['edge-minimal-story', 'edge-tiny-short', 'edge-long-short-body'].includes(fixture.key)) return fixture.blocks;
+    throw new Error(`Missing rich editorial copy: ${fixture.key}`);
+  }
+  const [heading, ...copy] = addition;
+  const isShort = fixture.format === 'short';
+  const paragraphs = isShort ? copy : copy.slice(0, 3);
+  const pullQuote = isShort ? null : copy[3];
+  const variant = [...fixture.key].reduce((sum, character) => sum + character.charCodeAt(0), 0);
+  const isFiction = fixture.topicSlugs?.includes('fiction');
+  const original = fixture.blocks.filter(([type, content]) => !(type === 'h2' && ['A closer look', 'What to carry forward', 'What changed'].includes(content)))
+    .map(block => [...block]);
+  let endingIndex = original.findLastIndex(([type]) => type === 'text');
+  if (endingIndex === 0) endingIndex = original.length;
+  const ending = original.splice(endingIndex);
+  if (variant % 2 === 0) {
+    const closing = ending.find(([type]) => type === 'text');
+    if (closing && !closing[1].includes('*')) closing[1] = closing[1].replace(/^([^.!?]+[.!?])/, '*$1*');
+  }
+  const blocks = [...original];
+  if (isFiction && variant % 2 === 0) blocks.push(['divider', '']);
+  else blocks.push([isShort && variant % 3 === 0 ? 'h3' : !isShort && variant % 4 === 0 ? 'h1' : 'h2', heading]);
+  for (const [index, paragraph] of paragraphs.entries()) {
+    blocks.push(['text', paragraph]);
+    if (index === 0 && inlinePhotos[fixture.key]) {
+      const [photo, alt] = inlinePhotos[fixture.key];
+      blocks.push(['image', `https://images.unsplash.com/${photo}?auto=format&fit=crop&w=1000&q=80`, alt]);
+    }
+    if (index === 1 && codeExamples[fixture.key]) {
+      const [label, code] = codeExamples[fixture.key];
+      blocks.push([isShort ? 'h3' : 'h2', label], ['code', code]);
+    } else if (index === 1 && !isShort && variant % 3 === 0) blocks.push(['divider', '']);
+  }
+  if (isShort && variant % 5 === 0) {
+    const emphasis = paragraphs.join(' ').match(/\*\*([^*]+)\*\*/);
+    if (emphasis) blocks.push(['quote', emphasis[1]]);
+  }
+  if (pullQuote && variant % 3 !== 1) blocks.push(['quote', pullQuote]);
+  blocks.push(...ending);
+  return blocks;
+}
+
+module.exports = { discoveryStoryBodies, shortFixtures, additionalStoryFixtures, enrichPublicationBody };

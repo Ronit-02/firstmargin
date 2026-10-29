@@ -1,6 +1,6 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
-test('phone block types appear in a horizontal strip and convert the focused block', async ({ page }) => {
+test('phone block types appear in a horizontal strip and convert the focused block', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 375, height: 640 })
   await page.route(url => url.pathname.startsWith('/api/'), route => {
     const path = new URL(route.request().url()).pathname
@@ -11,10 +11,23 @@ test('phone block types appear in a horizontal strip and convert the focused blo
   await page.goto('/studio?new=article')
   const paragraph = page.getByRole('textbox', { name: 'Paragraph block', exact: true })
   await paragraph.fill('A first line')
-  const choices = page.getByRole('toolbar', { name: 'Block types' })
+  const choices = page.getByRole('toolbar', { name: 'Editor commands' })
   await expect(choices).toBeVisible()
-  await expect(choices.getByRole('button')).toHaveCount(7)
-  await expect(choices.getByRole('button', { name: 'Text' })).toHaveAttribute('aria-pressed', 'true')
+  await expect(choices.getByRole('button')).toHaveCount(11)
+  await expect(choices.getByRole('button', { name: 'Text', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(choices.getByRole('button', { name: 'Bold selected text' })).toBeDisabled()
+  expect(await choices.evaluate(element => {
+    const buttons = [...element.querySelectorAll('button')]
+    return {
+      icons: buttons.map(button => button.textContent.trim()),
+      oneColor: new Set(buttons.map(button => getComputedStyle(button).color)).size === 1,
+      graphicIcons: [buttons[0], buttons[1], buttons[10]].every(button => Boolean(button.querySelector('svg'))),
+    }
+  })).toEqual({ icons: ['', '', 'B', 'i', 'P', 'H1', 'H2', 'H3', '❝', '</>', ''], oneColor: true, graphicIcons: true })
+  await page.locator('#main-content').evaluate(element => { element.scrollTop = element.scrollHeight })
+  const [countBox, menuBox] = await Promise.all([page.getByText('3 words', { exact: true }).boundingBox(), choices.boundingBox()])
+  expect(countBox.y + countBox.height).toBeLessThanOrEqual(menuBox.y - 8)
+  await page.screenshot({ path: testInfo.outputPath('phone-editor-menu.png') })
   expect(await choices.evaluate(element => {
     const rect = element.getBoundingClientRect()
     const buttons = [...element.querySelectorAll('button')]
@@ -24,13 +37,16 @@ test('phone block types appear in a horizontal strip and convert the focused blo
   })).toBe(true)
   await choices.getByRole('button', { name: 'Heading 2' }).click()
   const heading = page.getByRole('textbox', { name: 'h2 block', exact: true })
-  await expect(heading).toHaveValue('A first line')
+  await expect(heading).toHaveText('A first line')
   await expect(heading).toBeFocused()
   await expect(choices.getByRole('button', { name: 'Heading 2' })).toHaveAttribute('aria-pressed', 'true')
   await choices.evaluate(element => { element.scrollLeft = element.scrollWidth })
   await expect(choices.getByRole('button', { name: 'Image URL' })).toBeInViewport()
+  await page.screenshot({ path: testInfo.outputPath('phone-editor-menu-scrolled.png') })
   await page.getByRole('textbox', { name: 'Story title' }).focus()
-  await expect(choices).toHaveCount(0)
+  await expect(choices).toBeVisible()
+  await expect(choices.getByRole('button')).toHaveCount(4)
+  await expect(choices.getByRole('button', { name: 'Bold selected text' })).toBeDisabled()
 })
 
 for (const width of [767, 768, 1024]) {
@@ -57,7 +73,7 @@ for (const width of [767, 768, 1024]) {
       await menu.getByRole('option', { name: 'Insert Heading 1' }).click()
     }
     await expect(page.getByRole('textbox', { name: 'h1 block' })).toBeFocused()
-    await expect(paragraph).toHaveValue('Original paragraph')
+    await expect(paragraph).toHaveText('Original paragraph')
   })
 }
 
@@ -161,6 +177,7 @@ for (const width of [320, 1280]) {
     await anchor.fill('/')
     const menu = page.getByRole('listbox', { name: 'Insert block' })
     await expect(menu).toBeVisible()
+    await page.waitForTimeout(150)
     const pageScroll = await page.locator('#main-content').evaluate(element => element.scrollTop)
     const labels = ['Text', 'Heading 1', 'Heading 2', 'Heading 3', 'Quote', 'Code', 'Image URL', 'Divider']
     for (const label of [...labels.slice(1), ...labels]) {
@@ -181,13 +198,13 @@ for (const width of [320, 1280]) {
     await expect(menu.getByRole('option', { name: 'Insert Divider', exact: true })).toHaveAttribute('aria-selected', 'true')
     await page.keyboard.press('Escape')
     await expect(menu).toHaveCount(0)
-    await expect(anchor).toHaveValue('/')
+    await expect(anchor).toHaveText('/')
     await anchor.fill('/h')
     await page.keyboard.press('ArrowDown')
     await page.keyboard.press('Enter')
     await expect(page.getByRole('textbox', { name: 'h2 block', exact: true })).toBeFocused()
     await expect(paragraphs).toHaveCount(1)
-    await expect(paragraphs).toHaveValue('Second paragraph')
+    await expect(paragraphs).toHaveText('Second paragraph')
   })
 }
 
@@ -212,14 +229,14 @@ test('slash selection survives autosave and empty filters recover safely', async
   await page.keyboard.press('ArrowDown')
   await page.keyboard.press('ArrowUp')
   await page.keyboard.press('Enter')
-  await expect(paragraph).toHaveValue('/zzzz')
+  await expect(paragraph).toHaveText('/zzzz')
   await expect(paragraph).toHaveCount(1)
   await paragraph.fill('/quote')
   await expect(menu.getByRole('option', { name: 'Insert Quote' })).toHaveAttribute('aria-selected', 'true')
   await page.keyboard.press('ArrowDown')
   await page.keyboard.press('ArrowUp')
   await page.keyboard.press('Enter')
-  await expect(page.getByRole('textbox', { name: 'quote block', exact: true })).toHaveValue('')
+  await expect(page.getByRole('textbox', { name: 'quote block', exact: true })).toHaveText('')
   const quote = page.getByRole('textbox', { name: 'quote block', exact: true })
   await quote.fill('Before /cod')
   await expect(menu.getByRole('option', { name: 'Insert Code' })).toHaveAttribute('aria-selected', 'true')
@@ -240,11 +257,18 @@ test('slash conversion removes only the command and code editing follows the the
   await page.goto('/studio?new=article')
   const paragraph = page.getByRole('textbox', { name: 'Paragraph block', exact: true })
   await paragraph.fill('Before /qu after')
-  await paragraph.evaluate(field => field.setSelectionRange(10, 10))
+  await paragraph.evaluate(field => {
+    const range = document.createRange()
+    range.setStart(field.firstChild, 10)
+    range.collapse(true)
+    const selection = window.getSelection()
+    selection.removeAllRanges()
+    selection.addRange(range)
+  })
   await paragraph.press('o')
   await page.getByRole('option', { name: 'Insert Quote' }).click()
   const quote = page.getByRole('textbox', { name: 'quote block', exact: true })
-  await expect(quote).toHaveValue('Before  after')
+  await expect(quote).toHaveText('Before  after')
   await expect(quote).toHaveCSS('border-left-color', 'rgb(177, 170, 163)')
   await quote.fill('Code sample /cod')
   await page.getByRole('option', { name: 'Insert Code' }).click()
@@ -286,7 +310,7 @@ test('editing a short restores autosaved changes and updates only on command', a
   })).toBe(true)
   await page.reload()
   await expect(page.getByRole('textbox', { name: 'Short title' })).toHaveValue('Updated short')
-  await expect(page.getByRole('textbox', { name: 'Paragraph block' })).toHaveValue('Updated story')
+  await expect(page.getByRole('textbox', { name: 'Paragraph block' })).toHaveText('Updated story')
   expect(updates).toEqual([])
   await page.getByRole('button', { name: 'Update', exact: true }).first().click()
   await page.getByRole('button', { name: 'Update', exact: true }).last().click()
@@ -301,4 +325,37 @@ test('editing a short restores autosaved changes and updates only on command', a
   await expect(page.getByRole('textbox', { name: 'Short title' })).toHaveValue('Updated short')
   await expect(page.getByRole('alert').filter({ hasText: 'This post changed since your saved edit' })).toHaveCount(0)
   await expect.poll(() => page.evaluate(() => Object.keys(localStorage).some(key => key.startsWith('ink-rider:post-edit:')))).toBe(false)
+})
+
+test('cleared public release stays empty when the story is edited again', async ({ page }) => {
+  const postId = '507f1f77bcf86cd799439042'
+  const future = new Date(Date.now() + 86400000).toISOString()
+  let publicAt = future
+  let sentPublicAt
+  await page.route(url => url.pathname.startsWith('/api/'), route => {
+    const { pathname } = new URL(route.request().url())
+    const request = route.request()
+    if (pathname === '/api/auth/refresh-token') return route.fulfill({ json: { accessToken: 'editor-release-token', user: 'Writer', email: 'writer@example.test', role: 'regular' } })
+    if (pathname === '/api/v1/me/entitlements') return route.fulfill({ json: { data: { capabilities: ['early_access'] } } })
+    if (pathname === `/api/post/${postId}` && request.method() === 'GET') return route.fulfill({ json: { postData: {
+      _id: postId, title: 'Scheduled story', format: 'article', currentRevision: 1, publicAt,
+      body: JSON.stringify([{ id: 'story', type: 'text', content: 'Story body' }]), tags: [],
+    } } })
+    if (pathname === `/api/post/${postId}` && request.method() === 'PUT') {
+      sentPublicAt = request.postDataJSON().publicAt
+      publicAt = new Date().toISOString()
+      return route.fulfill({ json: { data: { _id: postId, currentRevision: 2, publicAt } } })
+    }
+    return route.fulfill({ json: { data: [], meta: { nextCursor: null, unreadCount: 0 } } })
+  })
+  await page.goto(`/studio?edit=${postId}`)
+  await page.getByRole('button', { name: 'Update', exact: true }).first().click()
+  const dialog = page.getByRole('dialog')
+  await expect(dialog.getByRole('textbox', { name: 'Public release (optional)', exact: true })).not.toHaveValue('')
+  await dialog.getByRole('button', { name: 'Remove public release date' }).click()
+  await dialog.getByRole('button', { name: 'Update', exact: true }).click()
+  await expect.poll(() => sentPublicAt).toBeNull()
+  await page.goto(`/studio?edit=${postId}`)
+  await page.getByRole('button', { name: 'Update', exact: true }).first().click()
+  await expect(page.getByRole('dialog').getByRole('textbox', { name: 'Public release (optional)', exact: true })).toHaveValue('')
 })

@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useSelector } from 'react-redux'
-import { matchPath, Outlet, useLocation, useNavigationType } from 'react-router-dom'
+import { matchPath, Outlet, useLocation } from 'react-router-dom'
 import Navbar from './Navbar'
 import Sidebar from './Sidebar'
 import BottomBar from './BottomBar'
@@ -40,13 +40,14 @@ function saveScrollPosition(positions, key, top) {
   }
 }
 
-export default function AppLayout() {
+export default function AppLayout({ navigationType }) {
   const location = useLocation()
-  const navigationType = useNavigationType()
   const loggedIn = useSelector(state => Boolean(state.auth.user))
   const { dark, toggle: toggleTheme, themePreference, setTheme } = useTheme()
   const isServerUnavailable = useServerUnavailable()
   const scrollPositions = useRef(null)
+  const scrollEntry = useRef(null)
+  const scrollFloor = useRef(0)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     try {
       const stored = window.localStorage.getItem('ink-rider.sidebar-collapsed')
@@ -66,7 +67,30 @@ export default function AppLayout() {
     const positions = scrollPositions.current ||= readScrollPositions()
     const key = location.key
     const savedTop = positions.get(key)
-    const targetTop = navigationType === 'POP' && Number.isFinite(savedTop) ? savedTop : 0
+    const samePage = scrollEntry.current?.pathname === location.pathname
+    const targetTop = navigationType === 'POP'
+      ? (Number.isFinite(savedTop) ? savedTop : 0)
+      : (samePage ? scrollEntry.current.top : 0)
+    // Keep the departing offset even if the next filtered list briefly shrinks.
+    const entry = { pathname: location.pathname, top: targetTop }
+    scrollEntry.current = entry
+    saveScrollPosition(positions, key, targetTop)
+
+    const setScrollFloor = top => {
+      scrollFloor.current = top > 0 ? top + mainContent.clientHeight : 0
+      mainContent.toggleAttribute('data-preserve-scroll', Boolean(scrollFloor.current))
+      if (scrollFloor.current) {
+        mainContent.style.setProperty('--page-scroll-floor', `${scrollFloor.current}px`)
+        mainContent.style.overflowAnchor = 'none'
+      } else {
+        mainContent.style.removeProperty('--page-scroll-floor')
+        mainContent.style.removeProperty('overflow-anchor')
+      }
+    }
+    // A loading/empty list must not clamp the viewport before data arrives.
+    // Reserve only the space needed to keep this offset reachable.
+    if (samePage) setScrollFloor(targetTop)
+    else setScrollFloor(0)
 
     let restoring = targetTop > 0
     let resizeObserver
@@ -93,7 +117,7 @@ export default function AppLayout() {
       restoreScroll()
     }
 
-    mainContent.focus({ preventScroll: true })
+    if (!samePage || navigationType === 'POP') mainContent.focus({ preventScroll: true })
     mainContent.scrollTo({ top: targetTop, left: 0, behavior: 'auto' })
     if (restoring && mainContent.scrollTop < targetTop) {
       resizeObserver = new ResizeObserver(restoreScroll)
@@ -105,16 +129,21 @@ export default function AppLayout() {
       restoring = false
     }
 
+    const saveCurrentScroll = () => {
+      entry.top = mainContent.scrollTop
+      if (scrollFloor.current && entry.top + mainContent.clientHeight < scrollFloor.current) setScrollFloor(entry.top)
+      saveScrollPosition(positions, key, entry.top)
+    }
     const handleScroll = () => {
-      if (!restoring) saveScrollPosition(positions, key, mainContent.scrollTop)
+      if (!restoring) saveCurrentScroll()
     }
     const handleUserScroll = () => {
       if (restoring) {
         stopRestoring()
       }
-      saveScrollPosition(positions, key, mainContent.scrollTop)
+      saveCurrentScroll()
     }
-    const handlePageHide = () => saveScrollPosition(positions, key, mainContent.scrollTop)
+    const handlePageHide = saveCurrentScroll
     mainContent.addEventListener('scroll', handleScroll, { passive: true })
     for (const event of ['wheel', 'touchstart', 'pointerdown', 'keydown']) {
       mainContent.addEventListener(event, handleUserScroll, { passive: true })
@@ -129,7 +158,7 @@ export default function AppLayout() {
       }
       window.removeEventListener('pagehide', handlePageHide)
     }
-  }, [location.key, navigationType])
+  }, [location.key, location.pathname, navigationType])
 
   const handleSkipToContent = event => {
     event.preventDefault()

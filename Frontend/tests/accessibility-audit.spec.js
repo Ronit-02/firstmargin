@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 const shellRoutes = [
   '/',
@@ -69,9 +69,11 @@ for (const route of shellRoutes) {
     await page.setViewportSize({ width: 320, height: 640 })
     await page.goto(route, { waitUntil: 'domcontentloaded' })
 
-    await expect(page.locator('main')).toHaveCount(1)
+    await expect(page.getByRole('main')).toHaveCount(1)
     if (!fullScreenRoutes.has(route)) {
       await expect(page.getByRole('link', { name: 'Skip to content' })).toBeAttached()
+      // Route entry intentionally focuses main; start a fresh keyboard traversal.
+      await page.locator('body').evaluate(body => { body.tabIndex = -1; body.focus(); body.removeAttribute('tabindex') })
       await page.keyboard.press('Tab')
       await expect(page.getByRole('link', { name: 'Skip to content' })).toBeFocused()
       await page.keyboard.press('Enter')

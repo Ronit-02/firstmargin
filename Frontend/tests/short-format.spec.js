@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 const collectionId = '507f1f77bcf86cd799439030'
 const ids = ['507f1f77bcf86cd799439031', '507f1f77bcf86cd799439032', '507f1f77bcf86cd799439033']
@@ -13,9 +13,9 @@ async function mockWriting(page, isOwner = false) {
   const orders = []
   await page.route(url => url.pathname.startsWith('/api/'), route => {
     const path = new URL(route.request().url()).pathname
-    if (path === '/api/auth/refresh-token') return route.fulfill({ status: 401, json: { message: 'Signed out' } })
+    if (path === '/api/auth/refresh-token') return route.fulfill(isOwner ? { json: { accessToken: 'collection-test', user: 'Maya Sen', role: 'regular' } } : { status: 401, json: { message: 'Signed out' } })
     if (path === `/api/collection/${collectionId}`) {
-      if (route.request().method() === 'PUT') orders.push(route.request().postDataJSON().postIds)
+      if (route.request().method() === 'PUT') orders.push(route.request().postDataJSON().publicationIds)
       return route.fulfill({ json: { data: { id: collectionId, title: 'Mixed morning reads', posts, postsCount: 3, author, isOwner, visibility: 'public', savedCount: 0, followersCount: 0 } } })
     }
     if (path === '/api/search') return route.fulfill({ json: { data: { posts, shorts: posts.filter(item => item.format === 'short'), writers: [], questions: [] } } })
@@ -32,26 +32,29 @@ async function mockWriting(page, isOwner = false) {
 }
 
 for (const width of [320, 1280]) {
-  test(`mixed collections keep formats separate and open compact shorts at ${width}px`, async ({ page }) => {
+  test(`mixed collection format selection opens each short and restores focus at ${width}px`, async ({ page }) => {
     await mockWriting(page)
     await page.setViewportSize({ width, height: 900 })
     await page.goto(`/collections/${collectionId}`)
-    const articles = page.getByRole('region', { name: 'Full articles' })
+    const articles = page.getByRole('region', { name: 'Full stories' })
     const shorts = page.getByRole('region', { name: 'Shorts' })
     await expect(articles.locator('[data-story-format="article"]')).toHaveCount(1)
-    await expect(shorts.locator('[data-story-format="short"]')).toHaveCount(2)
     await expect(articles.getByRole('link', { name: posts[1].title, exact: true })).toHaveAttribute('href', `/post/${ids[1]}`)
+    await page.getByRole('group', { name: 'Collection format' }).getByRole('button', { name: 'Shorts', exact: true }).click()
+    await expect(shorts.locator('[data-story-format="short"]')).toHaveCount(2)
+    await expect(articles).toHaveCount(0)
     const trigger = shorts.getByRole('link', { name: posts[0].title, exact: true })
     await trigger.click()
     const reader = page.getByRole('dialog', { name: posts[0].title })
     await expect(reader).toBeVisible()
-    await expect(page).toHaveURL(`/collections/${collectionId}`)
-    const next = reader.getByRole('button', { name: 'Next →', exact: true })
-    await expect(next).toHaveCSS('color', 'rgb(255, 255, 255)')
-    await next.click()
+    await expect(page).toHaveURL(`/collections/${collectionId}?collectionFormat=shorts`)
+    await reader.getByRole('button', { name: 'Close short' }).click()
+    await expect(trigger).toBeFocused()
+    const other = shorts.getByRole('link', { name: posts[2].title, exact: true })
+    await other.click()
     await expect(page.getByRole('dialog', { name: posts[2].title })).toBeVisible()
     await page.getByRole('button', { name: 'Close short' }).click()
-    await expect(trigger).toBeFocused()
+    await expect(other).toBeFocused()
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false)
   })
 }
@@ -61,7 +64,7 @@ test('canonical short URLs use the compact reader and deeper articles retain the
   await page.goto(`/post/${ids[0]}`)
   const reader = page.getByRole('dialog', { name: posts[0].title })
   await expect(reader).toBeVisible()
-  await reader.getByRole('link', { name: 'Read full article →' }).click()
+  await reader.getByRole('link', { name: 'Read full story →' }).click()
   await expect(page).toHaveURL(`/post/${ids[1]}`)
   await expect(page.getByRole('heading', { name: posts[1].title, level: 1 })).toBeVisible()
   await expect(page.getByRole('dialog', { name: posts[0].title })).toHaveCount(0)
@@ -102,14 +105,16 @@ test('shorter shows only complete tags that fit one row', async ({ page }) => {
   expect(layout.hiddenLinks).toBe(0)
 })
 
-test('mixed collection ordering swaps only within the selected format and preserves the saved ID contract', async ({ page }) => {
+test('mixed collection editing removes only the selected short and preserves remaining reading order', async ({ page }) => {
   const orders = await mockWriting(page, true)
   await page.goto(`/collections/${collectionId}`)
-  await page.getByRole('button', { name: `Move ${posts[2].title} earlier` }).click()
-  const shorts = page.getByRole('region', { name: 'Shorts' })
-  await expect(shorts.locator('h2')).toHaveText([posts[2].title, posts[0].title])
-  await page.getByRole('button', { name: 'Save order', exact: true }).click()
-  await expect.poll(() => orders).toEqual([[ids[2], ids[1], ids[0]]])
+  await page.getByRole('button', { name: 'Edit collection', exact: true }).click()
+  const edit = page.getByRole('dialog', { name: 'Edit collection', exact: true })
+  await edit.getByRole('button', { name: `Remove ${posts[2].title} from collection`, exact: true }).click()
+  await expect(edit.getByText(posts[0].title, { exact: true })).toBeVisible()
+  await expect(edit.getByText(posts[1].title, { exact: true })).toBeVisible()
+  await edit.getByRole('button', { name: 'Save changes', exact: true }).click()
+  await expect.poll(() => orders).toEqual([[ids[0], ids[1]]])
 })
 
 for (const path of ['/', '/search?q=morning&type=all']) {

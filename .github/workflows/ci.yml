@@ -3,6 +3,7 @@ name: CI
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 jobs:
   verify:
@@ -12,8 +13,9 @@ jobs:
       PORT: 8000
       FRONTEND_URL: http://127.0.0.1:3000
       VITE_API_URL: http://127.0.0.1:8000
-      MONGO_URI: mongodb://127.0.0.1:27017/ink-rider-e2e
-      DB_NAME: ink-rider-e2e
+      E2E_MONGO_SERVER: mongodb://127.0.0.1:27017
+      MONGO_URI: mongodb://127.0.0.1:27017/ink-rider-seo-test
+      DB_NAME: ink-rider-seo-test
       JWT_SECRET: ci-test-secret-with-sufficient-entropy
       SEED_PASSWORD: ${{ secrets.E2E_SEED_PASSWORD }}
     services:
@@ -52,9 +54,6 @@ jobs:
         working-directory: Backend
         env:
           RUN_DB_INTEGRATION: true
-      - name: Seed browser fixtures
-        run: npm run seed:dev
-        working-directory: Backend
       - name: Install frontend dependencies
         run: npm ci
         working-directory: Frontend
@@ -73,12 +72,25 @@ jobs:
       - name: Reject source maps in production artifacts
         run: npm run security:artifacts
         working-directory: Frontend
-      - name: Run authenticated browser critical flow
+      - name: Run frontend unit contracts
+        run: npm run test:unit
+        working-directory: Frontend
+      - name: Run critical mocked UI checks without MongoDB
+        if: github.event_name != 'workflow_dispatch'
+        run: npm run test:ui:critical
+        working-directory: Frontend
+      - name: Run persisted browser journeys in a temporary database
         run: npm run test:e2e
         working-directory: Frontend
+      - name: Run full manual mocked feature and responsive audit
+        if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' }}
+        run: npm run test:ui:audit
+        working-directory: Frontend
       - name: Run deployed SEO crawl against seeded CI app
+        if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' }}
         working-directory: Frontend
         run: |
+          (cd ../Backend && npm run seed:dev)
           export SEO_CRAWL_URL=http://127.0.0.1:3000
           export SEO_CRAWL_POST_PATH="$(cd ../Backend && npm run seo:crawl-target --silent | tail -n 1)"
           (cd ../Backend && nohup node server.js > /tmp/ink-rider-seo-backend.log 2>&1 &)

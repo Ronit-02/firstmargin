@@ -44,7 +44,7 @@ const presentDiscoveryPosts = async (posts, viewerId = null) => {
       title: post.title,
       format: post.format || 'story',
       image: post.coverImage || null,
-      excerpt: text.slice(0, post.format === 'short' ? 800 : 220),
+      excerpt: post.format === 'short' ? text.slice(0, 800) : text,
       tags: post.tags || [],
       appreciationsCount: post.appreciationsCount || 0,
       commentsCount: post.commentsCount || 0,

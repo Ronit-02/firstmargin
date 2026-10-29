@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 const excerpt = 'A focused idea that keeps unfolding as the reader moves through the short preview. '.repeat(14)
 const post = {

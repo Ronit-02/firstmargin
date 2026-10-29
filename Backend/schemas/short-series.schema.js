@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const shortSeriesSchema = new mongoose.Schema({
   title: { type: String, required: true, trim: true, maxlength: 100 },
   description: { type: String, default: '', trim: true, maxlength: 500 },
+  coverImage: { type: String, default: '' },
   author: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   // Older series have no type and are short series.
   type: { type: String, enum: ['story', 'short'], default: 'short', index: true },

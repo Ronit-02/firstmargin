@@ -2,7 +2,8 @@ import Select from '@/shared/components/ui/Select'
 import PageFrame from '@/shared/components/layout/PageFrame'
 import retainRetryView from '@/shared/utils/retainRetryView'
 import { useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link } from 'react-router-dom'
+import useFilterSearchParams from '@/shared/hooks/useFilterSearchParams'
 import Avatar from '@/shared/components/ui/Avatar'
 import FilterPopover from '@/shared/components/ui/FilterPopover'
 import DiscoveryPostCard from '../../components/DiscoveryPostCard'
@@ -77,11 +78,12 @@ function WriterResult({ writer }) {
 }
 
 export default function SearchPage() {
-  const [params, setParams] = useSearchParams()
+  const [params, setParams] = useFilterSearchParams()
   const query = params.get('q') || ''
   const [shortReadId, setShortReadId] = useState(null)
   const requestedTab = params.get('type')
   const activeTab = TABS.some(tab => tab.id === requestedTab) ? requestedTab : 'posts'
+  const browse = !query.trim()
   const baseline = retainRetryView(useDiscoverySearch(query, activeTab))
   const availableItems = baseline.data?.data?.[activeTab] || []
   const availableTags = new Set(availableItems.flatMap(item => item.tags || []).map(tag => tag.toLowerCase()))
@@ -90,7 +92,7 @@ export default function SearchPage() {
   const dates = availableItems.map(item => new Date(item.createdAt).getTime()).filter(Number.isFinite)
   const timeOptions = activeTab === 'writers' || dates.length < 2 ? [] : TIME_RANGES.filter(option => option.id === 'any' || (dates.some(date => date >= Date.now() - ({ day: 1, week: 7, month: 30, year: 365 }[option.id] * 86400000)) && dates.some(date => date < Date.now() - ({ day: 1, week: 7, month: 30, year: 365 }[option.id] * 86400000))))
   const time = timeOptions.some(option => option.id === params.get('time')) ? params.get('time') : 'any'
-  const sortOptions = activeTab !== 'writers' && availableItems.length > 1 ? SORT_OPTIONS : []
+  const sortOptions = activeTab !== 'writers' && availableItems.length > 1 ? SORT_OPTIONS.map(option => option.id === 'relevance' && browse ? { ...option, label: 'Most popular' } : option) : []
   const sort = sortOptions.some(option => option.id === params.get('sort')) ? params.get('sort') : 'relevance'
   const result = retainRetryView(useDiscoverySearch(query, activeTab, { topic, time, sort }))
   const items = result.data?.data?.[activeTab] || []
@@ -107,7 +109,7 @@ export default function SearchPage() {
     const next = new URLSearchParams(params)
     if (value === defaultValue) next.delete(key)
     else next.set(key, value)
-    setParams(next, { replace: true })
+    setParams(next)
   }
 
   const activeFilterCount = [topic !== 'all', time !== 'any', sort !== 'relevance'].filter(Boolean).length
@@ -116,7 +118,7 @@ export default function SearchPage() {
     next.delete('topic')
     next.delete('time')
     next.delete('sort')
-    setParams(next, { replace: true })
+    setParams(next)
   }
 
   const handleTabKeyDown = event => {
@@ -139,7 +141,7 @@ export default function SearchPage() {
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
           <div className="min-w-0">
             <h1 className="text-[21px] font-semibold tracking-[-0.025em] text-[var(--color-text)]">Search results</h1>
-            {query.length >= 1 && <p className="mt-1 text-[12px] text-[var(--color-text-secondary)]">Matching “{query}” across firstmargin</p>}
+            {!browse && <p className="mt-1 text-[12px] text-[var(--color-text-secondary)]">Matching “{query}” across firstmargin</p>}
           </div>
           {(topicOptions.length > 1 || timeOptions.length > 1 || sortOptions.length > 1) && <FilterPopover activeFilterCount={activeFilterCount} title="Refine results" description="Narrow the search without leaving the page." onClear={clearFilters}>
             {topicOptions.length > 1 && <div className="mt-4"><p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-muted)]">Topic</p><div className="flex flex-wrap gap-2">{topicOptions.map(option => <button key={option.id} type="button" aria-pressed={topic === option.id} onClick={() => updateFilter('topic', option.id, 'all')} className={`button-target min-h-11 rounded-full border px-3 py-2 text-[11px] transition-colors sm:min-h-0 ${topic === option.id ? 'border-[var(--color-text)] bg-[var(--color-text)] text-[var(--color-text-inverted)]' : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-text-secondary)]'}`}>{option.label}</button>)}</div></div>}
@@ -156,12 +158,11 @@ export default function SearchPage() {
       </div>
 
       <div id="search-results-panel" role="tabpanel" aria-labelledby={`search-tab-${activeTab}`}>
-      {query.trim().length >= 1 && !result.isPending && !result.isError && <p className="mb-3 text-[12px] text-[var(--color-text-muted)]">Showing {items.length} {resultTypes[items.length === 1 ? 0 : 1]}</p>}
-      {query.trim().length < 1 && <SearchState title="What are you curious about?" detail="Use the search bar above to find published stories, writer profiles, and reader questions." />}
-      {result.isPending && query.trim().length >= 1 && (['writers', 'questions'].includes(activeTab) ? <ListSkeleton count={4} label={activeTab === 'questions' ? 'Loading question results' : 'Loading writer results'} /> : <PostFeedSkeleton count={3} short={activeTab === 'shorts'} label={`Loading ${activeTab === 'shorts' ? 'short' : 'story'} search results`} />)}
+      {!result.isPending && !result.isError && <p className="mb-3 text-[12px] text-[var(--color-text-muted)]">{browse ? activeTab === 'writers' ? 'Top authors' : `Popular ${resultTypes[1]}` : `Showing ${items.length} ${resultTypes[items.length === 1 ? 0 : 1]}`}</p>}
+      {result.isPending && (['writers', 'questions'].includes(activeTab) ? <ListSkeleton count={4} label={activeTab === 'questions' ? 'Loading question results' : 'Loading writer results'} /> : <PostFeedSkeleton count={3} short={activeTab === 'shorts'} label={`Loading ${activeTab === 'shorts' ? 'short' : 'story'} search results`} />)}
       {result.isError && <SearchState isError busy={result.isFetching} title="Search is unavailable" detail="Please check your connection and try again." onRetry={() => result.refetch()} />}
-      {!result.isPending && !result.isError && query.trim().length >= 1 && items.length === 0 && (
-        <SearchState title={`No ${activeTab === 'posts' ? 'stories' : activeTab} found`} detail="Try a broader phrase or a different spelling." />
+      {!result.isPending && !result.isError && items.length === 0 && (
+        <SearchState title={`No ${activeTab === 'posts' ? 'stories' : activeTab} found`} detail={browse ? 'Try changing the filters or come back later.' : 'Try a broader phrase or a different spelling.'} />
       )}
       {items.length > 0 && <section aria-live="polite" className={activeTab === 'shorts' ? 'card-grid card-grid--short gap-4' : ''}>
         {activeTab === 'posts'

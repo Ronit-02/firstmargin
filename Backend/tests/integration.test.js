@@ -8,6 +8,9 @@ const integrationEnabled = process.env.RUN_DB_INTEGRATION === 'true';
 if (!integrationEnabled) {
   test('database integration suite is enabled only with RUN_DB_INTEGRATION=true', { skip: 'MongoDB integration service is not enabled' }, () => {});
 } else {
+  const { createTemporaryDatabase, createTestEnvironment, prepareTemporaryDatabase, dropTemporaryDatabase } = require('./support/temporary-database');
+  const temporaryDatabase = createTemporaryDatabase('integration');
+  Object.assign(process.env, createTestEnvironment(temporaryDatabase));
   process.env.STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || 'integration-webhook-secret';
   const app = require('../src/app');
   const User = require('../schemas/user.schema');
@@ -34,10 +37,13 @@ if (!integrationEnabled) {
   const { generateToken } = require('../utils/helper');
 
   let server;
+  let ownsDatabase = false;
+  const databaseOwner = mongoose.createConnection();
   let baseUrl;
   let owner;
   let otherUser;
   let post;
+  let entrantPost;
   let shortPost;
   let shortPost3;
   let shortPost4;
@@ -97,6 +103,10 @@ if (!integrationEnabled) {
   ]);
 
   test.before(async () => {
+    // Claim the empty database before registered models auto-create collections.
+    await databaseOwner.openUri(temporaryDatabase.uri, { serverSelectionTimeoutMS: 5_000 });
+    await prepareTemporaryDatabase(databaseOwner, temporaryDatabase);
+    ownsDatabase = true;
     await mongoose.connect(process.env.MONGO_URI, { serverSelectionTimeoutMS: 5_000 });
     // Text-search routes require the schema's text index. Await model
     // initialization so a fresh CI database cannot race index creation.
@@ -139,6 +149,7 @@ if (!integrationEnabled) {
       tags: post.tags,
       publicAt: post.publicAt,
     });
+    entrantPost = await Publication.create({ title: `${prefix} entrant story`, format: 'story', body: validBody('Competition story'), author: otherUser._id, publicAt: new Date() });
     shortPost = await Publication.create({
       title: `${prefix} short`, format: 'short', body: validBody(`${prefix} short`), author: owner._id,
       tags: ['integration'], publicAt: new Date(), currentRevision: 1,
@@ -174,35 +185,43 @@ if (!integrationEnabled) {
   });
 
   test.after(async () => {
-    if (server) await new Promise(resolve => server.close(resolve));
-    const userIds = [owner?._id, otherUser?._id].filter(Boolean);
-    if (userIds.length) {
-      await Promise.all([
-        Save.deleteMany({ userId: { $in: userIds } }),
-        Appreciation.deleteMany({ userId: { $in: userIds } }),
-        PublicationRevision.deleteMany({ authorId: { $in: userIds } }),
-        Publication.deleteMany({ author: { $in: userIds } }),
-        Membership.deleteMany({ userId: { $in: userIds } }),
-        User.deleteMany({ _id: { $in: userIds } }),
-        Profile.deleteMany({ userId: { $in: userIds } }),
-        Topic.deleteMany({ _id: topic?._id }),
-        Question.deleteMany({ _id: question?._id }),
-        Collection.deleteMany({ _id: collection?._id }),
-        Competition.deleteMany({ _id: competition?._id }),
-        ShortSeries.deleteMany({ _id: series?._id }),
-        Notification.deleteMany({ recipientId: { $in: userIds } }),
-        InteractionEvent.deleteMany({ actorId: { $in: userIds } }),
-        Draft.deleteMany({ authorId: { $in: userIds } }),
-        Follow.deleteMany({ followerId: { $in: userIds } }),
-        Comment.deleteMany({ userId: { $in: userIds } }),
-        CommentAppreciation.deleteMany({ userId: { $in: userIds } }),
-        Report.deleteMany({ reporterId: { $in: userIds } }),
-        ModerationAction.deleteMany({ moderatorId: { $in: userIds } }),
-        Publication.deleteMany({ author: { $in: userIds } }),
-      ]);
+    try {
+      if (!ownsDatabase) return;
+      if (server) await new Promise(resolve => server.close(resolve));
+      const userIds = [owner?._id, otherUser?._id].filter(Boolean);
+      if (userIds.length) {
+        await Promise.all([
+          Save.deleteMany({ userId: { $in: userIds } }),
+          Appreciation.deleteMany({ userId: { $in: userIds } }),
+          PublicationRevision.deleteMany({ authorId: { $in: userIds } }),
+          Publication.deleteMany({ author: { $in: userIds } }),
+          Membership.deleteMany({ userId: { $in: userIds } }),
+          User.deleteMany({ _id: { $in: userIds } }),
+          Profile.deleteMany({ userId: { $in: userIds } }),
+          Topic.deleteMany({ _id: topic?._id }),
+          Question.deleteMany({ _id: question?._id }),
+          Collection.deleteMany({ _id: collection?._id }),
+          Competition.deleteMany({ _id: competition?._id }),
+          ShortSeries.deleteMany({ _id: series?._id }),
+          Notification.deleteMany({ recipientId: { $in: userIds } }),
+          InteractionEvent.deleteMany({ actorId: { $in: userIds } }),
+          Draft.deleteMany({ authorId: { $in: userIds } }),
+          Follow.deleteMany({ followerId: { $in: userIds } }),
+          Comment.deleteMany({ userId: { $in: userIds } }),
+          CommentAppreciation.deleteMany({ userId: { $in: userIds } }),
+          Report.deleteMany({ reporterId: { $in: userIds } }),
+          ModerationAction.deleteMany({ moderatorId: { $in: userIds } }),
+          Publication.deleteMany({ author: { $in: userIds } }),
+        ]);
+      }
+      await ProviderEvent.deleteMany({ eventId: { $regex: `^${prefix}` } });
+    } finally {
+      try {
+        if (ownsDatabase) await dropTemporaryDatabase(databaseOwner, temporaryDatabase);
+      } finally {
+        await mongoose.disconnect();
+      }
     }
-    await ProviderEvent.deleteMany({ eventId: { $regex: `^${prefix}` } });
-    await mongoose.disconnect();
   });
 
   test('owner post deletion clears discussions and saves while missing references stay safe', async () => {
@@ -471,7 +490,7 @@ if (!integrationEnabled) {
       ['question opportunities', 'GET', '/api/question/opportunities', 200],
       ['competition list', 'GET', '/api/competition', 200],
       ['competition detail', 'GET', `/api/competition/${competition._id}`, 200],
-      ['eligible competition posts', 'GET', `/api/competition/${competition._id}/eligible-posts`, 200],
+      ['eligible competition posts for admin', 'GET', `/api/competition/${competition._id}/eligible-posts`, 403],
       ['writer profile', 'GET', `/api/writer/${prefix}-owner`, 200],
       ['unified search', 'GET', '/api/search?q=integration', 200],
       ['question search', 'GET', '/api/search?q=integration&type=questions', 200],
@@ -494,6 +513,85 @@ if (!integrationEnabled) {
       const response = await fetch(`${baseUrl}${path}`, { method, headers: ownerHeaders });
       assert.equal(response.status, expected, `${name} returned ${response.status}`);
     }
+  });
+
+  test('profile covers persist independently and appear on personal and public profiles', async () => {
+    const original = await Profile.findOne({ userId: owner._id });
+    const other = await Profile.findOne({ userId: otherUser._id });
+    const coverImageUrl = 'https://images.example.test/profile-cover.png';
+    try {
+      const saved = await fetch(`${baseUrl}/api/user/profile/cover`, { method: 'PUT', headers: authHeaders(owner), body: JSON.stringify({ coverImageUrl }) });
+      assert.equal(saved.status, 200);
+      assert.equal((await saved.json()).profile.coverImageUrl, coverImageUrl);
+      const personal = await fetch(`${baseUrl}/api/user/me`, { headers: authHeaders(owner) });
+      assert.equal((await personal.json()).data.coverImageUrl, coverImageUrl);
+      const publicProfile = await fetch(`${baseUrl}/api/writer/${original.handle}`);
+      assert.equal((await publicProfile.json()).data.coverImageUrl, coverImageUrl);
+      const unchanged = await Profile.findOne({ userId: otherUser._id });
+      assert.equal(unchanged.coverImageUrl, other.coverImageUrl);
+      const ownerAfter = await Profile.findOne({ userId: owner._id });
+      assert.equal(ownerAfter.avatarUrl, original.avatarUrl);
+      const removed = await fetch(`${baseUrl}/api/user/profile/cover`, { method: 'PUT', headers: authHeaders(owner), body: JSON.stringify({ removeCover: 'true' }) });
+      assert.equal(removed.status, 200);
+      assert.equal((await removed.json()).profile.coverImageUrl, null);
+    } finally {
+      await Profile.updateOne({ userId: owner._id }, { $set: { coverImageUrl: original.coverImageUrl || null } });
+    }
+  });
+
+  test('owners remove open entries with their votes and reenter with zero votes', async () => {
+    const CompetitionAudit = require('../schemas/competition-audit.schema');
+    const target = await Competition.create({ title: `${prefix} withdrawal`, competitionType: 'reader_choice', votingMode: 'readers', createdBy: owner._id, status: 'open', openDate: new Date(Date.now() - 60_000), closeDate: new Date(Date.now() + 3600_000), entries: [{ author: otherUser._id, publication: entrantPost._id, votes: [owner._id], votesCount: 1 }] });
+    const entryId = target.entries[0]._id;
+    const endpoint = id => `${baseUrl}/api/competition/${target._id}/entries/${id}`;
+    try {
+      const detail = await fetch(`${baseUrl}/api/competition/${target._id}`, { headers: authHeaders(otherUser) });
+      assert.equal(detail.status, 200);
+      assert.equal((await detail.json()).data.entries[0].isOwner, true);
+      const otherDetail = await fetch(`${baseUrl}/api/competition/${target._id}`, { headers: authHeaders(owner) });
+      assert.equal((await otherDetail.json()).data.entries[0].isOwner, false);
+      assert.equal((await fetch(endpoint(entryId), { method: 'DELETE' })).status, 401);
+      assert.equal((await fetch(endpoint(entryId), { method: 'DELETE', headers: authHeaders(owner) })).status, 403);
+      assert.equal((await Competition.findById(target._id)).entries[0].votesCount, 1);
+      assert.equal((await fetch(endpoint(entryId), { method: 'DELETE', headers: authHeaders(otherUser) })).status, 200);
+      assert.equal((await Competition.findById(target._id)).entries.length, 0);
+      assert.ok(await Publication.exists({ _id: entrantPost._id }));
+      const audit = await CompetitionAudit.findOne({ competitionId: target._id, action: 'entry_removed' });
+      assert.equal(audit.details.votesCount, 1);
+      assert.equal((await fetch(endpoint(entryId), { method: 'DELETE', headers: authHeaders(otherUser) })).status, 404);
+      const entered = await fetch(`${baseUrl}/api/competition/${target._id}/entries`, { method: 'POST', headers: authHeaders(otherUser), body: JSON.stringify({ postId: String(entrantPost._id) }) });
+      assert.equal(entered.status, 201);
+      const fresh = (await Competition.findById(target._id)).entries[0];
+      assert.notEqual(String(fresh._id), String(entryId));
+      assert.equal(fresh.votesCount, 0);
+      assert.equal(fresh.votes.length, 0);
+      await Competition.updateOne({ _id: target._id }, { $set: { closeDate: new Date(Date.now() - 1000) } });
+      assert.equal((await fetch(endpoint(fresh._id), { method: 'DELETE', headers: authHeaders(otherUser) })).status, 409);
+      assert.equal((await Competition.findById(target._id)).entries.length, 1);
+    } finally {
+      await CompetitionAudit.deleteMany({ competitionId: target._id });
+      await Competition.deleteOne({ _id: target._id });
+    }
+  });
+
+  test('empty Writers searches return at most ten authors ranked by followers', async () => {
+    const response = await fetch(`${baseUrl}/api/search?type=writers&limit=99`);
+    assert.equal(response.status, 200);
+    const { data } = await response.json();
+    assert.ok(data.writers.length > 0 && data.writers.length <= 10);
+    assert.deepEqual(data.posts, []);
+    for (let index = 0; index < data.writers.length; index++) {
+      const writer = data.writers[index];
+      assert.equal(writer.writerStatus, 'writer');
+      assert.ok(writer.id && writer.handle && writer.displayName);
+      assert.equal(writer.account, undefined);
+      assert.equal(writer.email, undefined);
+      assert.equal(writer.password, undefined);
+      if (index) assert.ok(data.writers[index - 1].followersCount >= writer.followersCount);
+    }
+    const limited = await fetch(`${baseUrl}/api/search?type=writers&limit=1`);
+    assert.equal(limited.status, 200);
+    assert.deepEqual((await limited.json()).data.writers, data.writers.slice(0, 1));
   });
 
   test('question categories search persisted questions without exposing private fields', async () => {
@@ -616,13 +714,13 @@ if (!integrationEnabled) {
     assert.equal(await Notification.findById(notification._id), null);
 
     const entry = await json(await fetch(`${baseUrl}/api/competition/${competition._id}/entries`, {
-      method: 'POST', headers: ownerHeaders, body: JSON.stringify({ publicationId: post._id.toString(), note: 'Integration entry' }),
+      method: 'POST', headers: otherHeaders, body: JSON.stringify({ publicationId: entrantPost._id.toString(), note: 'Integration entry' }),
     }));
     assert.equal(entry.status, 201);
     const currentCompetition = await Competition.findById(competition._id);
     assert.equal(currentCompetition.entries.length, 1);
     const entryId = currentCompetition.entries[0]._id;
-    assert.equal((await json(await fetch(`${baseUrl}/api/competition/${competition._id}/entries/${entryId}/vote`, { method: 'PUT', headers: otherHeaders }))).status, 200);
+    assert.equal((await json(await fetch(`${baseUrl}/api/competition/${competition._id}/entries/${entryId}/vote`, { method: 'PUT', headers: ownerHeaders }))).status, 200);
     assert.equal((await Competition.findById(competition._id)).entries[0].votesCount, 1);
 
     const newSeries = await json(await fetch(`${baseUrl}/api/short-series`, {

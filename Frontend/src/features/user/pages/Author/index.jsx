@@ -10,7 +10,10 @@ import FilterBar from '@/shared/components/ui/FilterBar'
 import Avatar from '@/shared/components/ui/Avatar'
 import DiscoveryPostCard from '@/features/discovery/components/DiscoveryPostCard'
 import PublishedWritingTabs from '../../components/PublishedWritingTabs'
+import ProfileCover from '../../components/ProfileCover'
 import CollectionCard from '@/features/collection/components/CollectionCard'
+import SeriesCard from '@/features/discovery/components/SeriesCard'
+import { useAuthorSeries } from '@/features/discovery/hooks/useShortSeries'
 import { useAuthorCollections } from '@/features/collection/hooks/useCollections'
 import useAuth from '@/features/auth/hooks/useAuth'
 import useWriter from '../../hooks/useWriter'
@@ -35,7 +38,7 @@ export default function AuthorPage() {
     const next = update(params)
     navigate({ search: next.size ? `?${next}` : '', hash: location.hash }, { preventScrollReset: true })
   }
-  const format = ['short', 'collections'].includes(params.get('authorFormat')) ? params.get('authorFormat') : 'article'
+  const format = ['short', 'collections', 'series'].includes(params.get('authorFormat')) ? params.get('authorFormat') : 'article'
   const collectionsSort = params.get('authorCollectionSort') === 'popular' ? 'popular' : 'latest'
   const sort = ['oldest', 'popular'].includes(params.get('authorSort')) ? params.get('authorSort') : 'latest'
   const updateFilter = (key, value, defaultValue) => setParams(current => {
@@ -60,6 +63,9 @@ export default function AuthorPage() {
   const writer = writerQuery.data
   const collections = retainRetryView(useAuthorCollections(writer?.id, collectionsSort, format === 'collections'))
   const publicCollections = collections.data?.pages.flatMap(page => page.data) || []
+  const authorSeries = retainRetryView(useAuthorSeries(writer?.id, 'article', format === 'series'))
+  const authorShortSeries = retainRetryView(useAuthorSeries(writer?.id, 'short', format === 'series'))
+  const publicSeries = [...(authorSeries.data?.pages.flatMap(page => page.data) || []), ...(authorShortSeries.data?.pages.flatMap(page => page.data) || [])]
   const visiblePosts = (writer?.posts || []).filter(post => (post.format || 'article') === format).sort((left, right) => {
     const dateOrder = new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
     if (sort === 'popular') return (right.likesCount || 0) - (left.likesCount || 0) || dateOrder
@@ -115,14 +121,11 @@ export default function AuthorPage() {
 
   return (
     <PageFrame className="!pb-20">
-      <div className="h-[180px] md:h-[220px] rounded-b-[20px] mb-0 relative overflow-hidden
-        bg-[var(--color-bg-alt)] border-x border-b border-[var(--color-border)]">
-        <div className="absolute inset-0 opacity-70"
-          style={{ backgroundImage: 'radial-gradient(circle at 18% 25%, rgba(138,90,50,.16), transparent 35%), radial-gradient(circle at 78% 65%, rgba(25,25,25,.10), transparent 40%)' }} />
+      <ProfileCover src={writer.coverImageUrl}>
         <span className="absolute bottom-5 right-6 text-[11px] text-[var(--color-text-muted)] tracking-[0.08em] uppercase">
           @{writer.handle}
         </span>
-      </div>
+      </ProfileCover>
 
       <section className="relative -mt-12 md:-mt-14 px-2 md:px-5 pb-8 border-b border-[var(--color-border)]">
         <div className="flex items-end gap-5 flex-wrap">
@@ -231,7 +234,7 @@ export default function AuthorPage() {
                 />
                 <p id="creator-request-details-count" className="mt-1 text-right text-[10px] tabular-nums text-[var(--color-text-muted)]">{details.length}/2000</p>
 
-                <Button className="mt-3" type="submit" disabled={!subject.trim() || !details.trim() || requestMutation.isPending} aria-busy={requestMutation.isPending}>{'Send request'}</Button>
+                <div className="mt-3 flex justify-end"><Button type="submit" disabled={!subject.trim() || !details.trim() || requestMutation.isPending} aria-busy={requestMutation.isPending}>{'Send request'}</Button></div>
                 {requestMutation.isError && <p role="alert" className="mt-2 text-[11px] text-[var(--color-danger)]">The request could not be sent. Check your membership and try again.</p>}
               </form>
             )}
@@ -251,13 +254,17 @@ export default function AuthorPage() {
           </div>
         </div>
         <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
-          <PublishedWritingTabs value={format} onChange={value => updateFilter('authorFormat', value, 'article')} controlsId="author-writing-panel" includeCollections />
-          {(format === 'collections' ? publicCollections.length : visiblePosts.length) > 0 && <FilterBar label={format === 'collections' ? 'Collections' : 'Published writing'} options={[]} sortOptions={format === 'collections' ? [{ id: 'latest', label: 'Newest' }, { id: 'popular', label: 'Most saved' }] : [{ id: 'latest', label: 'Newest' }, { id: 'oldest', label: 'Oldest' }, { id: 'popular', label: 'Most appreciated' }]} sortValue={format === 'collections' ? collectionsSort : sort} onSortChange={value => updateFilter(format === 'collections' ? 'authorCollectionSort' : 'authorSort', value, 'latest')} onReset={resetFilters} />}
+          <PublishedWritingTabs value={format} onChange={value => updateFilter('authorFormat', value, 'article')} controlsId="author-writing-panel" includeCollections includeSeries />
+          {format !== 'series' && (format === 'collections' ? publicCollections.length : visiblePosts.length) > 0 && <FilterBar label={format === 'collections' ? 'Collections' : 'Published writing'} options={[]} sortOptions={format === 'collections' ? [{ id: 'latest', label: 'Newest' }, { id: 'popular', label: 'Most saved' }] : [{ id: 'latest', label: 'Newest' }, { id: 'oldest', label: 'Oldest' }, { id: 'popular', label: 'Most appreciated' }]} sortValue={format === 'collections' ? collectionsSort : sort} onSortChange={value => updateFilter(format === 'collections' ? 'authorCollectionSort' : 'authorSort', value, 'latest')} onReset={resetFilters} />}
         </div>
-        <div id="author-writing-panel" role="tabpanel" aria-label={`${format === 'collections' ? 'Collections' : format === 'short' ? 'Shorts' : 'Stories'} content`}>
+        <div id="author-writing-panel" role="tabpanel" aria-label={`${format === 'series' ? 'Series' : format === 'collections' ? 'Collections' : format === 'short' ? 'Shorts' : 'Stories'} content`}>
         {format === 'collections' ? <>
           {collections.isPending ? <ListSkeleton label="Loading author collections" /> : collections.isError ? <div role="alert"><p className="text-[13px] text-[var(--color-danger)]">Collections could not be loaded.</p><Button className="mt-4" variant="secondary" disabled={collections.isFetching} aria-busy={collections.isFetching} onClick={() => collections.refetch()}>Try again</Button></div> : publicCollections.length ? <div className="card-grid card-grid--collection gap-5">{publicCollections.map(collection => <CollectionCard key={collection.id} collection={collection} />)}</div> : <p className="py-14 text-[15px] text-[var(--color-text-secondary)]">No public collections yet.</p>}
           <InfiniteScrollSentinel query={collections} className="pt-9" />
+        </> : format === 'series' ? <>
+          {authorSeries.isPending || authorShortSeries.isPending ? <ListSkeleton label="Loading author series" /> : authorSeries.isError || authorShortSeries.isError ? <div role="alert"><p className="text-[13px] text-[var(--color-danger)]">Series could not be loaded.</p><Button className="mt-4" variant="secondary" disabled={authorSeries.isFetching || authorShortSeries.isFetching} aria-busy={authorSeries.isFetching || authorShortSeries.isFetching} onClick={() => { authorSeries.refetch(); authorShortSeries.refetch() }}>Try again</Button></div> : publicSeries.length ? <div className="card-grid card-grid--series gap-4">{publicSeries.map(series => <SeriesCard key={series.id} series={series} />)}</div> : <p className="py-14 text-[15px] text-[var(--color-text-secondary)]">No public series yet.</p>}
+          <InfiniteScrollSentinel query={authorSeries} className="pt-9" label="Loading more story series" />
+          <InfiniteScrollSentinel query={authorShortSeries} className="pt-9" label="Loading more short series" />
         </> : <>
 
         {visiblePosts.length > 0 ? (

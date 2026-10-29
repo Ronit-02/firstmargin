@@ -50,7 +50,7 @@ export default function ShortCard({ post, onHide, onOpen, menuOverride, fluid = 
   if (isHidden) return null
 
   return <article ref={cardRef} data-story-format="short" className={`group relative flex w-full self-start flex-col overflow-hidden rounded-[16px] border border-[var(--color-border)] ${fluid ? 'aspect-[2/3] min-h-[285px] min-[360px]:max-[407px]:min-h-[270px]' : 'h-[380px] max-w-[250px]'}`}>
-    {post.image && <Link to={`/post/${post.id}`} onClick={handleOpen} aria-label={`Read ${post.title}`} className="relative z-10 shrink-0"><ImageBox src={post.image} alt="" height="auto" aspectRatio="16 / 9" radius="0px" /></Link>}
+    {post.image && <Link to={`/post/${post.id}`} onClick={handleOpen} aria-label={`Read ${post.title}`} className="relative z-10 shrink-0"><ImageBox src={post.image} alt="" height="auto" aspectRatio="5 / 2" radius="0px" /></Link>}
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <div className={`flex shrink-0 flex-col bg-[var(--color-bg)] ${post.image ? '' : fluid ? 'min-h-[35%] min-[360px]:max-[407px]:min-h-[42%]' : 'min-h-[42%]'} ${fluid ? 'p-2.5 min-[360px]:max-[407px]:p-2' : 'p-4'}`}>
         <div className="flex min-h-11 items-start justify-between gap-1">

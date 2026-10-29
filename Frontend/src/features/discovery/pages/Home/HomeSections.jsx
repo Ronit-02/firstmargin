@@ -11,6 +11,7 @@ import CollectionCard from '@/features/collection/components/CollectionCard'
 import DiscoveryPostCard from '@/features/discovery/components/DiscoveryPostCard'
 import ShortCard from '@/features/discovery/components/ShortCard'
 import useShorts from '@/features/discovery/hooks/useShorts'
+import useFilterSearchParams from '@/shared/hooks/useFilterSearchParams'
 
 function SectionBar({ title, action, description }) {
   return <div className="mb-5 grid grid-cols-1 items-center gap-x-2 gap-y-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-y-1">
@@ -116,7 +117,14 @@ function StoryCarousel({ posts, label }) {
 }
 
 function CategorySection({ posts }) {
-  const [selectedCategory, setSelectedCategory] = useState(null)
+  const [params, setParams] = useFilterSearchParams()
+  const selectedCategory = params.get('homeCategory') || null
+  const setSelectedCategory = update => setParams(current => {
+    const nextCategory = update(selectedCategory)
+    if (nextCategory) current.set('homeCategory', nextCategory)
+    else current.delete('homeCategory')
+    return current
+  })
   const categories = [...new Set(posts.flatMap(post => post.tags || []))].slice(0, 7)
   const visiblePosts = (selectedCategory ? posts.filter(post => post.tags?.includes(selectedCategory)) : posts).slice(0, 4)
   if (!categories.length) return null
@@ -177,7 +185,7 @@ function TopAuthors({ posts }) {
     return [...map.values()].sort((a, b) => b.likes - a.likes || b.stories - a.stories).slice(0, 4)
   }, [posts])
   if (!authors.length) return null
-  return <section><SectionBar title="Top authors" description="Meet the writers behind the stories in your feed." action={<Link to="/search?q=writer" className="button-target inline-flex min-h-10 items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-[18px] py-2 text-[13px] font-medium text-[var(--color-text)] transition-all duration-150 hover:bg-[var(--color-bg-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-offset-2 sm:min-h-0">Find writers →</Link>} /><div className="grid grid-cols-1 gap-x-6 min-[540px]:grid-cols-2 lg:grid-cols-4">{authors.map((author, index) => <Link key={author.id} to={`/author/${author.handle || encodeURIComponent(author.username)}`} className="flex min-w-0 items-center gap-3 py-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-offset-2"><span className="w-5 shrink-0 text-[12px] text-[var(--color-text-muted)]">0{index + 1}</span><Avatar src={author.picture} name={author.username} size={40} /><span className="min-w-0 flex-1"><span className="block truncate text-[13px] font-semibold text-[var(--color-text)]">{author.username}</span><span className="mt-1 block truncate text-[11px] text-[var(--color-text-muted)]">{author.stories} featured {author.stories === 1 ? 'story' : 'stories'}</span></span></Link>)}</div></section>
+  return <section><SectionBar title="Top authors" description="Meet the writers behind the stories in your feed." action={<Link to="/search?type=writers" className="button-target inline-flex min-h-10 items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-[18px] py-2 text-[13px] font-medium text-[var(--color-text)] transition-all duration-150 hover:bg-[var(--color-bg-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-offset-2 sm:min-h-0">Find writers →</Link>} /><div className="grid grid-cols-1 gap-x-6 min-[540px]:grid-cols-2 lg:grid-cols-4">{authors.map((author, index) => <Link key={author.id} to={`/author/${author.handle || encodeURIComponent(author.username)}`} className="flex min-w-0 items-center gap-3 py-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-offset-2"><span className="w-5 shrink-0 text-[12px] text-[var(--color-text-muted)]">0{index + 1}</span><Avatar src={author.picture} name={author.username} size={40} /><span className="min-w-0 flex-1"><span className="block truncate text-[13px] font-semibold text-[var(--color-text)]">{author.username}</span><span className="mt-1 block truncate text-[11px] text-[var(--color-text-muted)]">{author.stories} featured {author.stories === 1 ? 'story' : 'stories'}</span></span></Link>)}</div></section>
 }
 
 export default function HomeSections({ type, posts, shortOffset = 0 }) {

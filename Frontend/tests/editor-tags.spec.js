@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 test('existing draft tags remain removable at the twenty-tag limit', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 820 })
@@ -47,7 +47,7 @@ for (const width of [320, 1280]) {
       return route.fulfill({ json: { data: [], meta: { unreadCount: 0 } } })
     })
     await page.goto('/studio?new=article')
-    await page.getByRole('textbox', { name: 'Article title', exact: true }).fill('Tag choices')
+    await page.getByRole('textbox', { name: 'Story title', exact: true }).fill('Tag choices')
     await page.getByRole('textbox', { name: 'Paragraph block', exact: true }).fill('Testing tag choices in the publishing dialog.')
     await page.getByRole('button', { name: 'Publish', exact: true }).click()
     const field = page.getByRole('combobox', { name: 'Add a tag', exact: true })
@@ -115,7 +115,7 @@ for (const width of [320, 1280]) {
       await expect(page.getByRole('textbox', { name: 'h2 block', exact: true })).toBeFocused()
       await page.getByRole('textbox', { name: 'h2 block', exact: true }).fill('A heading')
     }
-    await expect(paragraph).toHaveValue('Original text stays intact')
+    await expect(paragraph).toHaveText('Original text stays intact')
     await expect(page.getByRole('listbox', { name: 'Insert block' })).toHaveCount(0)
     await page.getByRole('button', { name: 'Publish', exact: true }).click()
     const reopenedField = page.getByRole('combobox', { name: 'Add a tag', exact: true })

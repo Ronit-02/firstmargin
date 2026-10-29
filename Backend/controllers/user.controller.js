@@ -7,6 +7,8 @@ const mongoose = require('mongoose');
 const fs = require('fs');
 const { createProfileForUser } = require('../services/profile.service');
 const { uploadProfileAvatar, profileAvatarPublicIdFromUrl, removeProfileAvatar } = require('../utils/cloudinary');
+const { uploadProfileCover, profileCoverPublicIdFromUrl, removeProfileCover } = require('../utils/cloudinary');
+const { isSafeHttpUrl } = require('../utils/safe-url');
 const InteractionEvent = require('../schemas/interaction-event.schema');
 const { hasCapability } = require('../services/entitlement.service');
 const { toggleFollow: toggleFollowWorkflow, toggleSave: toggleSaveWorkflow } = require('../services/user-relationship.service');
@@ -19,7 +21,7 @@ const getMe = async (req, res) => {
   try {
     const [user, profile, postCount] = await Promise.all([
       User.findById(req.auth.userId).select('username picture bio role followersCount followingCount createdAt'),
-      Profile.findOne({ userId: req.auth.userId }).select('handle displayName bio avatarUrl websiteUrl writerStatus membershipEnabled directRequestsEnabled'),
+      Profile.findOne({ userId: req.auth.userId }).select('handle displayName bio avatarUrl coverImageUrl websiteUrl writerStatus membershipEnabled directRequestsEnabled'),
       Publication.countDocuments({ author: req.auth.userId }),
     ]);
     if (!user) return res.status(404).json({ message: 'User not found' });
@@ -32,6 +34,7 @@ const getMe = async (req, res) => {
         handle: profile?.handle || null,
         bio: profile?.bio ?? user.bio ?? '',
         avatarUrl: profile?.avatarUrl || user.picture || null,
+        coverImageUrl: profile?.coverImageUrl || null,
         websiteUrl: profile?.websiteUrl || null,
         writerStatus: profile?.writerStatus || 'reader',
         membershipEnabled: Boolean(profile?.membershipEnabled),
@@ -135,7 +138,11 @@ const updateProfileAvatar = async (req, res) => {
   let uploadedPublicId = null;
   let saved = false;
   try {
-    if (!req.file) return res.status(400).json({ message: 'Choose a profile picture to upload' });
+    const avatarUrl = String(req.body.avatarUrl || '').trim();
+    const removeAvatar = req.body.removeAvatar === 'true';
+    if (!req.file && !avatarUrl && !removeAvatar) return res.status(400).json({ message: 'Choose a profile picture to upload' });
+    if (Number(Boolean(req.file)) + Number(Boolean(avatarUrl)) + Number(removeAvatar) > 1) return res.status(400).json({ message: 'Choose one profile picture action' });
+    if (avatarUrl) { try { const url = new URL(avatarUrl); if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.toString().length > 2000) throw new Error('Invalid URL'); } catch { return res.status(400).json({ message: 'Profile picture must be a valid HTTP(S) URL' }); } }
     const user = await User.findById(req.auth.userId);
     if (!user) return res.status(404).json({ message: 'User not found' });
     const profile = await Profile.findOne({ userId: user._id }) || await createProfileForUser({
@@ -143,14 +150,15 @@ const updateProfileAvatar = async (req, res) => {
     });
     const previousAvatarUrl = profile.avatarUrl;
     const previousUserPicture = user.picture;
-    const upload = await uploadProfileAvatar(req.file.path, user._id);
-    if (!upload?.secure_url || !upload?.public_id) throw new Error('Avatar upload returned no image');
-    uploadedPublicId = upload.public_id;
+    const upload = req.file ? await uploadProfileAvatar(req.file.path, user._id) : null;
+    if (req.file && (!upload?.secure_url || !upload?.public_id)) throw new Error('Avatar upload returned no image');
+    uploadedPublicId = upload?.public_id || null;
+    const nextAvatarUrl = removeAvatar ? '' : upload?.secure_url || avatarUrl;
 
-    user.picture = upload.secure_url;
+    user.picture = nextAvatarUrl;
     await user.save();
     try {
-      profile.avatarUrl = upload.secure_url;
+      profile.avatarUrl = nextAvatarUrl;
       await profile.save();
     } catch (error) {
       user.picture = previousUserPicture;
@@ -163,12 +171,44 @@ const updateProfileAvatar = async (req, res) => {
     if (previousPublicId && previousPublicId !== uploadedPublicId) {
       await removeProfileAvatar(previousPublicId).catch(() => console.error(`[${req.requestId}] Previous profile avatar cleanup failed`));
     }
-    return res.status(200).json({ profile: { avatarUrl: upload.secure_url } });
+    return res.status(200).json({ profile: { avatarUrl: nextAvatarUrl } });
   } catch {
     if (uploadedPublicId && !saved) {
       await removeProfileAvatar(uploadedPublicId).catch(() => console.error(`[${req.requestId}] Failed avatar upload cleanup failed`));
     }
     return res.status(500).json({ message: 'Profile picture could not be saved' });
+  } finally {
+    if (req.file?.path) await fs.promises.unlink(req.file.path).catch(() => {});
+  }
+};
+
+const updateProfileCover = async (req, res) => {
+  let uploadedPublicId = null;
+  let saved = false;
+  try {
+    const coverImageUrl = String(req.body.coverImageUrl || '').trim();
+    const removeCover = req.body.removeCover === 'true';
+    if (!req.file && !coverImageUrl && !removeCover) return res.status(400).json({ message: 'Choose a cover image to upload' });
+    if (Number(Boolean(req.file)) + Number(Boolean(coverImageUrl)) + Number(removeCover) > 1) return res.status(400).json({ message: 'Choose one cover image action' });
+    if (coverImageUrl && (coverImageUrl.length > 2000 || !isSafeHttpUrl(coverImageUrl))) return res.status(400).json({ message: 'Cover image must be a valid HTTP(S) URL' });
+    const user = await User.findById(req.auth.userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    const profile = await Profile.findOne({ userId: user._id }) || await createProfileForUser({ userId: user._id, username: user.username, picture: user.picture, bio: user.bio });
+    const previousUrl = profile.coverImageUrl;
+    const upload = req.file ? await uploadProfileCover(req.file.path, user._id) : null;
+    uploadedPublicId = upload?.public_id || null;
+    if (req.file && (!upload?.secure_url || !upload?.public_id)) throw new Error('Cover upload returned no image');
+    profile.coverImageUrl = removeCover ? null : upload?.secure_url || coverImageUrl;
+    await profile.save();
+    saved = true;
+    const previousPublicId = profileCoverPublicIdFromUrl(previousUrl, user._id);
+    if (previousPublicId && previousPublicId !== uploadedPublicId) {
+      await removeProfileCover(previousPublicId).catch(() => console.error(`[${req.requestId}] Previous profile cover cleanup failed`));
+    }
+    return res.status(200).json({ profile: { coverImageUrl: profile.coverImageUrl } });
+  } catch {
+    if (uploadedPublicId && !saved) await removeProfileCover(uploadedPublicId).catch(() => console.error(`[${req.requestId}] Failed cover upload cleanup failed`));
+    return res.status(500).json({ message: 'Cover image could not be saved' });
   } finally {
     if (req.file?.path) await fs.promises.unlink(req.file.path).catch(() => {});
   }
@@ -321,4 +361,4 @@ const addComment = async (req, res) => {
   }
 };
 
-module.exports = { getMe, getMyPosts, fetchUser, updateProfile, updateProfileAvatar, toggleFollow, toggleBookmark, getBookmarks, getAnalytics, toggleLike, addComment };
+module.exports = { getMe, getMyPosts, fetchUser, updateProfile, updateProfileAvatar, updateProfileCover, toggleFollow, toggleBookmark, getBookmarks, getAnalytics, toggleLike, addComment };

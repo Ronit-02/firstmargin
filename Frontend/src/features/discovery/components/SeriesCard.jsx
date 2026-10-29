@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import ImageBox from '@/shared/components/ui/ImageBox'
 import ActionMenu, { ActionMenuTrigger, ActionMenuItem, HideActionIcon } from '@/shared/components/ui/ActionMenu'
@@ -23,6 +23,10 @@ export default function SeriesCard({ series }) {
   const [shareOpen, setShareOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [hidden, setHidden] = useState(false)
+  const chapterSpaceRef = useRef(null)
+  const chapterListRef = useRef(null)
+  const moreRef = useRef(null)
+  const [visibleChapters, setVisibleChapters] = useState(0)
   const menuId = `series-menu-${series.id}`
   const deleteDialogId = `delete-series-dialog-${series.id}`
   const closeDelete = () => { if (!deletion.isPending) setDeleteOpen(false) }
@@ -34,7 +38,36 @@ export default function SeriesCard({ series }) {
   const isShortSeries = series.type === 'short'
   const formatLabel = isShortSeries ? 'Short series' : 'Story series'
   const writerName = series.author?.username || 'firstmargin writer'
-  const preview = series.entriesPreview || series.entries?.slice(0, 3).map((entry, index) => ({ id: entry.id, title: entry.title, position: index + 1 })) || []
+  const preview = series.entriesPreview || series.entries?.map((entry, index) => ({ id: entry.id, title: entry.title, position: index + 1 })) || []
+  const previewKey = JSON.stringify(preview)
+  const hasMore = series.entriesCount > visibleChapters && preview.length > 0
+
+  useEffect(() => {
+    const space = chapterSpaceRef.current
+    const list = chapterListRef.current
+    const more = moreRef.current
+    if (!space || !list || !more || hidden) return undefined
+    let active = true
+    const measure = () => {
+      if (!active) return
+      const top = list.getBoundingClientRect().top
+      const bottoms = Array.from(list.children, row => row.getBoundingClientRect().bottom - top)
+      const available = space.clientHeight
+      let count = bottoms.filter(bottom => bottom <= available + 0.5).length
+      if (count < series.entriesCount) {
+        const remaining = available - more.getBoundingClientRect().height
+        count = bottoms.filter(bottom => bottom <= remaining + 0.5).length
+      }
+      setVisibleChapters(current => current === count ? current : count)
+    }
+    const observer = new ResizeObserver(measure)
+    observer.observe(space)
+    for (const row of list.children) observer.observe(row)
+    observer.observe(more)
+    document.fonts?.ready.then(measure)
+    measure()
+    return () => { active = false; observer.disconnect() }
+  }, [previewKey, series.entriesCount, hidden])
 
   if (hidden) return null
 
@@ -62,8 +95,10 @@ export default function SeriesCard({ series }) {
         </div>
         <div className="series-card__chapters min-w-0 border-t border-[var(--color-border)] pt-3">
           <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--color-text-muted)]">Chapters</p>
-          {preview.length ? <ol className="min-w-0">{preview.map((entry, index) => <li key={entry.id || index} className="flex min-w-0 items-center gap-3 border-t border-[var(--color-border)] py-2.5 first:border-t-0"><span className="shrink-0 text-[17px] text-[var(--color-text-secondary)]" style={{ fontFamily: 'var(--font-display)' }}>{String(entry.position || index + 1).padStart(2, '0')}</span><span className="min-w-0 truncate text-[12px] font-medium text-[var(--color-text)]">{entry.title}</span></li>)}</ol> : <p className="py-3 text-[12px] text-[var(--color-text-muted)]">{series.entriesCount} parts in reading order</p>}
-          {series.entriesCount > preview.length && preview.length > 0 && <p className="text-[11px] text-[var(--color-text-muted)]">+ {series.entriesCount - preview.length} more</p>}
+          {preview.length ? <div ref={chapterSpaceRef} className="series-card__preview">
+            <ol ref={chapterListRef} className="absolute inset-0 min-w-0">{preview.map((entry, index) => <li key={entry.id || index} aria-hidden={index >= visibleChapters} style={{ visibility: index < visibleChapters ? 'visible' : 'hidden' }} className="flex min-w-0 items-center gap-3 border-t border-[var(--color-border)] py-2.5 first:border-t-0"><span className="shrink-0 text-[17px] text-[var(--color-text-secondary)]" style={{ fontFamily: 'var(--font-display)' }}>{String(entry.position || index + 1).padStart(2, '0')}</span><span className="min-w-0 truncate text-[12px] font-medium text-[var(--color-text)]">{entry.title}</span></li>)}</ol>
+            <p ref={moreRef} aria-hidden={!hasMore} style={{ visibility: hasMore ? 'visible' : 'hidden' }} className="absolute inset-x-0 bottom-0 pt-1 text-[11px] text-[var(--color-text-muted)]">+ {Math.max(0, series.entriesCount - visibleChapters)} more</p>
+          </div> : <p className="py-3 text-[12px] text-[var(--color-text-muted)]">{series.entriesCount} parts in reading order</p>}
         </div>
       </div>
       {shareOpen && <ShareMenu anchorRef={triggerRef} id={`series-share-${series.id}`} label="Share series" contentName="Series" url={`${window.location.origin}/series/${series.id}`} onClose={({ restoreFocus = false } = {}) => { setShareOpen(false); if (restoreFocus) requestAnimationFrame(() => triggerRef.current?.focus()) }} />}

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 test('a staff moderation service outage exposes the global server-unavailable recovery state', async ({ page }) => {
   await page.route(url => url.pathname.startsWith('/api/'), async route => {
@@ -7,7 +7,7 @@ test('a staff moderation service outage exposes the global server-unavailable re
     if (url.pathname === '/api/user/me') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: { role: 'admin', username: 'Admin' } }) })
     if (url.pathname === '/api/staff/reports') return route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ message: 'Reports unavailable' }) })
     if (url.pathname === '/api/v1/notifications') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], meta: { unreadCount: 0 } }) })
-    return route.abort('blockedbyclient')
+    return route.fulfill({ status: 404, json: { message: 'Unconfigured fixture endpoint' } })
   })
 
   await page.goto('/staff', { waitUntil: 'domcontentloaded' })
@@ -29,7 +29,7 @@ test('staff lists reports and competitions before opening item actions', async (
     if (url.pathname === '/api/auth/refresh-token') return route.fulfill({ json: { accessToken: 'staff-test-token', user: 'Admin', email: 'admin@inkrider.local', role: 'admin' } })
     if (url.pathname === '/api/user/me') return route.fulfill({ json: { data: { role: 'admin', username: 'Admin' } } })
     if (url.pathname === '/api/v1/notifications') return route.fulfill({ json: { data: [], meta: { unreadCount: 0 } } })
-    if (url.pathname === '/api/staff/reports' && request.method() === 'GET') return route.fulfill({ json: { data: reports[url.searchParams.get('status')] || [] } })
+    if (url.pathname === '/api/staff/reports' && request.method() === 'GET') return route.fulfill({ json: { data: url.searchParams.get('status') === 'all' ? Object.values(reports).flat() : reports[url.searchParams.get('status')] || [] } })
     if (url.pathname.endsWith('/reviews') && request.method() === 'POST') { reviewPayload = request.postDataJSON(); return route.fulfill({ json: { data: { status: 'reviewing' } } }) }
     if (url.pathname === '/api/competition') return route.fulfill({ json: { data: [
       { id: 'open-one', title: 'Current challenge', status: 'open', votingMode: 'readers', closeDate: '2026-11-01T00:00:00Z' },
@@ -59,7 +59,7 @@ test('staff lists reports and competitions before opening item actions', async (
   await expectFilterAtRight('Moderation')
   await expect(page.getByText('A reported story')).toBeVisible()
   await expect(page.getByLabel('Review note')).toHaveCount(0)
-  await page.getByRole('button', { name: 'Review report' }).click()
+  await page.getByRole('article').filter({ hasText: 'A reported story' }).getByRole('button', { name: 'Review report' }).click()
   const review = page.getByRole('dialog', { name: 'Review report' })
   await review.getByLabel('Review note').fill('Needs a closer look.')
   await review.getByRole('button', { name: 'Begin review' }).click()
@@ -75,14 +75,14 @@ test('staff lists reports and competitions before opening item actions', async (
   await page.getByRole('tab', { name: 'Competitions' }).click()
   await expectFilterAtRight('Competitions')
   await expect(page.getByText('Current challenge')).toBeVisible()
-  await expect(page.getByText('Finished challenge')).toHaveCount(0)
+  await expect(page.getByText('Finished challenge')).toBeVisible()
   await selectStatus('Past')
   await expect(page.getByText('Finished challenge')).toBeVisible()
   await expect(page.getByText('Current challenge')).toHaveCount(0)
   await page.getByRole('button', { name: 'Add competition' }).click()
   await expect(page.getByRole('dialog', { name: 'Create competition' })).toBeVisible()
   await page.getByRole('button', { name: 'Close create competition' }).click()
-  await page.getByRole('button', { name: 'View results' }).click()
+  await page.getByRole('button', { name: 'Review results' }).click()
   await expect(page).toHaveURL(/\/staff\/competitions\/past-one\/judging$/)
   await expect(page.getByRole('heading', { name: 'Finished challenge' })).toBeVisible()
   await page.goto('/staff')

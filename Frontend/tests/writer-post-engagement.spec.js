@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 const id = '507f1f77bcf86cd799439021'
 const post = { id, title: 'How writers build trust', image: '/logo/logo-dark.png', tags: ['science', 'wellness'], readTime: '1 min read', createdAt: '2026-09-08T00:00:00Z', likesCount: 9, commentsCount: 0, isLiked: true }
@@ -37,7 +37,8 @@ for (const width of [320, 390, 1280]) {
     await expect(unliked).toHaveText('8')
     await unliked.click()
     await expect(like).toHaveText('9')
-    expect(methods).toEqual(['DELETE', 'PUT'])
+    // The optimistic count can render before the PUT reaches the API fixture.
+    await expect.poll(() => methods).toEqual(['DELETE', 'PUT'])
     await comments.click()
     const dialog = page.getByRole('dialog', { name: 'Comments', exact: true })
     await dialog.getByLabel('Add a comment', { exact: true }).fill('A useful point.')
@@ -62,7 +63,7 @@ for (const width of [320, 390, 1280]) {
     await card.screenshot({ path: testInfo.outputPath(`writer-card-${width}.png`) })
     await page.evaluate(() => document.documentElement.classList.add('dark'))
     await card.screenshot({ path: testInfo.outputPath(`writer-card-${width}-dark.png`) })
-    await card.getByRole('link', { name: /How writers build trust/ }).click()
+    await card.getByRole('link', { name: 'How writers build trust', exact: true }).click()
     await expect(page).toHaveURL(`/post/${id}`)
   })
 }

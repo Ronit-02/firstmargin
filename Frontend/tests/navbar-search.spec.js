@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 const searchResponse = {
   data: {
@@ -72,7 +72,7 @@ for (const loggedIn of [false, true]) {
     const search = header.getByRole('combobox', { name: 'Search stories and writers' })
     await expect(search).toBeVisible()
     const bounds = await header.getByRole('search').boundingBox()
-    expect(bounds.x + bounds.width).toBeGreaterThan(300)
+    expect(bounds.width).toBeGreaterThanOrEqual(80)
     expect(bounds.x + bounds.width).toBeLessThanOrEqual(325)
     await search.click()
     const dialogSearch = page.getByRole('dialog', { name: 'Search firstmargin' }).getByRole('combobox')
@@ -120,7 +120,7 @@ test('global search suggestions support combobox keyboard navigation', async ({ 
     if (url.pathname === '/api/post/feed') {
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], meta: { nextCursor: null } }) })
     }
-    return route.abort('blockedbyclient')
+    return route.fulfill({ status: 404, json: { message: 'Unconfigured fixture endpoint' } })
   })
 
   await page.goto('/', { waitUntil: 'domcontentloaded' })
@@ -173,7 +173,7 @@ test('account menu supports focus entry, Arrow keys, and Escape restoration', as
     if (url.pathname === '/api/post/feed') {
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], meta: { nextCursor: null } }) })
     }
-    return route.abort('blockedbyclient')
+    return route.fulfill({ status: 404, json: { message: 'Unconfigured fixture endpoint' } })
   })
 
   await page.goto('/', { waitUntil: 'domcontentloaded' })

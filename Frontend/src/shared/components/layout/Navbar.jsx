@@ -122,11 +122,10 @@ export default function Navbar() {
       return
     }
     const query = searchValue.trim()
-    if (query.length >= 1) {
-      setSearchOpen(false)
-      setActiveSuggestionIndex(-1)
-      navigate(`/search?q=${encodeURIComponent(query)}`)
-    }
+    setSearchOpen(false)
+    setActiveSuggestionIndex(-1)
+    const type = location.pathname === '/search' ? new URLSearchParams(location.search).get('type') || 'posts' : 'posts'
+    navigate(query ? `/search?q=${encodeURIComponent(query)}` : ['writers', 'shorts', 'questions'].includes(type) ? `/search?type=${type}` : '/search')
   }
 
   const waiting = suggestionQuery !== searchValue.trim()

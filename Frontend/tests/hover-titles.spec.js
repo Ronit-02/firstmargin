@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 test('navigation links and navbar controls expose native hover titles', async ({ page }) => {
   await page.route(url => url.pathname.startsWith('/api/'), route => route.abort('blockedbyclient'))

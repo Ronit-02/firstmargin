@@ -1,6 +1,6 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
-async function mockEditor(page, { capabilities = [], saveStatus = 200, guest = false, loadedTitle = 'Existing draft', loadedFormat = 'short' } = {}) {
+async function mockEditor(page, { capabilities = [], saveStatus = 200, guest = false, loadedTitle = 'Existing draft', loadedFormat = 'short', loadedBlocks = [{ id: 'paragraph', type: 'text', content: 'Existing draft content.' }] } = {}) {
   let authenticated = !guest
   const privateRequests = []
   const saves = []
@@ -16,7 +16,7 @@ async function mockEditor(page, { capabilities = [], saveStatus = 200, guest = f
       saves.push(request.postDataJSON())
       return route.fulfill({ status: saveStatus, json: saveStatus === 200 ? { data: { id: 'draft-layout', version: saves.length } } : { message: 'Save unavailable' } })
     }
-    if (path === '/api/drafts/draft-layout' && request.method() === 'GET') return route.fulfill({ json: { data: { title: loadedTitle, blocks: [{ id: 'paragraph', type: 'text', content: 'Existing draft content.' }], tags: ['writing'], format: loadedFormat, version: 1 } } })
+    if (path === '/api/drafts/draft-layout' && request.method() === 'GET') return route.fulfill({ json: { data: { title: loadedTitle, blocks: loadedBlocks, tags: ['writing'], format: loadedFormat, ...(saveStatus === 200 ? saves.at(-1) : {}), version: Math.max(1, saves.length) } } })
     if (path === '/api/post/' && request.method() === 'POST') {
       publications.push(request.postData())
       return route.fulfill({ status: 400, json: { message: 'Publication test: draft preserved.' } })
@@ -126,7 +126,7 @@ test('phone block sheet stays usable on a short viewport and restores focus', as
   await page.screenshot({ path: testInfo.outputPath('phone-block-sheet.png') })
   await page.keyboard.press('Escape')
   await expect(trigger).toBeFocused()
-  await expect(body).toHaveValue('Keep this idea while choosing a block.')
+  await expect(body).toHaveText('Keep this idea while choosing a block.')
 })
 
 for (const width of [320, 390]) {
@@ -141,6 +141,42 @@ for (const width of [320, 390]) {
     const gap = navBox.y - (countBox.y + countBox.height)
     expect(gap).toBeGreaterThanOrEqual(8)
     expect(gap).toBeLessThanOrEqual(28)
+  })
+}
+
+for (const width of [320, 768]) {
+  test(`editor heading and selection toolbar stay clear at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 820 })
+    await mockEditor(page)
+    await page.goto('/studio?new=article')
+    const heading = page.getByRole('heading', { name: 'Write Story', exact: true })
+    const editing = page.getByText('Editing', { exact: true })
+    const actions = page.getByRole('button', { name: 'Instructions', exact: true })
+    const [headingBox, editingBox, actionsBox] = await Promise.all([heading.boundingBox(), editing.boundingBox(), actions.boundingBox()])
+    expect(headingBox.height).toBeLessThan(40)
+    expect(editingBox.height).toBeLessThan(20)
+    if (width === 320) expect(actionsBox.y).toBeGreaterThan(headingBox.y + headingBox.height)
+
+    const field = page.getByRole('textbox', { name: 'Paragraph block', exact: true })
+    await field.fill('Selected words in the story')
+    await field.evaluate(element => {
+      const range = document.createRange()
+      range.setStart(element.firstChild, 0)
+      range.setEnd(element.firstChild, 8)
+      const selection = window.getSelection()
+      selection.removeAllRanges()
+      selection.addRange(range)
+      element.dispatchEvent(new MouseEvent('pointerup', { bubbles: true }))
+    })
+    const toolbar = page.getByRole('toolbar', { name: 'Format selected text' })
+    if (width === 320) {
+      await expect(page.getByRole('toolbar', { name: 'Editor commands' }).getByRole('button', { name: 'Bold selected text' })).toBeEnabled()
+      await expect(page.locator('[data-selection-toolbar]')).toBeHidden()
+      return
+    }
+    await expect(toolbar).toBeVisible()
+    const [labelBox, toolbarBox] = await Promise.all([page.getByText('Story', { exact: true }).boundingBox(), toolbar.boundingBox()])
+    expect(toolbarBox.y >= labelBox.y + labelBox.height || toolbarBox.y + toolbarBox.height <= labelBox.y).toBe(true)
   })
 }
 
@@ -195,17 +231,17 @@ for (const width of [320, 1280]) {
     await mockEditor(page)
     await page.goto('/studio?new=short')
     const paragraphs = page.getByRole('textbox', { name: 'Paragraph block', exact: true })
-    const hintOpacity = field => field.evaluate(element => getComputedStyle(element, '::placeholder').opacity)
-    await expect.poll(() => hintOpacity(paragraphs.first())).toBe('0')
+    const hint = field => field.locator('xpath=following-sibling::span[1]')
+    await expect(hint(paragraphs.first())).toBeHidden()
     await paragraphs.first().focus()
-    await expect.poll(() => hintOpacity(paragraphs.first())).toBe('1')
+    await expect(hint(paragraphs.first())).toBeVisible()
     await paragraphs.first().press('Enter')
     await expect(paragraphs).toHaveCount(2)
     await expect(paragraphs.last()).toBeFocused()
-    await expect.poll(() => hintOpacity(paragraphs.first())).toBe('0')
-    await expect.poll(() => hintOpacity(paragraphs.last())).toBe('1')
+    await expect(hint(paragraphs.first())).toBeHidden()
+    await expect(hint(paragraphs.last())).toBeVisible()
     await page.getByRole('textbox', { name: 'Short title', exact: true }).focus()
-    await expect.poll(() => hintOpacity(paragraphs.last())).toBe('0')
+    await expect(hint(paragraphs.last())).toBeHidden()
   })
 }
 
@@ -221,7 +257,7 @@ for (const width of [320, 390, 768]) {
     await story.click({ position: { x: bounds.width / 2, y: 12 } })
     await expect(story).toBeFocused()
     await story.fill('The row remains editable.')
-    await expect(story).toHaveValue('The row remains editable.')
+    await expect(story).toHaveText('The row remains editable.')
   })
 }
 
@@ -241,12 +277,12 @@ test('member release settings remain available without writing assistance', asyn
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
 })
 
-test('cover removal restores article requirements', async ({ page }) => {
+test('optional cover removal keeps article ready to publish', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 })
   await mockEditor(page)
   await page.goto('/studio?new=article')
   await page.getByRole('textbox', { name: 'Story title', exact: true }).fill('An article')
-  await page.getByRole('textbox', { name: 'Paragraph block', exact: true }).fill('Article body.')
+  await page.getByRole('textbox', { name: 'Paragraph block', exact: true }).fill('Story body.')
   await page.getByRole('button', { name: 'Publish', exact: true }).click()
   const dialog = page.getByRole('dialog', { name: 'Publish story' })
   await dialog.getByLabel('Add a tag', { exact: true }).fill('writing')
@@ -254,7 +290,7 @@ test('cover removal restores article requirements', async ({ page }) => {
   await dialog.locator('input[type=file]').setInputFiles({ name: 'cover.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jZ94AAAAASUVORK5CYII=', 'base64') })
   await expect(dialog.getByRole('button', { name: 'Publish', exact: true })).toBeEnabled()
   await dialog.getByRole('button', { name: 'Remove cover image' }).click()
-  await expect(dialog.getByRole('button', { name: 'Publish', exact: true })).toBeDisabled()
+  await expect(dialog.getByRole('button', { name: 'Publish', exact: true })).toBeEnabled()
   await expect(dialog.getByRole('button', { name: '+ Add cover image', exact: true })).toBeVisible()
 })
 
@@ -263,7 +299,7 @@ test('draft load and save failures keep visible recovery feedback', async ({ pag
   await mockEditor(page, { saveStatus: 409 })
   await page.goto('/studio?draft=draft-layout')
   await expect(page.getByRole('textbox', { name: 'Short title', exact: true })).toHaveValue('Existing draft')
-  await expect(page.getByRole('textbox', { name: 'Paragraph block', exact: true })).toHaveValue('Existing draft content.')
+  await expect(page.getByRole('textbox', { name: 'Paragraph block', exact: true })).toHaveText('Existing draft content.')
   await page.getByRole('textbox', { name: 'Short title', exact: true }).fill('Edited draft')
   await expect(page.getByRole('alert').filter({ hasText: 'This draft changed in another tab.' })).toBeVisible()
   await expect(page.getByRole('status').filter({ hasText: 'Draft conflict' })).toBeVisible()
@@ -282,6 +318,184 @@ for (const format of ['short', 'article']) {
 }
 
 for (const width of [320, 1280]) {
+  test(`deleting a block focuses the adjacent writing field at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 })
+    await mockEditor(page, { loadedBlocks: [
+      { id: 'first', type: 'text', content: 'First paragraph' },
+      { id: 'second', type: 'text', content: 'Second paragraph' },
+      { id: 'third', type: 'text', content: 'Third paragraph' },
+    ] })
+    await page.goto('/studio?draft=draft-layout')
+    const fields = page.getByRole('textbox', { name: 'Paragraph block', exact: true })
+    await expect(fields).toHaveCount(3)
+    await fields.last().focus()
+    await page.getByRole('button', { name: 'Delete text block' }).last().click()
+    await expect(fields).toHaveCount(2)
+    await expect(fields.last()).toBeFocused()
+    const caretOffset = field => field.evaluate(element => {
+      const selection = window.getSelection()
+      const beforeCaret = document.createRange()
+      beforeCaret.selectNodeContents(element)
+      beforeCaret.setEnd(selection.anchorNode, selection.anchorOffset)
+      return beforeCaret.toString().length
+    })
+    await expect.poll(() => caretOffset(fields.last())).toBe('Second paragraph'.length)
+    await fields.first().focus()
+    await page.getByRole('button', { name: 'Delete text block' }).first().click()
+    await expect(fields).toHaveCount(1)
+    await expect(fields.first()).toBeFocused()
+    await expect.poll(() => caretOffset(fields.first())).toBe(0)
+    await page.getByRole('button', { name: 'Delete text block' }).click()
+    await expect(fields).toHaveCount(1)
+    await expect(fields.first()).toBeFocused()
+    await expect(fields.first()).toHaveText('')
+  })
+
+  test(`deleting a quote places the caret before empty field hints at ${width}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 })
+    for (const type of ['text', 'h1', 'h2', 'h3', 'quote', 'code', 'image']) {
+      await mockEditor(page, { loadedBlocks: [
+        { id: 'empty', type, content: '' },
+        { id: 'remove', type: 'quote', content: 'Remove this quote' },
+      ] })
+      await page.goto('/studio?draft=draft-layout')
+      const field = page.getByRole('textbox', { name: `${type === 'text' ? 'Paragraph' : type} block`, exact: true }).first()
+      await page.getByRole('textbox', { name: 'quote block', exact: true }).last().focus()
+      await page.getByRole('button', { name: 'Delete quote block' }).last().click()
+      await expect(field).toBeFocused()
+      if (['code', 'image'].includes(type)) {
+        await expect.poll(() => field.evaluate(element => element.selectionStart)).toBe(0)
+      } else {
+        await expect.poll(() => field.evaluate(element => {
+          const selection = window.getSelection()
+          return (element === selection.anchorNode || element.contains(selection.anchorNode)) && selection.anchorOffset === 0
+        })).toBe(true)
+        await expect(field.locator('xpath=following-sibling::span[1]')).toBeVisible()
+      }
+      if (type === 'quote') await page.screenshot({ path: testInfo.outputPath('empty-quote-after-delete.png') })
+    }
+  })
+
+  test(`empty final rich-text block keeps its slash hint at ${width}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 })
+    await mockEditor(page, { loadedBlocks: [{ id: 'paragraph', type: 'text', content: 'Existing draft content.   ' }] })
+    await page.goto('/studio?draft=draft-layout')
+    const fields = page.getByRole('textbox', { name: 'Paragraph block', exact: true })
+    await fields.first().focus()
+    await fields.first().evaluate(field => {
+      const range = document.createRange()
+      range.setStart(field.firstChild, 'Existing draft content.'.length)
+      range.collapse(true)
+      const selection = window.getSelection()
+      selection.removeAllRanges()
+      selection.addRange(range)
+    })
+    await fields.first().press('Enter')
+    await expect(fields).toHaveCount(2)
+    const last = fields.last()
+    await expect(last).toBeFocused()
+    await expect.poll(() => last.evaluate(field => field.textContent)).toBe('   ')
+    await expect(last).toHaveAttribute('data-empty', 'true')
+    const hint = last.locator('xpath=following-sibling::span[1]')
+    await expect(hint).toBeVisible()
+    await expect(hint).toHaveText('Press / for formatting options')
+    await page.screenshot({ path: testInfo.outputPath('after-enter-page.png') })
+    await last.evaluate(field => { field.innerHTML = '<br>' })
+    await expect(last).toHaveAttribute('data-empty', 'true')
+    await expect(hint).toBeVisible()
+    await last.press('/')
+    await expect(page.getByRole('listbox', { name: 'Insert block' })).toBeVisible()
+  })
+
+  test(`rich text arrows move through lines and across blocks at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 })
+    await mockEditor(page, { loadedBlocks: [
+      { id: 'first', type: 'text', content: 'first line\nsecond line\nthird line' },
+      { id: 'second', type: 'text', content: 'next block' },
+    ] })
+    await page.goto('/studio?draft=draft-layout')
+    const fields = page.getByRole('textbox', { name: 'Paragraph block', exact: true })
+    await expect(fields).toHaveCount(2)
+    await fields.first().focus()
+    await fields.first().evaluate(field => {
+      const range = document.createRange()
+      range.setStart(field.firstChild, 14)
+      range.collapse(true)
+      const selection = window.getSelection()
+      selection.removeAllRanges()
+      selection.addRange(range)
+    })
+    await fields.first().press('ArrowUp')
+    await expect(fields.first()).toBeFocused()
+    await fields.first().press('ArrowDown')
+    await expect(fields.first()).toBeFocused()
+    await fields.first().press('ControlOrMeta+End')
+    const caretX = await fields.first().evaluate(() => window.getSelection().getRangeAt(0).getBoundingClientRect().left)
+    await fields.first().press('ArrowDown')
+    await expect(fields.last()).toBeFocused()
+    // Arrow navigation preserves a visual column with proportional fonts.
+    await expect.poll(() => fields.last().evaluate(() => window.getSelection().getRangeAt(0).getBoundingClientRect().left)).toBeGreaterThan(caretX - 8)
+    expect(await fields.last().evaluate(() => window.getSelection().getRangeAt(0).getBoundingClientRect().left)).toBeLessThan(caretX + 8)
+    await fields.last().press('ControlOrMeta+Home')
+    await fields.last().press('ArrowUp')
+    await expect(fields.first()).toBeFocused()
+    await expect.poll(() => fields.first().evaluate(field => {
+      const selection = window.getSelection()
+      const beforeCaret = document.createRange()
+      beforeCaret.selectNodeContents(field)
+      beforeCaret.setEnd(selection.anchorNode, selection.anchorOffset)
+      return beforeCaret.toString().length
+    })).toBe('first line\nsecond line\nthird line'.length - 'third line'.length)
+    await fields.first().evaluate(field => {
+      const range = document.createRange()
+      range.setStart(field.lastChild, field.lastChild.textContent.lastIndexOf('\n') + 1 + 4)
+      range.collapse(true)
+      const selection = window.getSelection()
+      selection.removeAllRanges()
+      selection.addRange(range)
+    })
+    const middleX = await fields.first().evaluate(() => window.getSelection().getRangeAt(0).getBoundingClientRect().left)
+    await fields.first().press('ArrowDown')
+    await expect(fields.last()).toBeFocused()
+    expect(Math.abs(await fields.last().evaluate(() => window.getSelection().getRangeAt(0).getBoundingClientRect().left) - middleX)).toBeLessThan(8)
+    await fields.last().press('ArrowUp')
+    await expect(fields.first()).toBeFocused()
+    expect(Math.abs(await fields.first().evaluate(() => window.getSelection().getRangeAt(0).getBoundingClientRect().left) - middleX)).toBeLessThan(8)
+  })
+
+  test(`rich text arrows keep the nearest visual line across wrapped blocks at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 })
+    await mockEditor(page, { loadedBlocks: [
+      { id: 'first', type: 'text', content: 'A long paragraph that wraps onto multiple visible lines in the editor' },
+      { id: 'second', type: 'text', content: 'Another long paragraph that also wraps onto multiple visible lines' },
+    ] })
+    await page.goto('/studio?draft=draft-layout')
+    const fields = page.getByRole('textbox', { name: 'Paragraph block', exact: true })
+    await expect(fields).toHaveCount(2)
+    await fields.evaluateAll(elements => elements.forEach(field => { field.style.width = '160px' }))
+    await fields.last().focus()
+    await fields.last().press('ControlOrMeta+Home')
+    await fields.last().press('ArrowUp')
+    await expect(fields.first()).toBeFocused()
+    await expect.poll(() => fields.first().evaluate(field => {
+      const selection = window.getSelection()
+      const caret = selection.getRangeAt(0).getBoundingClientRect()
+      const range = document.createRange()
+      range.selectNodeContents(field)
+      return caret.top > range.getBoundingClientRect().top + 20
+    })).toBe(true)
+    await fields.first().press('ControlOrMeta+End')
+    await fields.first().press('ArrowDown')
+    await expect(fields.last()).toBeFocused()
+    await expect.poll(() => fields.last().evaluate(field => {
+      const selection = window.getSelection()
+      const caret = selection.getRangeAt(0).getBoundingClientRect()
+      const range = document.createRange()
+      range.selectNodeContents(field)
+      return caret.top < range.getBoundingClientRect().bottom - 40
+    })).toBe(true)
+  })
+
   test(`guest writing survives Publish authentication without anonymous saves at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 735 })
     const { saves, publications, privateRequests } = await mockEditor(page, { guest: true })
@@ -311,7 +525,7 @@ for (const width of [320, 1280]) {
     await expect(page).toHaveURL(origin)
     await dialog.getByRole('button', { name: 'Close sign-in dialog' }).click()
     await expect(title).toHaveValue('Guest writing stays here')
-    await expect(body).toHaveValue('My writing should survive authentication and become an authenticated draft.')
+    await expect(body).toHaveText('My writing should survive authentication and become an authenticated draft.')
     await expect(page.locator('input[type=file]')).toHaveCount(0)
     expect(publications).toEqual([])
     await page.route('**/api/auth/login', route => route.fulfill({ status: 401, json: { message: 'Unable to sign in.' } }), { times: 1 })
@@ -324,13 +538,13 @@ for (const width of [320, 1280]) {
     await dialog.getByRole('button', { name: 'Login', exact: true }).click()
     await expect(dialog).toHaveCount(0)
     await expect(title).toHaveValue('Guest writing stays here')
-    await expect(body).toHaveValue('My writing should survive authentication and become an authenticated draft.')
+    await expect(body).toHaveText('My writing should survive authentication and become an authenticated draft.')
     await expect(page.locator('input[type=file]')).toHaveCount(0)
     await expect.poll(() => saves.some(save => save.title === 'Guest writing stays here')).toBe(true)
     expect(publications).toEqual([])
     await expect(page).toHaveURL(/\/studio\?question=reader-question&new=short&draft=draft-layout#draft$/)
     await publish.click()
-    const publishDialog = page.getByRole('dialog', { name: 'Publish story' })
+    const publishDialog = page.getByRole('dialog', { name: 'Publish short' })
     await publishDialog.getByLabel('Add a tag', { exact: true }).fill('writing')
     await publishDialog.getByRole('button', { name: 'Add', exact: true }).click()
     await publishDialog.getByRole('button', { name: 'Publish', exact: true }).click()

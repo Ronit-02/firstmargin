@@ -8,6 +8,7 @@ import ModalHeader from '@/shared/components/ui/ModalHeader'
 import ModalLayer from '@/shared/components/ui/ModalLayer'
 import SectionHeading from '@/shared/components/ui/SectionHeading'
 import useToast from '@/shared/hooks/useToast'
+import useFilterSearchParams from '@/shared/hooks/useFilterSearchParams'
 import { fetchStaffUsers, changeStaffUserRole } from '../api/staff'
 
 const filters = [
@@ -23,8 +24,16 @@ const roleChoices = {
 const roleLabels = { regular: 'Regular', premium: 'Member', 'exclusive-writer': 'Exclusive writer', moderator: 'Moderator' }
 
 export default function UserDirectory({ currentUserId }) {
-  const [role, setRole] = useState('all')
-  const [page, setPage] = useState(1)
+  const [params, setParams] = useFilterSearchParams()
+  const role = filters.some(([value]) => value === params.get('staffRole')) ? params.get('staffRole') : 'all'
+  const requestedPage = Number(params.get('staffPage'))
+  const page = Number.isSafeInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1
+  const setPage = update => setParams(current => {
+    const nextPage = update(page)
+    if (nextPage === 1) current.delete('staffPage')
+    else current.set('staffPage', String(nextPage))
+    return current
+  })
   const [editingUser, setEditingUser] = useState(null)
   const queryClient = useQueryClient()
   const { notify } = useToast()
@@ -34,7 +43,12 @@ export default function UserDirectory({ currentUserId }) {
     onSuccess: () => { setEditingUser(null); queryClient.invalidateQueries({ queryKey: ['staff', 'users'] }); notify('User role updated.') },
     onError: error => notify(error?.response?.data?.message || 'The role change could not be saved.', { tone: 'error' }),
   })
-  const changeFilter = nextRole => { setRole(nextRole); setPage(1) }
+  const changeFilter = nextRole => setParams(current => {
+    if (nextRole === 'all') current.delete('staffRole')
+    else current.set('staffRole', nextRole)
+    current.delete('staffPage')
+    return current
+  })
 
   return <section>
     <div className="mb-5 flex items-center justify-between gap-3">

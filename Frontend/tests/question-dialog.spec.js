@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 test('ask-community dialog submits through a required semantic form', async ({ page }) => {
   let submittedQuestion
@@ -32,7 +32,7 @@ test('ask-community dialog submits through a required semantic form', async ({ p
       submittedQuestion = request.postDataJSON()
       return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ data: { id: '507f1f77bcf86cd799439040', mergedExisting: false } }) })
     }
-    return route.abort('blockedbyclient')
+    return route.fulfill({ status: 404, json: { message: 'No fixture for this endpoint' } })
   })
 
   await page.setViewportSize({ width: 390, height: 844 })

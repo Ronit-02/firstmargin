@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
@@ -105,7 +105,9 @@ for (const width of [320, 1280]) for (const theme of ['light', 'dark']) {
   })
 }
 
-for (const width of [320, 1280]) for (const theme of ['light', 'dark']) {
+// Static geometry needs one theme per width; sticky Back above checks both backgrounds.
+for (const width of [320, 1280]) {
+  const theme = width < 768 ? 'light' : 'dark'
   test(`Back layout on every surface at ${width}px in ${theme}`, async ({ page }) => {
     test.setTimeout(120_000)
     await page.setViewportSize({ width, height: 900 })
@@ -116,13 +118,13 @@ for (const width of [320, 1280]) for (const theme of ['light', 'dark']) {
     const errors = []
     page.on('pageerror', error => errors.push(error.message))
     for (const [name, url, heading] of surfaces) {
-      await page.unrouteAll({ behavior: 'ignoreErrors' })
       await mockApi(page, name)
       await openSurface(page, name, url, heading)
       const back = page.getByRole('button', { name: /^(Back|Back to previous step)$/ })
       if (['login', 'signup', 'verification'].includes(name)) {
         await expect(back).toHaveCount(0)
-        await expect(page.getByRole('link', { name: 'Return to firstmargin home' })).toBeVisible()
+        if (name !== 'verification') await expect(page.getByRole('link', { name: 'Return to firstmargin home' })).toBeVisible()
+        else await expect(page.getByRole('heading', { name: 'Enter Verification Code' })).toBeVisible()
         await page.screenshot({ path: path.join(output, `${name}.png`) })
         continue
       }
@@ -158,9 +160,14 @@ for (const state of ['loading', 'missing', 'error']) {
     test.setTimeout(120_000)
     await page.setViewportSize({ width: 320, height: 560 })
     for (const [name, url] of surfaces.slice(0, 6)) {
-      await page.unrouteAll({ behavior: 'ignoreErrors' })
       await mockApi(page, name, state)
       await page.goto(url, { waitUntil: 'domcontentloaded' })
+      if (state === 'missing') {
+        const recovery = page.getByRole('alert')
+        await expect(recovery).toBeVisible()
+        await expect(recovery.getByRole('link')).toBeVisible()
+        continue
+      }
       await expect(page.getByRole('button', { name: 'Back', exact: true })).toBeVisible()
       if (state === 'loading') await expect(page.getByRole('status').first()).toBeVisible()
       else await expect(page.getByRole('alert').first()).toBeVisible()
@@ -198,8 +205,7 @@ test('Back remains reachable on short forms and aligned through responsive break
   test.setTimeout(180_000)
   for (const width of [390, 768, 1024, 1920]) {
     await page.setViewportSize({ width, height: 700 })
-    for (const [name, url, heading] of surfaces.slice(0, 11)) {
-      await page.unrouteAll({ behavior: 'ignoreErrors' })
+    for (const [name, url, heading] of surfaces.slice(0, 9)) {
       await mockApi(page, name)
       await openSurface(page, name, url, heading)
       const result = await inspectBack(page)
@@ -209,15 +215,16 @@ test('Back remains reachable on short forms and aligned through responsive break
     }
   }
   await page.setViewportSize({ width: 320, height: 360 })
-  for (const [name, url, heading] of surfaces.slice(11)) {
-    await page.unrouteAll({ behavior: 'ignoreErrors' })
+  for (const [name, url, heading] of surfaces.slice(9)) {
     await mockApi(page, name)
     await openSurface(page, name, url, heading)
     const back = page.getByRole('button', { name: /^(Back|Back to previous step)$/ })
     if (name !== 'onboarding') {
       await expect(back).toHaveCount(0)
-      await page.getByRole('link', { name: 'Return to firstmargin home' }).click()
-      await expect(page).toHaveURL('/')
+      if (name !== 'verification') {
+        await page.getByRole('link', { name: 'Return to firstmargin home' }).click()
+        await expect(page).toHaveURL('/')
+      }
       continue
     }
     await back.scrollIntoViewIfNeeded()

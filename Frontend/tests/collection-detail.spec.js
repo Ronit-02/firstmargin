@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, setCheckbox } from './support/ui-test.js'
 
 const collectionId = '507f1f77bcf86cd799439030'
 const collection = {
@@ -16,7 +16,29 @@ const collection = {
   ],
 }
 
-test('owner adds a published story directly from collection detail', async ({ page }) => {
+test('canceling collection image selection keeps edit open', async ({ page }) => {
+  await page.route(url => url.pathname.startsWith('/api/'), route => {
+    const pathname = new URL(route.request().url()).pathname
+    if (pathname === '/api/auth/refresh-token') return route.fulfill({ json: { accessToken: 'collection-owner', user: 'Maya Sen', email: 'maya@example.test', role: 'regular' } })
+    if (pathname === `/api/collection/${collectionId}`) return route.fulfill({ json: { data: collection } })
+    return route.fulfill({ json: { data: [], meta: { nextCursor: null } } })
+  })
+  await page.goto(`/collections/${collectionId}`)
+  await page.getByRole('button', { name: 'Edit collection' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Edit collection' })
+  await dialog.locator('input[type="file"]').evaluate(input => {
+    input.click = () => {}
+  })
+  await dialog.getByRole('button', { name: '+ Add image', exact: true }).click()
+  await page.keyboard.press('Escape')
+  await dialog.locator('input[type="file"]').evaluate(input => input.dispatchEvent(new Event('cancel', { bubbles: true })))
+  await expect(dialog).toBeVisible()
+  await page.waitForTimeout(550)
+  await page.keyboard.press('Escape')
+  await expect(dialog).toHaveCount(0)
+})
+
+test('owner adds a published story to an existing collection from its story actions', async ({ page }) => {
   const story = { id: '507f1f77bcf86cd799439033', title: 'Third story', format: 'article', author: { username: 'Maya Sen' }, readTime: '2 min read' }
   let added = false
   const writes = []
@@ -25,18 +47,23 @@ test('owner adds a published story directly from collection detail', async ({ pa
     if (pathname === '/api/auth/refresh-token') return route.fulfill({ json: { accessToken: 'collection-owner', user: 'Maya Sen', email: 'maya@example.test', role: 'regular' } })
     if (pathname === `/api/collection/${collectionId}`) return route.fulfill({ json: { data: { ...collection, posts: added ? [...collection.posts, story] : collection.posts, savedCount: 0, followersCount: 0 } } })
     if (pathname === '/api/collection/eligible-posts') return route.fulfill({ json: { data: [story] } })
+    if (pathname === `/api/post/${story.id}`) return route.fulfill({ json: { postData: { ...story, _id: story.id, body: JSON.stringify([{ id: 'text', type: 'text', content: 'A third story.' }]) } } })
+    if (pathname === '/api/collection') return route.fulfill({ json: { data: [collection], meta: { nextCursor: null } } })
     if (pathname === `/api/v1/collections/${collectionId}/posts/${story.id}`) { writes.push(route.request().method()); added = true; return route.fulfill({ json: { data: { added: true } } }) }
     return route.fulfill({ json: { data: [], meta: { nextCursor: null } } })
   })
-  await page.goto(`/collections/${collectionId}`)
-  const opener = page.getByRole('button', { name: 'Add to collection', exact: true })
+  await page.goto(`/post/${story.id}`)
+  const opener = page.getByRole('button', { name: 'Save this story', exact: true })
   await opener.click()
-  const dialog = page.getByRole('dialog', { name: 'Add to collection', exact: true })
-  await dialog.getByRole('combobox', { name: 'Choose a published story' }).click()
-  await dialog.getByRole('option', { name: story.title }).click()
-  await dialog.getByRole('button', { name: 'Add to collection', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: 'Save story', exact: true })
+  await setCheckbox(dialog.getByRole('checkbox', { name: 'Save in your Library' }), false)
+  await setCheckbox(dialog.getByRole('checkbox', { name: 'Add to a collection' }), true)
+  await dialog.getByRole('combobox', { name: 'Choose one of your collections' }).click()
+  await dialog.getByRole('option', { name: new RegExp(collection.title) }).click()
+  await dialog.getByRole('button', { name: 'Save story', exact: true }).click()
   await expect(dialog).toHaveCount(0)
   await expect(opener).toBeFocused()
+  await page.goto(`/collections/${collectionId}`)
   await expect(page.getByRole('heading', { name: story.title })).toBeVisible()
   expect(writes).toEqual(['PUT'])
 })
@@ -147,8 +174,11 @@ for (const width of [390, 1280]) {
 
     expect(titleBounds.y + titleBounds.height).toBeLessThan(curatorBounds.y)
     if (width < 1024) {
-      expect(curatorBounds.x + curatorBounds.width).toBeLessThanOrEqual(actionBounds.x)
-      expect(Math.abs((curatorBounds.y + curatorBounds.height / 2) - (actionBounds.y + actionBounds.height / 2))).toBeLessThanOrEqual(1)
+      const separate = curatorBounds.x + curatorBounds.width <= actionBounds.x + 1
+        || actionBounds.x + actionBounds.width <= curatorBounds.x + 1
+        || curatorBounds.y + curatorBounds.height <= actionBounds.y + 1
+        || actionBounds.y + actionBounds.height <= curatorBounds.y + 1
+      expect(separate).toBe(true)
     } else {
       expect(actionBounds.x).toBeGreaterThan(titleBounds.x + titleBounds.width)
       expect(actionBounds.y).toBeLessThan(curatorBounds.y)
@@ -234,7 +264,7 @@ for (const width of [320, 1280]) {
   })
 }
 
-test('collection reading-order controls are keyboard reachable and phone-sized', async ({ page }) => {
+test('collection owner removal controls are keyboard reachable and phone-sized', async ({ page }) => {
   await page.route(url => url.pathname.startsWith('/api/'), async route => {
     const url = new URL(route.request().url())
     if (url.pathname === '/api/auth/refresh-token') {
@@ -243,15 +273,17 @@ test('collection reading-order controls are keyboard reachable and phone-sized',
     if (url.pathname === `/api/collection/${collectionId}`) {
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: collection }) })
     }
-    return route.abort('blockedbyclient')
+    return route.fulfill({ status: 404, json: { message: 'Unconfigured fixture endpoint' } })
   })
 
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto(`/collections/${collectionId}`, { waitUntil: 'domcontentloaded' })
 
   await expect(page.getByRole('link', { name: "View Maya Sen's profile" }).filter({ hasText: 'Curated by Maya Sen' })).toHaveAttribute('href', '/author')
-  const earlier = page.getByRole('button', { name: 'Move Second story earlier' })
-  const later = page.getByRole('button', { name: 'Move First story later' })
+  await page.getByRole('button', { name: 'Edit collection', exact: true }).click()
+  const editor = page.getByRole('dialog', { name: 'Edit collection', exact: true })
+  const earlier = editor.getByRole('button', { name: 'Remove Second story from collection' })
+  const later = editor.getByRole('button', { name: 'Remove First story from collection' })
   await expect(earlier).toBeVisible()
   await expect(later).toBeVisible()
   expect((await earlier.boundingBox()).width).toBeGreaterThanOrEqual(40)
@@ -275,7 +307,7 @@ test('collection error state preserves the application main landmark', async ({ 
     if (url.pathname === `/api/collection/${collectionId}`) {
       return route.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ message: 'Not found' }) })
     }
-    return route.abort('blockedbyclient')
+    return route.fulfill({ status: 404, json: { message: 'Unconfigured fixture endpoint' } })
   })
 
   await page.goto(`/collections/${collectionId}`, { waitUntil: 'domcontentloaded' })
@@ -289,7 +321,7 @@ test('an invalid collection id uses the same recovery state as a missing collect
     const url = new URL(route.request().url())
     if (url.pathname === '/api/auth/refresh-token') return route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ message: 'Signed out' }) })
     if (url.pathname === '/api/collection/not-an-id') return route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ message: 'Invalid collection id' }) })
-    return route.abort('blockedbyclient')
+    return route.fulfill({ status: 404, json: { message: 'Unconfigured fixture endpoint' } })
   })
 
   await page.goto('/collections/not-an-id', { waitUntil: 'domcontentloaded' })

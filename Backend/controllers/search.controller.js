@@ -1,5 +1,6 @@
 const Publication = require('../schemas/publication.schema');
 const Profile = require('../schemas/profile.schema');
+const User = require('../schemas/user.schema');
 const Question = require('../schemas/question.schema');
 const { presentQuestions } = require('./question.controller');
 const { presentDiscoveryPosts } = require('../services/publication-presenter.service');
@@ -76,7 +77,9 @@ const search = async (req, res) => {
     const topic = String(req.query.topic || 'all').toLowerCase();
     const time = String(req.query.time || 'any').toLowerCase();
     const sort = String(req.query.sort || 'relevance').toLowerCase();
-    if (query.length < 1 || query.length > 100) {
+    const browse = !query && ['posts', 'writers', 'shorts', 'questions'].includes(type) && req.query.suggestions !== 'true';
+    const browseWriters = browse && type === 'writers';
+    if ((!browse && query.length < 1) || query.length > 100) {
       return res.status(400).json({ message: 'Search query must be between 1 and 100 characters' });
     }
     if (!['all', 'posts', 'writers', 'shorts', 'questions'].includes(type)) {
@@ -96,6 +99,18 @@ const search = async (req, res) => {
     const limit = Number.isFinite(requestedLimit)
       ? Math.min(Math.max(requestedLimit, 1), 24)
       : 12;
+    if (browseWriters) {
+      const writers = await Profile.aggregate([
+        { $match: { writerStatus: 'writer' } },
+        { $lookup: { from: User.collection.name, localField: 'userId', foreignField: '_id', as: 'account' } },
+        { $unwind: '$account' },
+        { $set: { followersCount: { $ifNull: ['$account.followersCount', 0] } } },
+        { $sort: { followersCount: -1, displayName: 1, _id: 1 } },
+        { $limit: Math.min(limit, 10) },
+        { $project: { _id: 0, id: '$account._id', handle: 1, displayName: 1, bio: 1, avatarUrl: 1, writerStatus: 1, membershipEnabled: 1, followersCount: 1 } },
+      ]);
+      return res.status(200).json({ data: { posts: [], writers, shorts: [], questions: [] }, meta: { query, type, topic, time, sort } });
+    }
     const includePosts = type === 'all' || type === 'posts' || type === 'shorts';
     const includeWriters = type === 'all' || type === 'writers';
     const includeQuestions = type === 'questions';
@@ -136,7 +151,7 @@ const search = async (req, res) => {
       includePosts
         ? Publication.find({
             $and: [
-              buildTextMatch(query),
+              ...(query ? [buildTextMatch(query)] : []),
               publicAccessClause(),
               ...(formatFilter ? [formatFilter] : []),
               ...(topicFilter ? [topicFilter] : []),
@@ -168,7 +183,7 @@ const search = async (req, res) => {
         ? Question.find({
             $and: [
               { status: { $ne: 'closed' } },
-              buildTextMatch(query, ['text', 'context', 'tags']),
+              ...(query ? [buildTextMatch(query, ['text', 'context', 'tags'])] : []),
               ...(topicFilter ? [topicFilter] : []),
               ...(timeFilter ? [timeFilter] : []),
             ],

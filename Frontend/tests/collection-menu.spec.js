@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './support/ui-test.js'
 
 const collection = {
   id: '507f1f77bcf86cd799439030',
@@ -24,7 +24,7 @@ test('collection-card menu supports keyboard navigation and focus return', async
         body: JSON.stringify({ data: [collection], meta: { nextCursor: null } }),
       })
     }
-    return route.abort('blockedbyclient')
+    return route.fulfill({ status: 404, json: { message: 'Unconfigured fixture endpoint' } })
   })
 
   await page.setViewportSize({ width: 390, height: 844 })

@@ -1,5 +1,31 @@
 # firstmargin security assurance
 
+## Frontend dependency remediation — 2026-10-29
+
+Applied `npm audit fix --ignore-scripts` in `Frontend/` within the existing manifest ranges. Updated `follow-redirects` 1.16.0 → 1.16.2 (through Axios), Vite 8.2.2 → 8.3.5, and Zod 4.5.4 → 4.6.7 (through the React Hooks lint plugin). The lockfile also refreshes Vite's Rolldown/platform bindings, OXC types, PostCSS, and nanoid dependencies. No forced upgrade, manifest change, application source, UI, API, database, or test-lifecycle change was required. Upstream release notes and dependency changes were reviewed; the update resolves the reported follow-redirects credential-header, Vite/launch-editor, and Zod collection-validation advisory groups. References: [follow-redirects](https://github.com/advisories/GHSA-q3jh-wrc6-jgq8), [Vite](https://github.com/advisories/GHSA-9jrq-w75r-8gcw), and [Zod](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5).
+
+Verification on 2026-10-29: frontend `npm audit --audit-level=low` reported zero vulnerabilities; production build, lint (one existing CompetitionOperations equality warning), and the 94-file security artifact check passed with no source maps. An ephemeral loopback Vite server successfully served the HTML and transformed application entry, then closed. Registry access and the localhost smoke test used approved execution outside the sandbox. Full browser E2E, backend checks, live providers, databases, and CI Linux execution were not rerun for this frontend lockfile update.
+
+## Automated database test boundary — 2026-10-29
+
+Browser E2E and opt-in integration tests now use unique temporary databases and refuse inherited application database targets or existing-app attachment. Preflight and cleanup enforce run ownership; unavailable local test services fail without fallback. CI uses a disposable MongoDB service and an explicitly named test database for its separate SEO seed. Commands, lifecycle, and remaining hard-termination limits are owned by [test fixtures](test-fixtures.md#automated-test-isolation--2026-10-29); protected mechanics are in the local fixture companion.
+
+## Backend dependency remediation — 2026-10-29
+
+Applied `npm audit fix --ignore-scripts` within the existing backend dependency ranges. Only `Backend/package-lock.json` changed in the application; no manifest, override, major upgrade, runtime source, API, schema, stored-data, or frontend change was required.
+
+| Dependency | Previous locked version | Updated locked version |
+|---|---|---|
+| body-parser | 2.3.0 | 2.4.0 |
+| multer | 2.4.0 | 2.5.0 |
+| nodemailer | 10.1.0 | 10.3.1 |
+| qs | 6.16.0 | 6.17.1 |
+| iconv-lite (required by body-parser) | 0.7.2 | 0.7.3 |
+
+Express continues to supply body-parser and qs; the existing upload middleware and email adapter retain their public interfaces. Reviewed upstream release notes and installed changelogs for compatibility. The updates address the reported [body-parser](https://github.com/advisories/GHSA-27r3-jxmh-p828), [Multer](https://github.com/advisories/GHSA-q7qp-rjg7-q26m), [Nodemailer nested-comment](https://github.com/advisories/GHSA-8c8m-p3m8-cjg8), [Nodemailer group](https://github.com/advisories/GHSA-m943-m63m-w62w), [Nodemailer angle-address](https://github.com/advisories/GHSA-85x2-q946-cp5h), and [qs](https://github.com/advisories/GHSA-6pq8-jhm2-2vcw) advisories.
+
+Verification on 2026-10-29: backend `npm audit --audit-level=low` and `npm audit --omit=dev --audit-level=low` each reported zero vulnerabilities; `npm test` passed all 129 contracts; `npm run lint` passed. Initial sandbox runs failed registry DNS and localhost HTTP access; successful audit/test runs used approved access outside the sandbox. `npm run test:integration` skipped its disabled opt-in gate. Live database, email delivery, deployed behavior, and frontend/browser checks were not exercised for this backend lockfile-only update. The earlier development-only nodemon findings below are historical and were absent from this full audit.
+
 ## Staff role changes — 2026-10-18
 
 The staff-only account directory exposes a bounded set of account fields. Role changes accept regular or member promotion to exclusive writer or moderator, plus the existing exclusive-writer/moderator demotions, and retain an audit record. Focused controller tests and a mocked-API browser check passed for the earlier transitions; a live database promotion was not exercised. Protected authorization and transaction details are in the local security and architecture companions.
