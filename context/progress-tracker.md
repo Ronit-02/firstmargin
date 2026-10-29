@@ -1,3 +1,13 @@
+## Competition final-score lint warning resolved — 2026-10-29
+
+Replaced the loose null comparison in `Frontend/src/features/staff/components/CompetitionOperations.jsx` with explicit strict null and undefined checks. Missing scores remain hidden and zero scores still render; scoring, UI styles/layout, routes, APIs, and schemas are unchanged. Changed files: that component and this tracker. Verification on 2026-10-29: full frontend lint passed with zero warnings/errors, the previous and updated conditions agreed for null/undefined/zero and representative score values, and whitespace validation passed. Browser/database checks were not rerun for this equivalent-expression change. No approval decision remains.
+
+## Frontend dependency advisories resolved — 2026-10-29
+
+Updated `Frontend/package-lock.json` with compatible security fixes for follow-redirects, Vite, and Zod, including Vite's supporting build dependencies. Exact versions and advisory references are owned by [security assurance](security-audit.md#frontend-dependency-remediation--2026-10-29). Package manifests, application source, UI, API contracts, database behavior, and test isolation remain unchanged. Changed files: the frontend lockfile, `context/security-audit.md`, and this tracker. No approval decision remains.
+
+Verification on 2026-10-29: the frontend full dependency audit reported zero vulnerabilities. Production build, frontend lint (one existing CompetitionOperations warning), 94-file source-map artifact check, ephemeral Vite startup/HTML/transformed-entry smoke checks, and whitespace validation passed. The Vite server was closed after verification. Full E2E, backend/database checks, live providers, and CI Linux execution were not rerun.
+
 ## Backend isolation check before frontend installation — 2026-10-29
 
 Fixed the CI backend-contract failure caused by importing Playwright before frontend dependencies were installed. `Frontend/playwright.config.js` now validates database ownership before dynamically importing Playwright. `Backend/tests/temporary-database.test.js` checks a temporary copy of the actual config/helper without frontend packages, so local frontend installations cannot mask CI's install order. Updated `context/test-fixtures.md` and this tracker. CI step order, test database lifecycle, application code, UI, routes, and schemas are unchanged.

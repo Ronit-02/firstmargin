@@ -1,5 +1,11 @@
 # firstmargin security assurance
 
+## Frontend dependency remediation — 2026-10-29
+
+Applied `npm audit fix --ignore-scripts` in `Frontend/` within the existing manifest ranges. Updated `follow-redirects` 1.16.0 → 1.16.2 (through Axios), Vite 8.2.2 → 8.3.5, and Zod 4.5.4 → 4.6.7 (through the React Hooks lint plugin). The lockfile also refreshes Vite's Rolldown/platform bindings, OXC types, PostCSS, and nanoid dependencies. No forced upgrade, manifest change, application source, UI, API, database, or test-lifecycle change was required. Upstream release notes and dependency changes were reviewed; the update resolves the reported follow-redirects credential-header, Vite/launch-editor, and Zod collection-validation advisory groups. References: [follow-redirects](https://github.com/advisories/GHSA-q3jh-wrc6-jgq8), [Vite](https://github.com/advisories/GHSA-9jrq-w75r-8gcw), and [Zod](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5).
+
+Verification on 2026-10-29: frontend `npm audit --audit-level=low` reported zero vulnerabilities; production build, lint (one existing CompetitionOperations equality warning), and the 94-file security artifact check passed with no source maps. An ephemeral loopback Vite server successfully served the HTML and transformed application entry, then closed. Registry access and the localhost smoke test used approved execution outside the sandbox. Full browser E2E, backend checks, live providers, databases, and CI Linux execution were not rerun for this frontend lockfile update.
+
 ## Automated database test boundary — 2026-10-29
 
 Browser E2E and opt-in integration tests now use unique temporary databases and refuse inherited application database targets or existing-app attachment. Preflight and cleanup enforce run ownership; unavailable local test services fail without fallback. CI uses a disposable MongoDB service and an explicitly named test database for its separate SEO seed. Commands, lifecycle, and remaining hard-termination limits are owned by [test fixtures](test-fixtures.md#automated-test-isolation--2026-10-29); protected mechanics are in the local fixture companion.
