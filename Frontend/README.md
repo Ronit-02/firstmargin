@@ -1,3 +1,5 @@
+Page filters survive refresh and browser Back/Forward. Search filter changes and resets create history entries. Staff report/competition status and user role/page, collection-detail Stories/Shorts, Studio workshop status, and Home category selections are URL-backed alongside the existing list filters. Defaults are omitted, and filter updates preserve unrelated query parameters and anchors.
+
 Personal and public profiles display a saved cover image or the existing decorative fallback. On Edit profile, click the cover to upload, paste a URL, or remove it in a preview modal; its Save works independently of profile text, like the profile picture editor.
 
 Public author profiles include a Series category in Published work, displaying the author's public story and short series with the existing cards and scroll pagination.
@@ -6,7 +8,7 @@ Find writers opens the Writers search tab. With no search text, it shows up to t
 
 With no search text, Search's Stories, Shorts, and Questions tabs show popular content using their existing cards, filters, and recovery states. Stories and Shorts rank by appreciation; Questions rank by upvotes, with newest records breaking ties. No page-level search field is added; typed searches continue through global search.
 
-Workshop reservations show a success toast and deliver the joining link through the attendee inbox notification. Workshop cards do not display the private link. Already-registered workshops show a disabled Place reserved button, retained across reloads and return visits using viewer-specific attendance state.
+Workshop reservations show a success toast and deliver the joining link through the attendee inbox notification. Workshop cards show the organizing writer with a profile link when a public handle exists; they do not display the private link. Creator extra author names link by public profile handle. Already-registered workshops show a disabled Place reserved button, retained across reloads and return visits using viewer-specific attendance state.
 
 # firstmargin
 
@@ -21,7 +23,7 @@ Staff console has Moderation, Competitions, and Users underline tabs matching St
 
 Reader-facing UI terminology is **Story** for the full-length format, **Short** for the concise format, and **Appreciation** for engagement. Actions read “Appreciate” and “Remove appreciation.” The backend now stores publications and appreciations with `story`/`short` formats; the current frontend continues to use compatible legacy `post`, `article`, and `like` HTTP names while its data contracts transition.
 
-Standalone login, signup, and email verification use a single responsive form column with the existing pen brand link. Wide screens add a quiet ink-stroke accent; phones keep the form near the top with no decorative art. The embedded sign-in modal keeps its compact layout and the same auth flows.
+Standalone login, signup, and email verification use a single responsive form column up to 400 px wide with the existing pen brand link. The Google action fills that column alongside the fields and primary button. Wide screens add a quiet ink-stroke accent; phones keep the form near the top with no decorative art. The embedded auth modal uses a compact shared header, mode-specific introduction, segmented tabs, and persistent field labels. Its email verification and sign-in flows are unchanged.
 
 Article grid cards, including Home story carousels and Author uublished work, use a fixed height, two-line titles, space-aware excerpt clamping, and bottom-aligned engagement controls. Cards without a cover use an abstract image fallback in the same 180 px cover region, keeping mixed rows aligned. Image fallbacks for stories, collections, series, competition entries, competition covers, unavailable body images, and avatars contain no visible text or logo. Mobile Browse opens Collections, with in-page tabs for Collections and Series. uage-level tabs, including Explore's Trending, Questions, and Competitions, remain visible while scrolling.
 
@@ -31,7 +33,7 @@ Editorial platform UI built with React + Vite.
 
 Selecting text inside a story block shows Bold/Italic in the icon-only bottom editor strip below 768 px. The strip uses curved arrows for Undo/Redo, B and italic lowercase i for emphasis, P for paragraph, heading/quote/code symbols, and a monochrome image symbol; button names remain available to assistive technology. From 768 px, a floating Bold/Italic toolbar appears above the selection, or below its first line when the toolbar would cover the Story label. Ctrl/Cmd+B and Ctrl/Cmd+I apply the same formatting. Paragraph, heading, and quote fields show the emphasis while writing, while drafts and published stories keep the compatible `**bold**`, `*italic*`, and `***both***` block strings. Title, code, and image fields retain plain-text editing. On narrow phones, the editor actions sit below the heading and save status. Publish/Update dialogs name the selected Story or Short, and the writing footer keeps the word count close to the page edge.
 
-Application pages remember their main scroll position per browser history entry within the current tab. New navigation starts at the top; Back and Forward return to the saved position.
+Application pages remember their main scroll position per browser history entry within the current tab. Filter and category changes on the current page retain scroll and control focus, including while delayed results show loading, empty, or error states. A temporary page-height floor prevents a collapse-and-restore bounce and releases as you scroll upward. Navigation to a different page starts at the top; Back and Forward return to each entry's saved position.
 
 Article list-card categories remain on one line beside appreciation and comments. Only complete category pills that fit the available width are shown; hidden pills reappear when the card widens.
 Question and writer-opportunity list cards use the same whole-pill fitting rule in their category rows. The older ArticleCard, FeaturedCard, and HorizontalCard preview components also use it when rendered. Detailed question and story views keep their existing tag layout.
@@ -112,7 +114,7 @@ not use this mode and continues to own its clean server processes.
 | `/studio?draft=`, `?edit=`, `?new=`, or `?question=` | Existing editor for drafts, post edits, local guest composition, and question responses |
 | `/profile` | urofile - public identity, bio, icon-only Edit profile, follower/following information, and Your published writing with uosts/Shorts pills, sorting Filters, and Edit in Studio; centered guest sign-in prompt. The phone Account sheet provides account navigation. |
 | `/studio` | Guarded Studio opening on Analytics, followed by uublished (Stories/Shorts), Drafts (Stories/Shorts), Ideas, Updates, Workshops, and Requests; basic released-post counts are visible to writers, while detailed performance requires membership; Ideas shows ranked reader questions in compact opportunity rows and links to the full reader-demand feed; Updates and Workshops list owned records and open creation modals; Requests shows received direct requests; Write a post opens the uost/Short chooser; old `/write` and `/writing` URLs redirect here with their queries preserved |
-| `/profile/edit` | Signed-in profile editing page with one Save beside the title for display name, biography, writer member requests, and reading-interest changes. Clicking the profile picture opens a square preview modal with Replace and Save controls; Back leaves unsaved page fields unchanged. |
+| `/profile/edit` | Signed-in profile editing page using the shared page width and gutters, with one Save beside the title for display name, biography, writer member requests, and reading-interest changes. Clicking the profile picture opens a square preview modal with Replace and Save controls; Back leaves unsaved page fields unchanged. |
 | `/settings` | uublic appearance and language settings |
 | `/help` | uublic guide to reading, writing, community participation, membership, settings, and recovery |
 

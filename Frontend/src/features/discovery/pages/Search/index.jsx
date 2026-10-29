@@ -2,7 +2,8 @@ import Select from '@/shared/components/ui/Select'
 import PageFrame from '@/shared/components/layout/PageFrame'
 import retainRetryView from '@/shared/utils/retainRetryView'
 import { useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link } from 'react-router-dom'
+import useFilterSearchParams from '@/shared/hooks/useFilterSearchParams'
 import Avatar from '@/shared/components/ui/Avatar'
 import FilterPopover from '@/shared/components/ui/FilterPopover'
 import DiscoveryPostCard from '../../components/DiscoveryPostCard'
@@ -77,7 +78,7 @@ function WriterResult({ writer }) {
 }
 
 export default function SearchPage() {
-  const [params, setParams] = useSearchParams()
+  const [params, setParams] = useFilterSearchParams()
   const query = params.get('q') || ''
   const [shortReadId, setShortReadId] = useState(null)
   const requestedTab = params.get('type')
@@ -108,7 +109,7 @@ export default function SearchPage() {
     const next = new URLSearchParams(params)
     if (value === defaultValue) next.delete(key)
     else next.set(key, value)
-    setParams(next, { replace: true })
+    setParams(next)
   }
 
   const activeFilterCount = [topic !== 'all', time !== 'any', sort !== 'relevance'].filter(Boolean).length
@@ -117,7 +118,7 @@ export default function SearchPage() {
     next.delete('topic')
     next.delete('time')
     next.delete('sort')
-    setParams(next, { replace: true })
+    setParams(next)
   }
 
   const handleTabKeyDown = event => {

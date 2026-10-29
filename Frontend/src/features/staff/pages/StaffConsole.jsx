@@ -3,7 +3,8 @@ import PageFrame from '@/shared/components/layout/PageFrame'
 import retainRetryView from '@/shared/utils/retainRetryView'
 /* eslint-disable jsx-a11y/no-noninteractive-element-to-interactive-role -- The navigation container correctly owns tab semantics. */
 import { useEffect, useRef, useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import useFilterSearchParams from '@/shared/hooks/useFilterSearchParams'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import Button from '@/shared/components/ui/Button'
 import FilterBar from '@/shared/components/ui/FilterBar'
@@ -29,7 +30,7 @@ const staffTabs = [
 export default function StaffConsole() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
-  const [params, setParams] = useSearchParams()
+  const [params, setParams] = useFilterSearchParams()
   const { notify } = useToast()
   const { pickerActiveRef, openPicker, releasePicker } = useFilePickerDismissGuard()
   const requestedTab = params.get('staffTab')
@@ -40,10 +41,17 @@ export default function StaffConsole() {
     else next.set('staffTab', nextTab)
     return next
   })
-  const [reportStatus, setReportStatus] = useState('all')
+  const reportStatus = ['pending', 'reviewing', 'dismissed'].includes(params.get('reportStatus')) ? params.get('reportStatus') : 'all'
+  const updateFilter = (key, value) => setParams(current => {
+    if (value === 'all') current.delete(key)
+    else current.set(key, value)
+    return current
+  })
+  const setReportStatus = value => updateFilter('reportStatus', value)
   const [notes, setNotes] = useState({})
   const [form, setForm] = useState(emptyCompetition)
-  const [competitionFilter, setCompetitionFilter] = useState('all')
+  const competitionFilter = ['ongoing', 'past'].includes(params.get('staffCompetitionStatus')) ? params.get('staffCompetitionStatus') : 'all'
+  const setCompetitionFilter = value => updateFilter('staffCompetitionStatus', value)
   const [modal, setModal] = useState(null)
   const me = useQuery({ queryKey: ['me', 'profile'], queryFn: fetchMyProfile })
   const isStaff = ['moderator', 'admin'].includes(me.data?.role)

@@ -9,6 +9,7 @@ import ModalHeader from '@/shared/components/ui/ModalHeader'
 import ModalLayer from '@/shared/components/ui/ModalLayer'
 import useDialogFocus from '@/shared/hooks/useDialogFocus'
 import useFilePickerDismissGuard from '@/shared/hooks/useFilePickerDismissGuard'
+import useFilterSearchParams from '@/shared/hooks/useFilterSearchParams'
 import { BookmarkIcon, PenIcon, ShareIcon } from '@/shared/icons'
 import DiscoveryPostCard from '@/features/discovery/components/DiscoveryPostCard'
 import ShortCard from '@/features/discovery/components/ShortCard'
@@ -95,7 +96,13 @@ export default function CollectionDetail() {
   useEffect(() => {
     if (location.state?.openEditCollection) navigate(location.pathname + location.search + location.hash, { replace: true, state: null })
   }, [location.hash, location.pathname, location.search, location.state, navigate])
-  const [formatFilter, setFormatFilter] = useState('stories')
+  const [params, setParams] = useFilterSearchParams()
+  const formatFilter = params.get('collectionFormat') === 'shorts' ? 'shorts' : 'stories'
+  const setFormatFilter = value => setParams(current => {
+    if (value === 'stories') current.delete('collectionFormat')
+    else current.set('collectionFormat', value)
+    return current
+  })
   const editTriggerRef = useRef(null)
   const shareTriggerRef = useRef(null)
   const closeShareMenu = ({ restoreFocus = false } = {}) => {

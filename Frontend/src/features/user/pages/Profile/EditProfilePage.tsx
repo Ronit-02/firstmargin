@@ -163,7 +163,7 @@ function ProfileEditForm({ profile }: { profile: Profile }) {
       setIsSaving(false)
     }
   }
-  return <div className="max-w-2xl">
+  return <div>
     <form id="profile-edit-form" onSubmit={submitProfile}>
       <div className="mb-8 flex items-center justify-between gap-4">
         <h1 className="min-w-0 text-[24px] font-bold text-[var(--color-text)]" style={{ fontFamily: 'var(--font-display)' }}>Edit profile</h1>

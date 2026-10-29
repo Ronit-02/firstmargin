@@ -32,7 +32,8 @@ for (const width of [320, 1280]) {
     await main.evaluate(element => { element.scrollTop = 640 })
     await expect.poll(() => main.evaluate(element => element.scrollTop)).toBe(640)
 
-    await page.getByRole('link', { name: "View Maya Sen's profile" }).click()
+    // Isolate route restoration from Playwright scrolling an offscreen link into view.
+    await page.getByRole('link', { name: "View Maya Sen's profile" }).evaluate(link => link.click())
     await expect(page).toHaveURL('/author/maya-sen')
     await expect.poll(() => main.evaluate(element => element.scrollTop)).toBe(0)
     await main.evaluate(element => { element.scrollTop = 320 })

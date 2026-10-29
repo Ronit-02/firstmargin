@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react'
 import { useSelector } from 'react-redux'
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation, useNavigationType } from 'react-router-dom'
 import { useServerUnavailable } from '@/app/serverAvailability'
 import AppLayout         from '@/shared/components/layout/AppLayout'
 import PublicRoute       from '@/app/routes/PublicRoute'
@@ -44,6 +44,8 @@ const RouteLoader = () => <main role="status" className="min-h-[40vh] flex items
 
 export default function App() {
   const location = useLocation()
+  // Routes' background location overrides its descendants' navigation type.
+  const navigationType = useNavigationType()
   const isServerUnavailable = useServerUnavailable()
   const notificationsOpen = location.pathname === '/notifications'
   const loggedIn = useSelector(state => Boolean(state.auth.user))
@@ -58,7 +60,7 @@ export default function App() {
       <Route path="/onboarding" element={<PrivateRoute message="Sign in to personalize your experience." fullScreen><OnboardingPage /></PrivateRoute>} />
 
       {/* ── App shell routes ── */}
-      <Route element={<AppLayout />}>
+      <Route element={<AppLayout navigationType={navigationType} />}>
         <Route path="/" element={<HomePage />} />
 
         {/* Explore — sub-tabs nested, index redirects to trending */}

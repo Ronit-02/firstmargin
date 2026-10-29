@@ -9,6 +9,16 @@ const CreatorRequest = require('../schemas/creator-request.schema');
 const { hasCapability } = require('../services/entitlement.service');
 const { notify } = require('../services/notification.service');
 
+const withProfileHandles = async (items, ownerKey) => {
+  const ownerIds = items.map(item => item[ownerKey]?._id).filter(Boolean);
+  if (!ownerIds.length) return items;
+  const profiles = await Profile.find({ userId: { $in: ownerIds } }).select('userId handle').lean();
+  const handles = new Map(profiles.map(profile => [String(profile.userId), profile.handle]));
+  return items.map(item => ({ ...item, [ownerKey]: item[ownerKey] ? {
+    ...item[ownerKey], handle: handles.get(String(item[ownerKey]._id)) || null,
+  } : null }));
+};
+
 const requireCapability = async (res, userId, capability) => {
   if (await hasCapability(userId, capability)) return true;
   res.status(403).json({ code: 'ENTITLEMENT_REQUIRED', message: 'An active membership is required' });
@@ -25,7 +35,8 @@ const listWorkshops = async (req, res) => {
       status: { $in: ['registered', 'attended'] },
     }).select('workshopId').lean() : [];
     const registeredIds = new Set(attendance.map(item => String(item.workshopId)));
-    return res.json({ data: workshops.map(workshop => ({ ...workshop, isRegistered: registeredIds.has(String(workshop._id)) })) });
+    const listed = workshops.map(workshop => ({ ...workshop, isRegistered: registeredIds.has(String(workshop._id)) }));
+    return res.json({ data: await withProfileHandles(listed, 'hostId') });
   } catch { return res.status(500).json({ message: 'Unable to load workshops' }); }
 };
 
@@ -88,8 +99,8 @@ const listCreatorUpdates = async (req, res) => {
       if (!mongoose.isValidObjectId(req.query.creatorId)) return res.status(400).json({ message: 'Invalid creator id' });
       filter.creatorId = req.query.creatorId;
     }
-    const updates = await CreatorUpdate.find(filter).sort({ publishedAt: -1 }).limit(50).populate('creatorId', 'username picture');
-    return res.json({ data: updates });
+    const updates = await CreatorUpdate.find(filter).sort({ publishedAt: -1 }).limit(50).populate('creatorId', 'username picture').lean();
+    return res.json({ data: await withProfileHandles(updates, 'creatorId') });
   } catch { return res.status(500).json({ message: 'Unable to load creator updates' }); }
 };
 

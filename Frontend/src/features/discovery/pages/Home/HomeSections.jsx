@@ -11,6 +11,7 @@ import CollectionCard from '@/features/collection/components/CollectionCard'
 import DiscoveryPostCard from '@/features/discovery/components/DiscoveryPostCard'
 import ShortCard from '@/features/discovery/components/ShortCard'
 import useShorts from '@/features/discovery/hooks/useShorts'
+import useFilterSearchParams from '@/shared/hooks/useFilterSearchParams'
 
 function SectionBar({ title, action, description }) {
   return <div className="mb-5 grid grid-cols-1 items-center gap-x-2 gap-y-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-y-1">
@@ -116,7 +117,14 @@ function StoryCarousel({ posts, label }) {
 }
 
 function CategorySection({ posts }) {
-  const [selectedCategory, setSelectedCategory] = useState(null)
+  const [params, setParams] = useFilterSearchParams()
+  const selectedCategory = params.get('homeCategory') || null
+  const setSelectedCategory = update => setParams(current => {
+    const nextCategory = update(selectedCategory)
+    if (nextCategory) current.set('homeCategory', nextCategory)
+    else current.delete('homeCategory')
+    return current
+  })
   const categories = [...new Set(posts.flatMap(post => post.tags || []))].slice(0, 7)
   const visiblePosts = (selectedCategory ? posts.filter(post => post.tags?.includes(selectedCategory)) : posts).slice(0, 4)
   if (!categories.length) return null

@@ -6,6 +6,7 @@ import { ListSkeleton } from '@/shared/components/ui/Skeleton'
 import ModalLayer from '@/shared/components/ui/ModalLayer'
 import ModalHeader from '@/shared/components/ui/ModalHeader'
 import useToast from '@/shared/hooks/useToast'
+import useFilterSearchParams from '@/shared/hooks/useFilterSearchParams'
 import { createWorkshop, fetchMyCreatorUpdates, fetchMyWorkshops, fetchReceivedRequests, publishCreatorUpdate, updateReceivedRequest } from '../api/memberExperience'
 
 const fieldClass = 'w-full rounded-[10px] border border-[var(--color-border)] bg-[var(--color-bg-alt)] px-3 py-2 text-[13px]'
@@ -17,7 +18,13 @@ export default function CreatorTools({ tab }) {
   const queryClient = useQueryClient()
   const { notify } = useToast()
   const [modal, setModal] = useState(null)
-  const [workshopFilter, setWorkshopFilter] = useState('active')
+  const [params, setParams] = useFilterSearchParams()
+  const workshopFilter = params.get('workshopStatus') === 'inactive' ? 'inactive' : 'active'
+  const setWorkshopFilter = value => setParams(current => {
+    if (value === 'active') current.delete('workshopStatus')
+    else current.set('workshopStatus', value)
+    return current
+  })
   const [update, setUpdate] = useState({ title: '', body: '' })
   const [workshopForm, setWorkshopForm] = useState(emptyWorkshop)
   const openerRef = useRef(null)

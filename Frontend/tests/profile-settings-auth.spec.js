@@ -27,12 +27,17 @@ test('Google sign-in control follows the available form width on resize', async 
   // Identity is optional in environments without a configured public client ID.
   if (await google.count() === 0) { test.skip(true, 'Google client ID is not configured'); return }
   await expect(google).toBeVisible()
+  await expect.poll(async () => {
+    const button = await google.boundingBox()
+    const form = await page.locator('#auth-form').boundingBox()
+    return button && form ? Math.abs(button.width - form.width) < 1 : false
+  }).toBe(true)
   await page.setViewportSize({ width: 320, height: 568 })
   await expect.poll(async () => {
     const bounds = await google.boundingBox()
     const form = await page.locator('#auth-form').boundingBox()
     if (!bounds || !form) return false
-    return bounds.x >= form.x && bounds.x + bounds.width <= form.x + form.width
+    return Math.abs(bounds.x - form.x) < 1 && Math.abs(bounds.width - form.width) < 1
   }).toBe(true)
 })
 

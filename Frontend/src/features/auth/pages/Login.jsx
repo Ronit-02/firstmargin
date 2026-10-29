@@ -14,7 +14,7 @@ import useToast from '@/shared/hooks/useToast'
 import { useTheme } from '@/shared/hooks/useTheme'
 import { safeReturnTo } from '../utils/returnTo'
 
-export default function Login({ signUp = false, embedded = false, returnTo, onSignedIn }) {
+export default function Login({ signUp = false, embedded = false, returnTo, onSignedIn, onModeChange }) {
   const navigate = useNavigate()
   const location = useLocation()
   const afterSignIn = safeReturnTo(returnTo ?? location.state?.returnTo)
@@ -31,10 +31,12 @@ export default function Login({ signUp = false, embedded = false, returnTo, onSi
   const setMode = nextMode => {
     if (embedded) setEmbeddedMode(nextMode)
     else if (nextMode !== mode) navigate({ pathname: nextMode === 'signup' ? '/signup' : '/login', search: location.search, hash: location.hash })
+    onModeChange?.(nextMode)
   }
   const [ isEmailVerified, setIsEmailVerified ] = useState(true)
   const [ creds, setCreds ] = useState({ name: '', email: '', password: '', confirmPassword: '' })
   const [ otp, setOtp ] = useState(['', '', '', '', '', ''])
+  const [googleReady, setGoogleReady] = useState(false)
   const boxInputRefs = useRef([])
   const googleButtonRef = useRef(null)
   const googlePendingRef = useRef(false)
@@ -121,6 +123,7 @@ export default function Login({ signUp = false, embedded = false, returnTo, onSi
         },
       })
       window.google.accounts.id.renderButton(googleButtonRef.current, { theme: dark ? 'filled_black' : 'outline', size: 'large', width: Math.min(400, googleButtonRef.current.clientWidth), text: 'continue_with' })
+      setGoogleReady(true)
     }
     window.addEventListener('resize', renderButton)
     if (window.google?.accounts?.id) {
@@ -195,8 +198,8 @@ export default function Login({ signUp = false, embedded = false, returnTo, onSi
           embedded={embedded}
         />
         :
-        <div className={embedded ? 'flex min-w-0 flex-1 flex-col overflow-y-auto bg-[var(--color-bg)] px-4 pb-4 sm:px-6 sm:pb-6 lg:px-10 lg:pb-10' : 'relative z-10 flex min-w-0 flex-1 items-start px-5 pb-8 pt-14 sm:items-center sm:px-8 sm:py-8 lg:mx-auto lg:w-full lg:max-w-[1120px] lg:px-20 lg:py-12'}>
-          <form id="auth-form" onSubmit={handleSubmit} className={embedded ? 'w-full flex flex-col px-0 py-2' : 'mx-auto flex w-full max-w-[448px] shrink-0 flex-col py-4 lg:mx-0'}>
+        <div className={embedded ? 'min-w-0 px-4 pb-5 pt-5 sm:px-6 sm:pb-6' : 'relative z-10 flex min-w-0 flex-1 items-start px-5 pb-8 pt-14 sm:items-center sm:px-8 sm:py-8 lg:mx-auto lg:w-full lg:max-w-[1120px] lg:px-20 lg:py-12'}>
+          <form id="auth-form" onSubmit={handleSubmit} className={embedded ? 'flex w-full flex-col' : 'mx-auto flex w-full max-w-[400px] shrink-0 flex-col py-4 lg:mx-0'}>
 
             {!embedded && <Link to="/" aria-label="Return to firstmargin home" className="mb-7 inline-flex w-fit self-center items-center gap-2 rounded-lg text-[var(--color-text)] no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-offset-2">
               <span className="flex h-9 w-9 items-center justify-center text-[var(--color-text)] [&_svg]:h-7 [&_svg]:w-7"><LogoIcon /></span>
@@ -204,7 +207,7 @@ export default function Login({ signUp = false, embedded = false, returnTo, onSi
             </Link>}
 
             {/* Authentication Tabs */}
-            <div role="tablist" aria-label="Authentication mode" className={embedded ? 'mb-5 flex rounded-lg border border-[var(--color-border-light)] bg-[var(--color-bg)] p-1' : 'mb-8 flex min-h-12 rounded-full border border-[var(--color-border)] bg-[var(--color-bg)] p-1 sm:mb-10'}>
+            <div role="tablist" aria-label="Authentication mode" className={embedded ? 'mb-6 flex min-h-11 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-alt)] p-1' : 'mb-8 flex min-h-12 rounded-full border border-[var(--color-border)] bg-[var(--color-bg)] p-1 sm:mb-10'}>
               {AUTH_TABS.map(m => (
                 <button 
                   type="button"
@@ -216,8 +219,8 @@ export default function Login({ signUp = false, embedded = false, returnTo, onSi
                   onKeyDown={handleAuthTabKeyDown}
                   key={m} 
                   onClick={() => setMode(m)}
-                  className={`button-target flex-1 border-none text-[14px] font-medium cursor-pointer transition-colors duration-150 ${embedded ? 'rounded-md py-2.5' : 'rounded-full py-2'}
-                    ${mode === m ? embedded ? 'bg-[var(--color-surface-hover)] shadow-[0_2px_6px_rgba(0,0,0,0.12)] text-[var(--color-text)]' : 'bg-[var(--color-bg-alt)] text-[var(--color-text)]' : 'bg-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text)]'}`}>
+                  className={`button-target flex-1 border-none text-[14px] font-medium cursor-pointer transition-colors duration-150 ${embedded ? 'rounded-md py-2' : 'rounded-full py-2'}
+                    ${mode === m ? embedded ? 'bg-[var(--color-surface)] shadow-sm ring-1 ring-inset ring-[var(--color-border)] text-[var(--color-text)]' : 'bg-[var(--color-bg-alt)] text-[var(--color-text)]' : 'bg-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text)]'}`}>
                   {m === 'login' ? 'Login' : 'Sign Up'}
                 </button>
               ))}
@@ -225,12 +228,14 @@ export default function Login({ signUp = false, embedded = false, returnTo, onSi
 
             <div id="auth-form-fields" role="tabpanel" aria-labelledby={`auth-tab-${mode}`}>
             {/* Greetings */}
-            <h2 style={embedded ? undefined : { fontFamily: 'var(--font-display)' }} className={embedded ? 'mb-1.5 text-[24px] font-bold text-[var(--color-text)]' : 'mb-2 text-[clamp(1.85rem,4vw,2.75rem)] leading-tight text-[var(--color-text)]'}>
-              {mode === 'login' ? 'Welcome Back' : 'Create Account'}
-            </h2>
-            <p className={embedded ? 'mb-6 text-[14px] text-[var(--color-text-secondary)]' : 'mb-7 text-[14px] text-[var(--color-text-secondary)] sm:mb-8'}>
-              {mode === 'login' && !embedded ? 'Pick up where your thoughts left off.' : mode === 'login' ? 'Login to continue your journey' : 'Join and start writing today'}
-            </p>
+            {!embedded && <>
+              <h2 style={{ fontFamily: 'var(--font-display)' }} className="mb-2 text-[clamp(1.85rem,4vw,2.75rem)] leading-tight text-[var(--color-text)]">
+                {mode === 'login' ? 'Welcome Back' : 'Create Account'}
+              </h2>
+              <p className="mb-7 text-[14px] text-[var(--color-text-secondary)] sm:mb-8">
+                {mode === 'login' ? 'Pick up where your thoughts left off.' : 'Join and start writing today'}
+              </p>
+            </>}
 
             {/* Fields */}
             {mode === 'signup' && (
@@ -239,7 +244,7 @@ export default function Login({ signUp = false, embedded = false, returnTo, onSi
                 name="name"
                 autoComplete="name"
                 placeholder="Full Name" 
-                showLabel={!embedded}
+                showLabel
                 required
                 value={creds.name}    
                 onChange={e => setCreds({ ...creds, name: e.target.value })} 
@@ -250,7 +255,7 @@ export default function Login({ signUp = false, embedded = false, returnTo, onSi
               name="email"
               autoComplete="email"
               placeholder="Email" 
-              showLabel={!embedded}
+              showLabel
               required
               value={creds.email}    
               onChange={e => setCreds({ ...creds, email: e.target.value })} 
@@ -260,7 +265,7 @@ export default function Login({ signUp = false, embedded = false, returnTo, onSi
               name="password"
               autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
               placeholder="Password" 
-              showLabel={!embedded}
+              showLabel
               required
               value={creds.password}    
               onChange={e => setCreds({ ...creds, password: e.target.value })} 
@@ -271,7 +276,7 @@ export default function Login({ signUp = false, embedded = false, returnTo, onSi
                 name="confirmPassword"
                 autoComplete="new-password"
                 placeholder="Confirm Password" 
-                showLabel={!embedded}
+                showLabel
                 required
                 value={creds.confirmPassword}    
                 onChange={e => setCreds({ ...creds, confirmPassword: e.target.value })} 
@@ -282,10 +287,10 @@ export default function Login({ signUp = false, embedded = false, returnTo, onSi
 
             {/* Submit */}
             <button type="submit" disabled={loginMutation.isPending || signupMutation.isPending || passwordsDiffer}
-              className="button-target mt-2.5 w-full rounded-lg border-none bg-[var(--color-accent)] py-3 text-[15px] font-medium text-[var(--color-text-inverted)] transition-colors hover:bg-[var(--color-accent-hover)] disabled:opacity-60" aria-busy={loginMutation.isPending || signupMutation.isPending}>
+              className={`button-target w-full rounded-lg border-none bg-[var(--color-accent)] py-3 text-[15px] font-medium text-[var(--color-text-inverted)] transition-colors hover:bg-[var(--color-accent-hover)] disabled:opacity-60 ${embedded ? 'mt-3' : 'mt-2.5'}`} aria-busy={loginMutation.isPending || signupMutation.isPending}>
               {mode === 'login' ? 'Login' : 'Sign Up'}
             </button>
-            {import.meta.env.VITE_GOOGLE_CLIENT_ID && <><div className="my-5 flex items-center gap-3 text-[11px] text-[var(--color-text-muted)]"><span className="h-px flex-1 bg-[var(--color-border)]" />or<span className="h-px flex-1 bg-[var(--color-border)]" /></div><div ref={googleButtonRef} aria-busy={googleMutation.isPending} inert={googleMutation.isPending ? "" : undefined} className="flex min-h-10 justify-center" />{googleMutation.error && <p role="alert" className="mt-2 text-center text-[12px] text-[var(--color-danger)]">{googleMutation.error?.response?.data?.message || 'Google sign-in failed.'}</p>}</>}
+            {import.meta.env.VITE_GOOGLE_CLIENT_ID && <>{googleReady && <div className="my-5 flex items-center gap-3 text-[11px] text-[var(--color-text-muted)]"><span className="h-px flex-1 bg-[var(--color-border)]" />or<span className="h-px flex-1 bg-[var(--color-border)]" /></div>}<div ref={googleButtonRef} aria-busy={googleMutation.isPending} inert={googleMutation.isPending ? "" : undefined} className={googleReady ? 'flex min-h-10 justify-center' : 'h-0 overflow-hidden'} />{googleMutation.error && <p role="alert" className="mt-2 text-center text-[12px] text-[var(--color-danger)]">{googleMutation.error?.response?.data?.message || 'Google sign-in failed.'}</p>}</>}
             </div>
           </form>
         </div>
@@ -315,14 +320,14 @@ function VerifyEmail({otp, setOtp, boxInputRefs, handleVerifyEmail, handleResend
   }
 
   return (
-    <div className={embedded ? 'flex min-w-0 flex-1 flex-col overflow-y-auto bg-[var(--color-bg)] px-4 pb-4 sm:px-6 sm:pb-6 lg:px-10 lg:pb-10' : 'relative z-10 flex min-w-0 flex-1 items-start px-5 pb-8 pt-14 sm:items-center sm:px-8 sm:py-8 lg:mx-auto lg:w-full lg:max-w-[1120px] lg:px-20 lg:py-12'}>
-      <div className={embedded ? 'w-full flex flex-col items-center gap-4 py-2' : 'mx-auto flex w-full max-w-[448px] shrink-0 flex-col items-center gap-4 py-4 lg:mx-0'}>
+    <div className={embedded ? 'min-w-0 px-4 pb-5 pt-5 sm:px-6 sm:pb-6' : 'relative z-10 flex min-w-0 flex-1 items-start px-5 pb-8 pt-14 sm:items-center sm:px-8 sm:py-8 lg:mx-auto lg:w-full lg:max-w-[1120px] lg:px-20 lg:py-12'}>
+      <div className={embedded ? 'flex w-full flex-col items-center gap-4' : 'mx-auto flex w-full max-w-[400px] shrink-0 flex-col items-center gap-4 py-4 lg:mx-0'}>
 
-        <h2 className="text-[24px] font-bold mb-1.5 text-(--color-text-primary)">
+        <h2 className="mb-1.5 text-[24px] font-bold text-[var(--color-text)]">
           Enter Verification Code
         </h2>
 
-        <p className="text-[14px] text-(--color-text-muted) mb-6 text-center">
+        <p className="mb-6 text-center text-[14px] text-[var(--color-text-secondary)]">
           Enter the 6-digit code we sent to your email to verify your account!
         </p>
 

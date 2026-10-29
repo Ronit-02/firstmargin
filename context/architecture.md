@@ -1,5 +1,9 @@
 # firstmargin architecture
 
+## Member Hub creator profiles — 2026-10-22
+
+Public workshop and member-only creator-update lists retain their existing populated account name/photo and add the matching Profile handle through a batched profile read. The handle is nullable when a profile is unavailable. Member Hub uses it for public Author navigation and leaves the name unlinked when there is no valid handle. Routes, stored records, and reservation access remain unchanged.
+
 ## Profile covers — 2026-10-21
 
 Profiles optionally store a cover image separately from their avatar. Personal and public profile reads expose the saved cover with a null fallback for older records. An authenticated owner-only cover endpoint accepts one validated image file, HTTP(S) URL, or removal action; it preserves text-profile and avatar contracts. Managed cover files are scoped to the account and cleaned up after replacement or failed persistence using the existing provider conventions. The frontend reuses the public author's existing cover dimensions/gradient fallback and the avatar editor's independent preview-and-save interaction. No data migration is needed.

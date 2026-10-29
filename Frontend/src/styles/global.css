@@ -102,6 +102,11 @@ button { cursor: pointer; font-family: inherit; }
   padding-inline: 16px;
 }
 
+/* Keep filter loading/empty states from collapsing a retained viewport. */
+[data-preserve-scroll] [data-page-frame] {
+  min-height: var(--page-scroll-floor, 0px);
+}
+
 /* Collection detail header keeps intro, actions, and curator in explicit regions. */
 [data-page-frame] > .grid.gap-8 > div:nth-child(2) {
   display: grid;

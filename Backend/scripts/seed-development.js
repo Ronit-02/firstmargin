@@ -886,28 +886,50 @@ async function verifySeed() {
 }
 
 async function run() {
-  await connectToMongoDB();
-  if (!/(?:dev|test|sandbox|local)/i.test(mongoose.connection.name)) throw new Error('Development seed requires an explicitly isolated database name');
-  await ensureCanonicalTopics();
-  const topics = new Map((await Topic.find({ status: 'active' })).map(topic => [topic.slug, topic]));
-  const users = await seedUsers();
-  console.log('Development people and profiles ready.');
-  const posts = await seedPosts(users, topics);
-  console.log('Development publications and covers ready.');
-  await seedRelationships(users, posts, topics);
-  console.log('Development engagement reconciled to source relationships.');
-  const questions = await seedQuestions(users, posts);
-  await seedAuthoring(users, posts, questions);
-  await seedCollectionsAndSeries(users, posts);
-  const competitions = await seedCompetitions(users, posts);
-  await seedPremium(users, posts);
-  await seedEvents(users, posts);
-  await seedModerationAndNotifications(users, posts, questions, competitions);
-  await refreshLegacyEditorial();
-  await refreshUniqueCovers();
-  const counts = await verifySeed();
+  let stage = 'connecting to MongoDB';
+  try {
+    await connectToMongoDB();
+    stage = 'checking database isolation';
+    if (!/(?:dev|test|sandbox|local)/i.test(mongoose.connection.name)) throw new Error('Development seed requires an explicitly isolated database name');
+    stage = 'ensuring canonical topics';
+    await ensureCanonicalTopics();
+    stage = 'loading canonical topics';
+    const topics = new Map((await Topic.find({ status: 'active' })).map(topic => [topic.slug, topic]));
+    stage = 'seeding users and profiles';
+    const users = await seedUsers();
+    console.log('Development people and profiles ready.');
+    stage = 'seeding publications';
+    const posts = await seedPosts(users, topics);
+    console.log('Development publications and covers ready.');
+    stage = 'seeding relationships';
+    await seedRelationships(users, posts, topics);
+    console.log('Development engagement reconciled to source relationships.');
+    stage = 'seeding questions';
+    const questions = await seedQuestions(users, posts);
+    stage = 'seeding authoring data';
+    await seedAuthoring(users, posts, questions);
+    stage = 'seeding collections and series';
+    await seedCollectionsAndSeries(users, posts);
+    stage = 'seeding competitions';
+    const competitions = await seedCompetitions(users, posts);
+    stage = 'seeding premium data';
+    await seedPremium(users, posts);
+    stage = 'seeding events';
+    await seedEvents(users, posts);
+    stage = 'seeding moderation and notifications';
+    await seedModerationAndNotifications(users, posts, questions, competitions);
+    stage = 'refreshing editorial data';
+    await refreshLegacyEditorial();
+    stage = 'refreshing unique covers';
+    await refreshUniqueCovers();
+    stage = 'verifying seed';
+    const counts = await verifySeed();
   console.log('Comprehensive development fixtures are ready:', counts);
   console.log('Demo account credentials are configured through SEED_PASSWORD and are not printed.');
+  } catch (error) {
+    error.seedStage = stage;
+    throw error;
+  }
 }
 
 function validateCatalog() {
@@ -1069,7 +1091,7 @@ async function addTenStorySeries() {
 }
 if (!process.argv.includes('--check')) (process.argv.includes('--add-story-series') ? addTenStorySeries() : process.argv.includes('--refresh-content') ? repairReadingContent() : process.argv.includes('--refresh-covers') ? repairCovers() : process.argv.includes('--refresh-editorial') ? repairEditorial() : run())
   .catch(error => {
-    const verificationFailure = /^(Reading refresh|Seed verification|Development publication changed|Missing or ambiguous|Ambiguous legacy|Invalid legacy|Seed the development)/.test(error.message || '');
-    console.error('Development seed failed:', error.name, error.code || (verificationFailure ? error.message : 'Check the database and configuration.'));
+    const detail = error.code || error.message || 'Unknown error';
+    console.error(`Development seed failed during ${error.seedStage || 'startup'}:`, error.name, detail);
     process.exitCode = 1;
   }).finally(() => mongoose.disconnect());
