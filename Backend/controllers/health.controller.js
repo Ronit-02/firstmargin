@@ -1,4 +1,4 @@
-const { checkMongoConnection } = require('../utils/mongoConnect.js');
+const { checkMongoConnection, checkMongoAvailability } = require('../utils/mongoConnect.js');
 const { getNotificationDeliveryHealth } = require('../services/notification-monitor.service.js');
 
 const health = (req, res) => res.status(200).json({ status: 'ok' });
@@ -19,8 +19,9 @@ const readiness = async (req, res) => {
   return res.status(payload.status === 'ok' ? 200 : 503).json(payload);
 };
 
-const databaseStatus = (req, res) => {
-  const databaseReady = checkMongoConnection();
+const databaseStatus = async (req, res) => {
+  res.setHeader('cache-control', 'no-store');
+  const databaseReady = await checkMongoAvailability();
   if (databaseReady) return res.status(200).send({ status: 'ok' });
   return res.status(503).send({ status: 'error', message: 'MongoDB connection failed' });
 };

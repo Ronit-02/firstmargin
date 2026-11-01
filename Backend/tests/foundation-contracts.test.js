@@ -1175,6 +1175,47 @@ test('health and readiness endpoints separate liveness from database availabilit
   });
 });
 
+test('database availability requires a successful bounded live ping', async () => {
+  const { checkMongoAvailability } = require('../utils/mongoConnect.js');
+  assert.equal(await checkMongoAvailability({ readyState: 0 }), false);
+  assert.equal(await checkMongoAvailability({ readyState: 1 }), false);
+  assert.equal(await checkMongoAvailability({ readyState: 1, db: {
+    command: async (command, options) => {
+      assert.deepEqual(command, { ping: 1 });
+      assert.deepEqual(options, { timeoutMS: 5000 });
+      return { ok: 1 };
+    },
+  } }), true);
+  assert.equal(await checkMongoAvailability({ readyState: 1, db: { command: async () => ({ ok: 0 }) } }), false);
+  assert.equal(await checkMongoAvailability({ readyState: 1, db: {
+    command: async () => { throw new Error('private database failure'); },
+  } }), false);
+});
+
+test('database status preserves its response contract and fails a connected but unresponsive database', async t => {
+  const { databaseStatus } = require('../controllers/health.controller.js');
+  const connection = mongoose.connection;
+  const previousState = connection.readyState;
+  const previousDb = connection.db;
+  t.after(() => { connection.readyState = previousState; connection.db = previousDb; });
+  connection.readyState = 1;
+  for (const available of [true, false]) {
+    connection.db = { command: async () => {
+      if (!available) throw new Error('private upstream failure');
+      return { ok: 1 };
+    } };
+    const response = {
+      setHeader(name, value) { this.headers = { [name]: value }; },
+      status(value) { this.statusCode = value; return this; },
+      send(value) { this.payload = value; return this; },
+    };
+    await databaseStatus({}, response);
+    assert.equal(response.statusCode, available ? 200 : 503);
+    assert.deepEqual(response.payload, available ? { status: 'ok' } : { status: 'error', message: 'MongoDB connection failed' });
+    assert.equal(response.headers['cache-control'], 'no-store');
+  }
+});
+
 test('invalid JSON receives a safe client error', async t => {
   const server = app.listen(0);
   t.after(() => server.close());

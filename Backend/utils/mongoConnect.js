@@ -22,7 +22,19 @@ const checkMongoConnection = () => {
     return state === 1
 }
 
+const checkMongoAvailability = async (connection = mongoose.connection) => {
+    if (connection.readyState !== 1 || !connection.db) return false;
+    try {
+        // Bound selection, checkout and execution without changing normal query timeouts.
+        const result = await connection.db.command({ ping: 1 }, { timeoutMS: 5000 });
+        return result.ok === 1;
+    } catch {
+        return false;
+    }
+};
+
 module.exports = {
     connectToMongoDB, 
-    checkMongoConnection
+    checkMongoConnection,
+    checkMongoAvailability
 };
